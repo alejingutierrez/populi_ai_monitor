@@ -1,0 +1,305 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: "Manrope", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  background: #f5f7fb;
+  color: #0f172a;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+* {
+  scroll-behavior: smooth;
+}
+
+.maplibregl-popup-content {
+  border-radius: 12px !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.15) !important;
+}
+
+.insight-flyout {
+  position: fixed;
+  z-index: 60;
+  transform: translate(-50%, -110%);
+  pointer-events: none;
+}
+
+.insight-flyout__tip {
+  position: absolute;
+  left: 50%;
+  bottom: -9px;
+  width: 14px;
+  height: 14px;
+  background: #ffffff;
+  border-left: 1px solid #e2e8f0;
+  border-top: 1px solid #e2e8f0;
+  transform: translate(-50%, -50%) rotate(45deg);
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.12);
+}
+
+.map-shell {
+  position: relative;
+  overflow: visible;
+  border-radius: 14px;
+}
+
+.map-shell .maplibregl-map {
+  border-radius: 14px;
+  overflow: visible !important;
+}
+
+.map-shell .maplibregl-canvas-container {
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.map-shell .maplibregl-popup {
+  z-index: 20;
+}
+
+.insight-flyout__panel,
+.insight-popup .maplibregl-popup-content {
+  padding: 12px 12px 10px;
+  background: radial-gradient(140% 120% at 100% 0%, rgba(11, 79, 156, 0.08) 0%, transparent 55%),
+    #ffffff;
+  border-radius: 14px !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 22px 60px rgba(15, 23, 42, 0.18) !important;
+  min-width: 260px;
+  max-width: 320px;
+}
+
+.insight-popup .maplibregl-popup-tip {
+  border-top-color: #ffffff !important;
+  border-bottom-color: #ffffff !important;
+}
+
+.insight-popup__body {
+  min-width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: #0f172a;
+  font-family: "Manrope", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.insight-popup__bar {
+  height: 3px;
+  width: 52px;
+  background: linear-gradient(90deg, #0b4f9c, #2dd4bf);
+  border-radius: 999px;
+}
+
+.insight-popup__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.insight-popup__eyebrow {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 9px;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.insight-popup__city {
+  margin: 2px 0 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: #0b4f9c;
+}
+
+.insight-popup__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.insight-popup__pill {
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #0f172a;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.insight-popup__pill--strong {
+  background: #0b4f9c1a;
+  color: #0b4f9c;
+  border: 1px solid #0b4f9c2b;
+}
+
+.insight-popup__stat {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.insight-popup__stat-number {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.insight-popup__muted {
+  margin: 0;
+  font-size: 11.5px;
+  color: #475569;
+}
+
+.insight-popup__trend {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: #0b4f9c12;
+  color: #0b4f9c;
+}
+
+.insight-popup__trend-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  width: 28px;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  font-weight: 800;
+  font-size: 13px;
+}
+
+.insight-popup__trend-label {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: inherit;
+}
+
+.insight-popup__trend--up {
+  background: #16a34a14;
+  color: #15803d;
+}
+
+.insight-popup__trend--down {
+  background: #dc262614;
+  color: #b91c1c;
+}
+
+.insight-popup__copy {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #0f172a;
+}
+
+.insight-popup__section {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #0b4f9c0d;
+  border: 1px solid #d0e2f4;
+}
+
+.insight-popup__label {
+  margin: 0 0 4px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #64748b;
+  font-weight: 800;
+}
+
+.insight-popup__value {
+  margin: 0;
+  font-size: 12px;
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.insight-popup__sentiments {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.insight-popup__sentiments .positive {
+  color: #15803d;
+}
+
+.insight-popup__sentiments .neutral {
+  color: #334155;
+}
+
+.insight-popup__sentiments .negative {
+  color: #b91c1c;
+}
+
+@layer components {
+  .card {
+    @apply bg-white border border-slate-200 rounded-2xl shadow-[0_12px_30px_rgba(15,23,42,0.06)];
+  }
+  .card-header {
+    @apply flex items-center justify-between gap-2 mb-3;
+  }
+  .pill {
+    @apply inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700;
+  }
+  .muted {
+    @apply text-xs text-slate-500 uppercase tracking-[0.18em] font-semibold;
+  }
+  .h-section {
+    @apply text-lg font-semibold text-ink;
+  }
+  .divider {
+    @apply h-px bg-slate-200;
+  }
+  .filter-block {
+    @apply flex-1 basis-0 min-w-[120px] space-y-2 relative;
+  }
+  .filter-block-wide {
+    @apply flex-[1.15] basis-0 min-w-[180px];
+  }
+  .filter-control {
+    @apply h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:border-prBlue focus:outline-none focus:ring-1 focus:ring-prBlue/30 transition shadow-sm focus:shadow placeholder:text-slate-400;
+  }
+  .timeframe-grid {
+    @apply grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2;
+  }
+  .metric-icon-box {
+    @apply rounded-xl grid place-items-center shadow-glow;
+    width: 2.5rem;
+    height: 2.5rem;
+    flex: 0 0 2.5rem;
+  }
+}
+
+.filters-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+.filters-scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}

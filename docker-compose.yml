@@ -1,0 +1,17 @@
+services:
+  api:
+    build: ./mock-api
+    ports:
+      - "4001:4000"
+    environment:
+      - PORT=4000
+
+  web:
+    build:
+      context: .
+      args:
+        VITE_API_BASE_URL: http://api:4000
+    ports:
+      - "4173:80"
+    depends_on:
+      - api
