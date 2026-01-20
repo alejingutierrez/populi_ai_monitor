@@ -52,6 +52,7 @@ docker-compose up --build
 - MapLibre usa estilo público `demotiles`. Los colores siguen la bandera (azul PR, rojo, blanco).
 - Animaciones ligeras con Framer Motion y gráficos con Recharts.
 - Para producción: puedes dividir más el bundle con `manualChunks` de Vite si el tamaño es un issue.
+- Deploy check: 2026-01-20.
 
 ## Puertos en Docker (conflictos)
 Si tienes algo usando `4000`, el compose mapea la API en el host `4001`→`4000` del contenedor. Frontend queda en `4173`.
