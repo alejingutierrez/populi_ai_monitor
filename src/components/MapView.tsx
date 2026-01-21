@@ -93,7 +93,18 @@ const buildLocationInsights = (posts: SocialPost[]): CityInsight[] => {
     .sort((a, b) => b.total - a.total);
 };
 
-const buildGeoJson = (insights: CityInsight[]) => ({
+type GeoPointFeature = {
+  type: "Feature";
+  geometry: { type: "Point"; coordinates: [number, number] };
+  properties: Record<string, unknown>;
+};
+
+type GeoCollection = {
+  type: "FeatureCollection";
+  features: GeoPointFeature[];
+};
+
+const buildGeoJson = (insights: CityInsight[]): GeoCollection => ({
   type: "FeatureCollection",
   features: insights.map((insight) => ({
     type: "Feature",
@@ -119,7 +130,7 @@ const buildGeoJson = (insights: CityInsight[]) => ({
 });
 
 const parseInsightFromFeature = (
-  feature: maplibregl.MapboxGeoJSONFeature
+  feature: maplibregl.MapGeoJSONFeature
 ): CityInsight | null => {
   const props = feature.properties ?? {};
   const coords = feature.geometry?.type === "Point" ? feature.geometry.coordinates : null;
@@ -248,7 +259,7 @@ const InsightPanel = ({ insight }: { insight: CityInsight }) => {
 };
 
 type MapLayerEvent = maplibregl.MapMouseEvent & {
-  features?: maplibregl.MapboxGeoJSONFeature[];
+  features?: maplibregl.MapGeoJSONFeature[];
 };
 
 const MapView = ({ posts }: Props) => {
@@ -484,7 +495,7 @@ const MapView = ({ posts }: Props) => {
       }, 1000);
     };
 
-    const openFromFeature = (feature: maplibregl.MapboxGeoJSONFeature) => {
+    const openFromFeature = (feature: maplibregl.MapGeoJSONFeature) => {
       const insight = parseInsightFromFeature(feature);
       if (!insight) return;
       openTooltip(insight);
@@ -500,8 +511,7 @@ const MapView = ({ posts }: Props) => {
       const clusterId = typeof clusterIdRaw === "number" ? clusterIdRaw : Number(clusterIdRaw);
       if (!Number.isFinite(clusterId)) return;
       const source = map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource;
-      source.getClusterExpansionZoom(clusterId, (err, zoom) => {
-        if (err) return;
+      source.getClusterExpansionZoom(clusterId).then((zoom) => {
         const geometry = cluster.geometry as { type: string; coordinates?: [number, number] };
         if (geometry.type !== "Point" || !geometry.coordinates) return;
         const coordinates = geometry.coordinates;
