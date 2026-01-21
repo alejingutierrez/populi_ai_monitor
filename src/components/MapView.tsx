@@ -247,6 +247,10 @@ const InsightPanel = ({ insight }: { insight: CityInsight }) => {
   );
 };
 
+type MapLayerEvent = maplibregl.MapMouseEvent & {
+  features?: maplibregl.MapboxGeoJSONFeature[];
+};
+
 const MapView = ({ posts }: Props) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -486,7 +490,7 @@ const MapView = ({ posts }: Props) => {
       openTooltip(insight);
     };
 
-    const handleClusterClick = (event: maplibregl.MapMouseEvent & maplibregl.EventData) => {
+    const handleClusterClick = (event: MapLayerEvent) => {
       const features = map.queryRenderedFeatures(event.point, {
         layers: [CLUSTER_LAYER_ID],
       });
@@ -498,17 +502,19 @@ const MapView = ({ posts }: Props) => {
       const source = map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource;
       source.getClusterExpansionZoom(clusterId, (err, zoom) => {
         if (err) return;
-        const coordinates = (cluster.geometry as { coordinates: [number, number] }).coordinates;
+        const geometry = cluster.geometry as { type: string; coordinates?: [number, number] };
+        if (geometry.type !== "Point" || !geometry.coordinates) return;
+        const coordinates = geometry.coordinates;
         map.easeTo({ center: coordinates, zoom });
       });
     };
 
-    const handlePointClick = (event: maplibregl.MapMouseEvent & maplibregl.EventData) => {
+    const handlePointClick = (event: MapLayerEvent) => {
       const feature = event.features?.[0];
       if (feature) openFromFeature(feature);
     };
 
-    const handlePointEnter = (event: maplibregl.MapMouseEvent & maplibregl.EventData) => {
+    const handlePointEnter = (event: MapLayerEvent) => {
       const feature = event.features?.[0];
       if (!feature) return;
       map.getCanvas().style.cursor = "pointer";

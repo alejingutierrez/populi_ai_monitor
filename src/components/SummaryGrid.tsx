@@ -5,7 +5,7 @@ import {
   RocketLaunchIcon,
 } from "@heroicons/react/24/outline";
 import { motion, useReducedMotion } from "framer-motion";
-import type { FC } from "react";
+import type { FC, ReactNode } from "react";
 
 interface Props {
   metrics: {
@@ -63,7 +63,7 @@ const SummaryGrid: FC<Props> = ({ metrics }) => {
     accent: string;
     delta: number;
     preferLower?: boolean;
-    icon: JSX.Element;
+    icon: ReactNode;
   };
 
   const cards: Card[] = [
