@@ -172,6 +172,8 @@ const TimelineChart: FC<Props> = ({ data }) => {
 
   const leftColor = metricMap[leftMetric]?.color ?? "#0f172a";
   const rightColor = rightMetric === "none" ? undefined : metricMap[rightMetric]?.color;
+  const leftLabel = metricMap[leftMetric]?.label ?? "";
+  const rightLabel = rightMetric === "none" ? "" : metricMap[rightMetric]?.label ?? "";
   const leftTickWidth = estimateTickWidth(metricMap[leftMetric]?.formatter);
   const rightTickWidth =
     rightMetric === "none" ? 0 : estimateTickWidth(metricMap[rightMetric]?.formatter);
@@ -179,6 +181,7 @@ const TimelineChart: FC<Props> = ({ data }) => {
   const rightAxisWidth =
     rightMetric === "none" ? 0 : Math.max(22, Math.min(56, rightTickWidth + 4));
   const legendSpacer = hasDual ? 12 : 6;
+  const xInterval = data.length > 16 ? "preserveStartEnd" : 0;
 
   const chartMargin = {
     top: legendHeight + legendSpacer,
@@ -358,6 +361,7 @@ const TimelineChart: FC<Props> = ({ data }) => {
                 tick={{ fontSize: 11 }}
                 tickMargin={xTickMargin}
                 minTickGap={12}
+                interval={xInterval}
               />
               <YAxis
                 yAxisId="left"
@@ -366,6 +370,14 @@ const TimelineChart: FC<Props> = ({ data }) => {
                 tickLine={{ stroke: leftColor }}
                 tickMargin={yTickMargin}
                 width={leftAxisWidth}
+                label={{
+                  value: leftLabel,
+                  angle: -90,
+                  position: "insideLeft",
+                  fill: leftColor,
+                  fontSize: 10,
+                  offset: 8,
+                }}
                 tickFormatter={(value: number) =>
                   metricMap[leftMetric]?.formatter(value) ?? String(value)
                 }
@@ -379,6 +391,14 @@ const TimelineChart: FC<Props> = ({ data }) => {
                   tickLine={{ stroke: rightColor }}
                   tickMargin={yTickMargin}
                   width={rightAxisWidth}
+                  label={{
+                    value: rightLabel,
+                    angle: 90,
+                    position: "insideRight",
+                    fill: rightColor,
+                    fontSize: 10,
+                    offset: 8,
+                  }}
                   tickFormatter={(value: number) =>
                     metricMap[rightMetric]?.formatter(value) ?? String(value)
                   }

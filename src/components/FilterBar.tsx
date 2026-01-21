@@ -64,7 +64,7 @@ const FilterBar: FC<Props> = ({ filters, topics, clusters, onChange }) => {
 
   return (
     <section className="flex flex-col gap-2">
-      <div className="flex flex-nowrap items-end gap-2">
+      <div className="flex flex-nowrap md:flex-wrap items-end gap-2 overflow-x-auto md:overflow-visible filters-scroll pb-1">
         <div className="filter-block min-w-[100px]">
           <SelectField
             label="Sentimiento"
@@ -111,8 +111,10 @@ const FilterBar: FC<Props> = ({ filters, topics, clusters, onChange }) => {
             {["24h", "72h", "7d", "1m", "todo"].map((value) => (
               <button
                 key={value}
+                type="button"
                 onClick={() => update("timeframe", value as Filters["timeframe"])}
                 title={value === "todo" ? "Todo el histórico" : `Últimos ${value}`}
+                aria-pressed={filters.timeframe === value}
                 className={`h-10 px-2 rounded-lg text-[11px] font-semibold border transition flex items-center justify-center whitespace-nowrap ${
                   filters.timeframe === value
                     ? "bg-prBlue text-white border-prBlue"
@@ -131,6 +133,7 @@ const FilterBar: FC<Props> = ({ filters, topics, clusters, onChange }) => {
             type="date"
             value={filters.dateFrom ?? ""}
             onChange={(e) => update("dateFrom", e.target.value || undefined)}
+            aria-label="Desde"
             className="filter-control pr-3"
             placeholder="2025-10-01"
           />
@@ -141,12 +144,14 @@ const FilterBar: FC<Props> = ({ filters, topics, clusters, onChange }) => {
             type="date"
             value={filters.dateTo ?? ""}
             onChange={(e) => update("dateTo", e.target.value || undefined)}
+            aria-label="Hasta"
             className="filter-control pr-3"
             placeholder="2025-12-31"
           />
         </div>
 
         <button
+          type="button"
           onClick={() => onChange({ ...filters, ...defaultReset })}
           className="flex-none self-end h-10 px-2.5 text-[11px] font-semibold text-prBlue border border-slate-200 rounded-lg bg-white hover:bg-prBlue/10 transition whitespace-nowrap"
         >

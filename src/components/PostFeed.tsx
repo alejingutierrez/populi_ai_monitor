@@ -1,6 +1,6 @@
 import { ChatBubbleOvalLeftIcon, HeartIcon, MapPinIcon } from "@heroicons/react/24/outline";
-import { motion } from "framer-motion";
-import type { FC } from "react";
+import { motion, useReducedMotion } from "framer-motion";
+import { useEffect, useState, type FC } from "react";
 import type { SocialPost } from "../types";
 
 interface Props {
@@ -19,7 +19,30 @@ const sentimentColor = (sentiment: SocialPost["sentiment"]) => {
 };
 
 const PostFeed: FC<Props> = ({ posts }) => {
-  const items = posts.slice(0, 12);
+  const reduceMotion = useReducedMotion();
+  const [isSmall, setIsSmall] = useState(false);
+  const baseCount = isSmall ? 8 : 12;
+  const [visibleCount, setVisibleCount] = useState(baseCount);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const media = window.matchMedia("(max-width: 640px)");
+    const update = () => setIsSmall(media.matches);
+    update();
+    if (media.addEventListener) {
+      media.addEventListener("change", update);
+      return () => media.removeEventListener("change", update);
+    }
+    media.addListener(update);
+    return () => media.removeListener(update);
+  }, []);
+
+  useEffect(() => {
+    setVisibleCount(baseCount);
+  }, [baseCount, posts.length]);
+
+  const items = posts.slice(0, visibleCount);
+  const canShowMore = posts.length > visibleCount;
 
   return (
     <section className="card p-4 h-full min-w-0">
@@ -27,21 +50,24 @@ const PostFeed: FC<Props> = ({ posts }) => {
         <div>
           <p className="muted">Conversaciones</p>
           <p className="h-section">Hilos priorizados</p>
+          <p className="text-[11px] text-slate-500">
+            Mostrando {items.length} de {posts.length}
+          </p>
         </div>
         <span className="text-xs px-3 py-1 bg-prBlue/10 text-prBlue rounded-full font-semibold">
           {posts.length} encontrados
         </span>
       </div>
 
-      <div className="space-y-3 overflow-y-auto max-h-[560px] pr-1">
+      <div className="space-y-3 overflow-y-auto max-h-[45vh] md:max-h-[560px] pr-1">
         {items.map((post, idx) => (
           <motion.article
             key={post.id}
-            initial={{ opacity: 0, y: 8 }}
+            initial={reduceMotion ? false : { opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: idx * 0.03 }}
+            transition={reduceMotion ? { duration: 0 } : { delay: idx * 0.03 }}
             layout
-            whileHover={{ scale: 1.005 }}
+            whileHover={reduceMotion ? undefined : { scale: 1.005 }}
             className="border border-slate-200 rounded-xl p-3 bg-gradient-to-br from-white to-slate-50 shadow-[0_10px_24px_rgba(15,23,42,0.06)]"
           >
             <div className="flex items-center justify-between gap-2">
@@ -72,7 +98,10 @@ const PostFeed: FC<Props> = ({ posts }) => {
               </span>
             </div>
 
-            <p className="text-sm text-slate-700 mt-2 leading-relaxed">
+            <p
+              className="text-sm text-slate-700 mt-2 leading-relaxed max-h-[4.5em] overflow-hidden md:max-h-none md:overflow-visible"
+              title={post.content}
+            >
               {post.content}
             </p>
 
@@ -101,14 +130,32 @@ const PostFeed: FC<Props> = ({ posts }) => {
                 <ChatBubbleOvalLeftIcon className="h-4 w-4 text-prBlue" />
                 {post.reach.toLocaleString("es-PR")} alcance
               </span>
-              <span
-                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border ${sentimentColor(post.sentiment)}`}
-              >
-                Sentimiento {post.sentiment}
-              </span>
             </div>
           </motion.article>
         ))}
+      </div>
+
+      <div className="pt-3 flex flex-col sm:flex-row gap-2">
+        {canShowMore ? (
+          <button
+            type="button"
+            onClick={() =>
+              setVisibleCount((count) => Math.min(posts.length, count + baseCount))
+            }
+            className="w-full rounded-xl border border-slate-200 bg-white py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+          >
+            Mostrar más
+          </button>
+        ) : null}
+        {visibleCount > baseCount ? (
+          <button
+            type="button"
+            onClick={() => setVisibleCount(baseCount)}
+            className="w-full rounded-xl border border-slate-200 bg-white py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+          >
+            Mostrar menos
+          </button>
+        ) : null}
       </div>
     </section>
   );

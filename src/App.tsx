@@ -123,6 +123,7 @@ function App() {
   const [posts, setPosts] = useState<SocialPost[]>(localPosts);
   const [filters, setFilters] = useState<Filters>(defaultFilters);
   const [search, setSearch] = useState("");
+  const [navOpen, setNavOpen] = useState(false);
   const [apiBase] = useState(resolveApiBase());
 
   useEffect(() => {
@@ -332,8 +333,8 @@ function App() {
   }, [filteredPosts, filters.dateFrom, filters.dateTo, filters.timeframe]);
 
   return (
-    <div className="h-screen overflow-hidden bg-gradient-to-br from-prWhite to-prGray flex text-ink">
-      <Sidebar />
+    <div className="min-h-[100svh] h-[100dvh] overflow-hidden bg-gradient-to-br from-prWhite to-prGray flex text-ink">
+      <Sidebar isOpen={navOpen} onClose={() => setNavOpen(false)} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header
           search={search}
@@ -342,6 +343,7 @@ function App() {
           topics={topics}
           clusters={clusters}
           onFiltersChange={setFilters}
+          onToggleNav={() => setNavOpen((prev) => !prev)}
         />
         <main className="p-4 md:p-6 space-y-6 overflow-y-auto">
           <SummaryGrid metrics={metrics} />

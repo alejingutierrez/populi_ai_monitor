@@ -206,6 +206,10 @@ body {
   background: #dc262614;
   color: #b91c1c;
 }
+.insight-popup__trend--neutral {
+  background: #e2e8f0;
+  color: #334155;
+}
 
 .insight-popup__copy {
   margin: 0;

@@ -4,7 +4,7 @@ import {
   ExclamationTriangleIcon,
   RocketLaunchIcon,
 } from "@heroicons/react/24/outline";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import type { FC } from "react";
 
 interface Props {
@@ -31,6 +31,7 @@ interface Props {
 }
 
 const SummaryGrid: FC<Props> = ({ metrics }) => {
+  const reduceMotion = useReducedMotion();
   const getTrendTone = (delta: number, prefersLower = false) => {
     const safeDelta = Number.isFinite(delta) ? delta : 0;
     const isImprovement = prefersLower ? safeDelta <= 0 : safeDelta >= 0;
@@ -43,24 +44,49 @@ const SummaryGrid: FC<Props> = ({ metrics }) => {
     };
   };
 
-  const cards = [
+  const fullFormatter = new Intl.NumberFormat("es-PR");
+  const compactFormatter = new Intl.NumberFormat("es-PR", {
+    notation: "compact",
+    compactDisplay: "short",
+    maximumFractionDigits: 1,
+  });
+  const formatCompact = (value: number) => {
+    if (!Number.isFinite(value)) return "0";
+    if (Math.abs(value) < 1000) return fullFormatter.format(Math.round(value));
+    return compactFormatter.format(value);
+  };
+
+  type Card = {
+    label: string;
+    value: string;
+    valueTitle?: string;
+    accent: string;
+    delta: number;
+    preferLower?: boolean;
+    icon: JSX.Element;
+  };
+
+  const cards: Card[] = [
     {
       label: "Publicaciones",
-      value: metrics.totalPosts.toLocaleString("es-PR"),
+      value: formatCompact(metrics.totalPosts),
+      valueTitle: fullFormatter.format(metrics.totalPosts),
       accent: "from-prBlue to-prBlue/90",
       delta: metrics.deltas.totalPct,
       icon: <GlobeAmericasIcon className="size-6 text-white shrink-0" />,
     },
     {
       label: "Alcance estimado",
-      value: metrics.reach.toLocaleString("es-PR"),
+      value: formatCompact(metrics.reach),
+      valueTitle: fullFormatter.format(metrics.reach),
       accent: "from-prRed to-prBlue",
       delta: metrics.deltas.reachPct,
       icon: <FireIcon className="size-6 text-white shrink-0" />,
     },
     {
       label: "Engagement prom.",
-      value: Math.round(metrics.avgEngagement).toLocaleString("es-PR"),
+      value: formatCompact(metrics.avgEngagement),
+      valueTitle: fullFormatter.format(Math.round(metrics.avgEngagement)),
       accent: "from-prBlue to-prRed",
       delta: metrics.deltas.engagementPct,
       icon: <ArrowTrendingUpIcon className="size-6 text-white shrink-0" />,
@@ -98,11 +124,11 @@ const SummaryGrid: FC<Props> = ({ metrics }) => {
   ];
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-7">
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7">
       {cards.map((card) => (
         <motion.div
           key={card.label}
-          whileHover={{ y: -2 }}
+          whileHover={reduceMotion ? undefined : { y: -2 }}
           className="card p-4 relative overflow-hidden min-h-[150px] flex flex-col gap-3 justify-between"
         >
           <div
@@ -114,7 +140,10 @@ const SummaryGrid: FC<Props> = ({ metrics }) => {
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-1 flex-1 min-w-0">
               <p className="muted">{card.label}</p>
-              <p className="text-[clamp(1.15rem,0.6vw+0.9rem,1.4rem)] font-semibold text-ink leading-tight tracking-tight">
+              <p
+                className="text-[clamp(1.15rem,0.6vw+0.9rem,1.4rem)] font-semibold text-ink leading-tight tracking-tight"
+                title={card.valueTitle}
+              >
                 {card.value}
               </p>
             </div>

@@ -1,4 +1,4 @@
-import maplibregl, { Marker } from "maplibre-gl";
+import maplibregl from "maplibre-gl";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Sentiment, SocialPost } from "../types";
 
@@ -18,6 +18,11 @@ type CityInsight = {
   prevDayCount: number;
   timeWindow: { from?: Date; to?: Date };
 };
+
+const SOURCE_ID = "city-insights";
+const CLUSTER_LAYER_ID = "city-clusters";
+const CLUSTER_COUNT_LAYER_ID = "city-cluster-count";
+const UNCLUSTERED_LAYER_ID = "city-unclustered";
 
 const dayKey = (date: Date) => date.toISOString().slice(0, 10);
 
@@ -88,8 +93,68 @@ const buildLocationInsights = (posts: SocialPost[]): CityInsight[] => {
     .sort((a, b) => b.total - a.total);
 };
 
-// Generates the popup content; replace this function when wiring an AI summarizer.
-const buildInsightHtml = (insight: CityInsight) => {
+const buildGeoJson = (insights: CityInsight[]) => ({
+  type: "FeatureCollection",
+  features: insights.map((insight) => ({
+    type: "Feature",
+    geometry: {
+      type: "Point",
+      coordinates: [insight.lng, insight.lat],
+    },
+    properties: {
+      id: insight.id,
+      city: insight.city,
+      total: insight.total,
+      pos: insight.sentiments.positivo,
+      neu: insight.sentiments.neutral,
+      neg: insight.sentiments.negativo,
+      topTopics: JSON.stringify(insight.topTopics),
+      lastDayCount: insight.lastDayCount,
+      prevDayCount: insight.prevDayCount,
+      timeFrom: insight.timeWindow.from?.toISOString(),
+      timeTo: insight.timeWindow.to?.toISOString(),
+      mood: dominantSentiment(insight.sentiments),
+    },
+  })),
+});
+
+const parseInsightFromFeature = (
+  feature: maplibregl.MapboxGeoJSONFeature
+): CityInsight | null => {
+  const props = feature.properties ?? {};
+  const coords = feature.geometry?.type === "Point" ? feature.geometry.coordinates : null;
+  if (!coords || coords.length < 2) return null;
+
+  const topTopicsRaw = typeof props.topTopics === "string" ? props.topTopics : "[]";
+  let topTopics: { name: string; count: number }[] = [];
+  try {
+    topTopics = JSON.parse(topTopicsRaw);
+  } catch {
+    topTopics = [];
+  }
+
+  const timeFrom = props.timeFrom ? new Date(props.timeFrom) : undefined;
+  const timeTo = props.timeTo ? new Date(props.timeTo) : undefined;
+
+  return {
+    id: String(props.id ?? `${props.city}-${coords[1]}-${coords[0]}`),
+    city: String(props.city ?? "Sin ciudad"),
+    lat: Number(coords[1]),
+    lng: Number(coords[0]),
+    total: Number(props.total ?? 0),
+    sentiments: {
+      positivo: Number(props.pos ?? 0),
+      neutral: Number(props.neu ?? 0),
+      negativo: Number(props.neg ?? 0),
+    },
+    topTopics,
+    lastDayCount: Number(props.lastDayCount ?? 0),
+    prevDayCount: Number(props.prevDayCount ?? 0),
+    timeWindow: { from: timeFrom, to: timeTo },
+  };
+};
+
+const InsightPanel = ({ insight }: { insight: CityInsight }) => {
   const mood = dominantSentiment(insight.sentiments);
   const positive = insight.sentiments.positivo;
   const neutral = insight.sentiments.neutral;
@@ -136,48 +201,59 @@ const buildInsightHtml = (insight: CityInsight) => {
       ? "el tono es principalmente crítico"
       : "las conversaciones son mixtas";
 
-  return `<div class="insight-popup__body">
-    <div class="insight-popup__bar"></div>
-    <div class="insight-popup__header">
-      <div>
-        <p class="insight-popup__eyebrow">${windowLabel}</p>
-        <p class="insight-popup__city">${insight.city}</p>
-      </div>
-    </div>
-    <div class="insight-popup__meta">
-      <span class="insight-popup__pill insight-popup__pill--strong">${moodLabel}</span>
-      <span class="insight-popup__pill">Heurística</span>
-    </div>
-    <div class="insight-popup__stat">
-      <div>
-        <p class="insight-popup__stat-number">${insight.total}</p>
-        <p class="insight-popup__muted">menciones totales</p>
-      </div>
-      <div class="insight-popup__trend insight-popup__trend--${trendClass}">
-        <span class="insight-popup__trend-icon">${trendSymbol}</span>
+  return (
+    <div className="insight-popup__body">
+      <div className="insight-popup__bar"></div>
+      <div className="insight-popup__header">
         <div>
-          <p class="insight-popup__trend-label">${trendCopy}</p>
-          <p class="insight-popup__muted">${trendLabel}</p>
+          <p className="insight-popup__eyebrow">{windowLabel}</p>
+          <p className="insight-popup__city">{insight.city}</p>
         </div>
       </div>
+      <div className="insight-popup__meta">
+        <span className="insight-popup__pill insight-popup__pill--strong">
+          {moodLabel}
+        </span>
+        <span className="insight-popup__pill">Heurística</span>
+      </div>
+      <div className="insight-popup__stat">
+        <div>
+          <p className="insight-popup__stat-number">
+            {insight.total.toLocaleString("es-PR")}
+          </p>
+          <p className="insight-popup__muted">menciones totales</p>
+        </div>
+        <div className={`insight-popup__trend insight-popup__trend--${trendClass}`}>
+          <span className="insight-popup__trend-icon">{trendSymbol}</span>
+          <div>
+            <p className="insight-popup__trend-label">{trendCopy}</p>
+            <p className="insight-popup__muted">{trendLabel}</p>
+          </div>
+        </div>
+      </div>
+      <p className="insight-popup__copy">
+        {insight.total.toLocaleString("es-PR")} menciones; {moodCopy}.
+      </p>
+      <div className="insight-popup__section">
+        <p className="insight-popup__label">Temas fuertes</p>
+        <p className="insight-popup__value">{topicLine}</p>
+      </div>
+      <div className="insight-popup__sentiments">
+        <span className="positive">👍 {positive}</span>
+        <span className="neutral">😐 {neutral}</span>
+        <span className="negative">👎 {negative}</span>
+      </div>
     </div>
-    <p class="insight-popup__copy">${insight.total} menciones; ${moodCopy}.</p>
-    <div class="insight-popup__section">
-      <p class="insight-popup__label">Temas fuertes</p>
-      <p class="insight-popup__value">${topicLine}</p>
-    </div>
-    <div class="insight-popup__sentiments">
-      <span class="positive">👍 ${positive}</span>
-      <span class="neutral">😐 ${neutral}</span>
-      <span class="negative">👎 ${negative}</span>
-    </div>
-  </div>`;
+  );
 };
 
 const MapView = ({ posts }: Props) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
-  const markersRef = useRef<Marker[]>([]);
+  const mapLoadedRef = useRef(false);
+  const insightsRef = useRef<CityInsight[]>([]);
+  const hoverTargetRef = useRef<string | null>(null);
+  const [mapReady, setMapReady] = useState(false);
   const [activeTooltip, setActiveTooltip] = useState<{
     insight: CityInsight;
     screen: { x: number; y: number };
@@ -191,24 +267,137 @@ const MapView = ({ posts }: Props) => {
   const locationInsights = useMemo(() => buildLocationInsights(posts), [posts]);
 
   useEffect(() => {
+    let map: maplibregl.Map | null = null;
+    let handleLoad: (() => void) | null = null;
     if (containerRef.current && !mapRef.current) {
-      mapRef.current = new maplibregl.Map({
+      map = new maplibregl.Map({
         container: containerRef.current,
         style: "https://demotiles.maplibre.org/style.json",
         center: [-66.45, 18.2],
         zoom: 8,
       });
 
-      mapRef.current.addControl(new maplibregl.NavigationControl(), "top-right");
+      map.addControl(new maplibregl.NavigationControl(), "top-right");
+      mapRef.current = map;
+
+      handleLoad = () => {
+        if (map.getSource(SOURCE_ID)) return;
+        map.addSource(SOURCE_ID, {
+          type: "geojson",
+          data: buildGeoJson(insightsRef.current),
+          cluster: true,
+          clusterMaxZoom: 12,
+          clusterRadius: 50,
+        });
+
+        map.addLayer({
+          id: CLUSTER_LAYER_ID,
+          type: "circle",
+          source: SOURCE_ID,
+          filter: ["has", "point_count"],
+          paint: {
+            "circle-color": [
+              "step",
+              ["get", "point_count"],
+              "#60a5fa",
+              25,
+              "#2563eb",
+              75,
+              "#1e3a8a",
+            ],
+            "circle-radius": [
+              "step",
+              ["get", "point_count"],
+              16,
+              25,
+              22,
+              75,
+              28,
+            ],
+            "circle-opacity": 0.85,
+            "circle-stroke-width": 2,
+            "circle-stroke-color": "#ffffff",
+          },
+        });
+
+        map.addLayer({
+          id: CLUSTER_COUNT_LAYER_ID,
+          type: "symbol",
+          source: SOURCE_ID,
+          filter: ["has", "point_count"],
+          layout: {
+            "text-field": "{point_count_abbreviated}",
+            "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
+            "text-size": 12,
+          },
+          paint: {
+            "text-color": "#ffffff",
+          },
+        });
+
+        map.addLayer({
+          id: UNCLUSTERED_LAYER_ID,
+          type: "circle",
+          source: SOURCE_ID,
+          filter: ["!", ["has", "point_count"]],
+          paint: {
+            "circle-color": [
+              "match",
+              ["get", "mood"],
+              "positivo",
+              "#16a34a",
+              "negativo",
+              "#dc2626",
+              "#334155",
+            ],
+            "circle-radius": [
+              "interpolate",
+              ["linear"],
+              ["get", "total"],
+              1,
+              8,
+              15,
+              14,
+              50,
+              20,
+            ],
+            "circle-opacity": 0.9,
+            "circle-stroke-width": 2,
+            "circle-stroke-color": "#ffffff",
+          },
+        });
+
+        mapLoadedRef.current = true;
+        setMapReady(true);
+      };
+
+      map.on("load", handleLoad);
     }
+    return () => {
+      if (map && handleLoad) {
+        map.off("load", handleLoad);
+      }
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+        mapLoadedRef.current = false;
+        setMapReady(false);
+      }
+    };
   }, []);
 
   useEffect(() => {
+    insightsRef.current = locationInsights;
     const map = mapRef.current;
-    if (!map) return;
+    if (!map || !mapReady || !mapLoadedRef.current) return;
+    const source = map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
+    if (!source) return;
+    source.setData(buildGeoJson(locationInsights));
+  }, [locationInsights, mapReady]);
 
-    const markerCleanups: (() => void)[] = [];
-    const markers: Marker[] = [];
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady || !mapLoadedRef.current) return;
 
     const clearHoverTimer = () => {
       if (hoverTimerRef.current) {
@@ -227,16 +416,27 @@ const MapView = ({ posts }: Props) => {
     const computeScreenPoint = (insight: CityInsight) => {
       const point = map.project([insight.lng, insight.lat]);
       const rect = map.getContainer().getBoundingClientRect();
-      return { x: rect.left + point.x, y: rect.top + point.y };
+      const rawX = rect.left + point.x;
+      const rawY = rect.top + point.y;
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const halfWidth = 180;
+      const minX = Math.min(halfWidth, viewportWidth / 2);
+      const maxX = Math.max(minX, viewportWidth - halfWidth);
+      const minY = 140;
+      const maxY = Math.max(minY, viewportHeight - 120);
+
+      const clamp = (value: number, min: number, max: number) =>
+        Math.min(Math.max(value, min), max);
+
+      return { x: clamp(rawX, minX, maxX), y: clamp(rawY, minY, maxY) };
     };
 
     const updateTooltipPosition = () => {
       const insight = anchoredInsightRef.current;
       if (!insight) return;
       const coords = computeScreenPoint(insight);
-      setActiveTooltip((prev) =>
-        prev ? { insight, screen: coords } : prev
-      );
+      setActiveTooltip((prev) => (prev ? { insight, screen: coords } : prev));
     };
 
     const attachMoveListener = () => {
@@ -280,61 +480,95 @@ const MapView = ({ posts }: Props) => {
       }, 1000);
     };
 
-    locationInsights.forEach((insight) => {
-      const mood = dominantSentiment(insight.sentiments);
-      const color =
-        mood === "positivo" ? "#16a34a" : mood === "negativo" ? "#dc2626" : "#334155";
-      const size = Math.min(26, 12 + Math.log(insight.total + 1) * 6);
+    const openFromFeature = (feature: maplibregl.MapboxGeoJSONFeature) => {
+      const insight = parseInsightFromFeature(feature);
+      if (!insight) return;
+      openTooltip(insight);
+    };
 
-      const el = document.createElement("div");
-      el.className =
-        "rounded-full border-2 border-white shadow-lg cursor-pointer transition-transform";
-      el.style.background = color;
-      el.style.width = `${size}px`;
-      el.style.height = `${size}px`;
-
-      const marker = new maplibregl.Marker({ element: el })
-        .setLngLat([insight.lng, insight.lat])
-        .addTo(map);
-
-      const handleClick = () => openTooltip(insight);
-      const handleEnter = () => {
-        clearCloseTimer();
-        if (hoverTimerRef.current) return;
-        hoverTimerRef.current = window.setTimeout(() => openTooltip(insight), 1000);
-      };
-      const handleLeave = () => {
-        clearHoverTimer();
-        scheduleClose();
-      };
-
-      el.addEventListener("mouseenter", handleEnter);
-      el.addEventListener("mouseleave", handleLeave);
-      el.addEventListener("click", handleClick);
-
-      markers.push(marker);
-      markerCleanups.push(() => {
-        clearHoverTimer();
-        clearCloseTimer();
-        el.removeEventListener("mouseenter", handleEnter);
-        el.removeEventListener("mouseleave", handleLeave);
-        el.removeEventListener("click", handleClick);
-        marker.remove();
+    const handleClusterClick = (event: maplibregl.MapMouseEvent & maplibregl.EventData) => {
+      const features = map.queryRenderedFeatures(event.point, {
+        layers: [CLUSTER_LAYER_ID],
       });
-    });
+      const cluster = features[0];
+      if (!cluster) return;
+      const clusterIdRaw = cluster.properties?.cluster_id;
+      const clusterId = typeof clusterIdRaw === "number" ? clusterIdRaw : Number(clusterIdRaw);
+      if (!Number.isFinite(clusterId)) return;
+      const source = map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource;
+      source.getClusterExpansionZoom(clusterId, (err, zoom) => {
+        if (err) return;
+        const coordinates = (cluster.geometry as { coordinates: [number, number] }).coordinates;
+        map.easeTo({ center: coordinates, zoom });
+      });
+    };
 
-    markersRef.current = markers;
+    const handlePointClick = (event: maplibregl.MapMouseEvent & maplibregl.EventData) => {
+      const feature = event.features?.[0];
+      if (feature) openFromFeature(feature);
+    };
+
+    const handlePointEnter = (event: maplibregl.MapMouseEvent & maplibregl.EventData) => {
+      const feature = event.features?.[0];
+      if (!feature) return;
+      map.getCanvas().style.cursor = "pointer";
+      const id = String(feature.properties?.id ?? "");
+      hoverTargetRef.current = id;
+      clearCloseTimer();
+      if (hoverTimerRef.current) return;
+      hoverTimerRef.current = window.setTimeout(() => {
+        if (hoverTargetRef.current !== id) return;
+        openFromFeature(feature);
+      }, 1000);
+    };
+
+    const handlePointLeave = () => {
+      map.getCanvas().style.cursor = "";
+      hoverTargetRef.current = null;
+      clearHoverTimer();
+      scheduleClose();
+    };
+
+    const handleClusterEnter = () => {
+      map.getCanvas().style.cursor = "pointer";
+    };
+
+    const handleClusterLeave = () => {
+      map.getCanvas().style.cursor = "";
+    };
+
+    const handleKeyClose = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      clearHoverTimer();
+      clearCloseTimer();
+      setActiveTooltip(null);
+      anchoredInsightRef.current = null;
+      detachMoveListener();
+    };
+
+    map.on("click", CLUSTER_LAYER_ID, handleClusterClick);
+    map.on("click", UNCLUSTERED_LAYER_ID, handlePointClick);
+    map.on("mouseenter", UNCLUSTERED_LAYER_ID, handlePointEnter);
+    map.on("mouseleave", UNCLUSTERED_LAYER_ID, handlePointLeave);
+    map.on("mouseenter", CLUSTER_LAYER_ID, handleClusterEnter);
+    map.on("mouseleave", CLUSTER_LAYER_ID, handleClusterLeave);
+    window.addEventListener("keydown", handleKeyClose);
 
     return () => {
+      window.removeEventListener("keydown", handleKeyClose);
+      map.off("click", CLUSTER_LAYER_ID, handleClusterClick);
+      map.off("click", UNCLUSTERED_LAYER_ID, handlePointClick);
+      map.off("mouseenter", UNCLUSTERED_LAYER_ID, handlePointEnter);
+      map.off("mouseleave", UNCLUSTERED_LAYER_ID, handlePointLeave);
+      map.off("mouseenter", CLUSTER_LAYER_ID, handleClusterEnter);
+      map.off("mouseleave", CLUSTER_LAYER_ID, handleClusterLeave);
       detachMoveListener();
       clearHoverTimer();
       clearCloseTimer();
       setActiveTooltip(null);
       anchoredInsightRef.current = null;
-      markerCleanups.forEach((cleanup) => cleanup());
-      markersRef.current = [];
     };
-  }, [locationInsights]);
+  }, [mapReady]);
 
   return (
     <section className="card p-4 h-full flex flex-col min-h-[360px] min-w-0">
@@ -351,6 +585,7 @@ const MapView = ({ posts }: Props) => {
         ref={containerRef}
         className="flex-1 rounded-xl border border-slate-200 map-shell"
         style={{ minHeight: "360px" }}
+        aria-label="Mapa de calor social"
       />
       {activeTooltip && (
         <div
@@ -361,9 +596,10 @@ const MapView = ({ posts }: Props) => {
           }}
         >
           <div
-            className="insight-flyout__panel"
-            dangerouslySetInnerHTML={{ __html: buildInsightHtml(activeTooltip.insight) }}
-          />
+          className="insight-flyout__panel"
+          >
+            <InsightPanel insight={activeTooltip.insight} />
+          </div>
           <span className="insight-flyout__tip" />
         </div>
       )}
