@@ -285,19 +285,20 @@ const MapView = ({ posts }: Props) => {
     let map: maplibregl.Map | null = null;
     let handleLoad: (() => void) | null = null;
     if (containerRef.current && !mapRef.current) {
-      map = new maplibregl.Map({
+      const localMap = new maplibregl.Map({
         container: containerRef.current,
         style: "https://demotiles.maplibre.org/style.json",
         center: [-66.45, 18.2],
         zoom: 8,
       });
 
-      map.addControl(new maplibregl.NavigationControl(), "top-right");
-      mapRef.current = map;
+      localMap.addControl(new maplibregl.NavigationControl(), "top-right");
+      mapRef.current = localMap;
+      map = localMap;
 
       handleLoad = () => {
-        if (map.getSource(SOURCE_ID)) return;
-        map.addSource(SOURCE_ID, {
+        if (localMap.getSource(SOURCE_ID)) return;
+        localMap.addSource(SOURCE_ID, {
           type: "geojson",
           data: buildGeoJson(insightsRef.current),
           cluster: true,
@@ -305,7 +306,7 @@ const MapView = ({ posts }: Props) => {
           clusterRadius: 50,
         });
 
-        map.addLayer({
+        localMap.addLayer({
           id: CLUSTER_LAYER_ID,
           type: "circle",
           source: SOURCE_ID,
@@ -335,7 +336,7 @@ const MapView = ({ posts }: Props) => {
           },
         });
 
-        map.addLayer({
+        localMap.addLayer({
           id: CLUSTER_COUNT_LAYER_ID,
           type: "symbol",
           source: SOURCE_ID,
@@ -350,7 +351,7 @@ const MapView = ({ posts }: Props) => {
           },
         });
 
-        map.addLayer({
+        localMap.addLayer({
           id: UNCLUSTERED_LAYER_ID,
           type: "circle",
           source: SOURCE_ID,
@@ -386,7 +387,7 @@ const MapView = ({ posts }: Props) => {
         setMapReady(true);
       };
 
-      map.on("load", handleLoad);
+      localMap.on("load", handleLoad);
     }
     return () => {
       if (map && handleLoad) {
