@@ -1,5 +1,5 @@
 import type { FC } from "react";
-import type { Platform, Sentiment, Topic } from "../types";
+import type { Platform, Sentiment } from "../types";
 import SelectField from "./SelectField";
 
 export type Timeframe = "24h" | "72h" | "7d" | "1m" | "todo";
@@ -7,33 +7,27 @@ export type Timeframe = "24h" | "72h" | "7d" | "1m" | "todo";
 export interface Filters {
   sentiment: Sentiment | "todos";
   platform: Platform | "todos";
-  topic: Topic | "todos";
   timeframe: Timeframe;
   cluster: string | "todos";
   subcluster: string | "todos";
-  microcluster: string | "todos";
   dateFrom?: string;
   dateTo?: string;
 }
 
 interface Props {
   filters: Filters;
-  topics: Topic[];
   clusters: string[];
   subclusters: string[];
-  microclusters: string[];
   onChange: (filters: Filters) => void;
 }
 
-const FilterBar: FC<Props> = ({ filters, topics, clusters, subclusters, microclusters, onChange }) => {
+const FilterBar: FC<Props> = ({ filters, clusters, subclusters, onChange }) => {
   const defaultReset: Filters = {
     sentiment: "todos",
     platform: "todos",
-    topic: "todos",
     timeframe: "todo",
     cluster: "todos",
     subcluster: "todos",
-    microcluster: "todos",
     dateFrom: undefined,
     dateTo: undefined,
   };
@@ -58,11 +52,6 @@ const FilterBar: FC<Props> = ({ filters, topics, clusters, subclusters, microclu
     { value: "Reddit", label: "Reddit" },
   ];
 
-  const topicOptions: { value: Filters["topic"]; label: string }[] = [
-    { value: "todos", label: "Todos" },
-    ...topics.map((topic) => ({ value: topic, label: topic })),
-  ];
-
   const clusterOptions: { value: Filters["cluster"]; label: string }[] = [
     { value: "todos", label: "Todos" },
     ...clusters.map((cluster) => ({ value: cluster, label: cluster })),
@@ -71,11 +60,6 @@ const FilterBar: FC<Props> = ({ filters, topics, clusters, subclusters, microclu
   const subclusterOptions: { value: Filters["subcluster"]; label: string }[] = [
     { value: "todos", label: "Todos" },
     ...subclusters.map((subcluster) => ({ value: subcluster, label: subcluster })),
-  ];
-
-  const microclusterOptions: { value: Filters["microcluster"]; label: string }[] = [
-    { value: "todos", label: "Todos" },
-    ...microclusters.map((microcluster) => ({ value: microcluster, label: microcluster })),
   ];
 
   return (
@@ -103,17 +87,7 @@ const FilterBar: FC<Props> = ({ filters, topics, clusters, subclusters, microclu
 
         <div className="filter-block min-w-[110px]">
           <SelectField
-            label="Tema"
-            value={filters.topic}
-            options={topicOptions}
-            onChange={(value) => update("topic", value)}
-            className="space-y-1.5"
-          />
-        </div>
-
-        <div className="filter-block min-w-[110px]">
-          <SelectField
-            label="Núcleo / cluster"
+            label="Núcleo"
             value={filters.cluster}
             options={clusterOptions}
             onChange={(value) => update("cluster", value)}
@@ -127,16 +101,6 @@ const FilterBar: FC<Props> = ({ filters, topics, clusters, subclusters, microclu
             value={filters.subcluster}
             options={subclusterOptions}
             onChange={(value) => update("subcluster", value)}
-            className="space-y-1.5"
-          />
-        </div>
-
-        <div className="filter-block min-w-[130px]">
-          <SelectField
-            label="Microcluster"
-            value={filters.microcluster}
-            options={microclusterOptions}
-            onChange={(value) => update("microcluster", value)}
             className="space-y-1.5"
           />
         </div>

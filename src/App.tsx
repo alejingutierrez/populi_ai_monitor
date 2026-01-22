@@ -11,16 +11,14 @@ import TimelineChart from "./components/TimelineChart";
 import ConversationTrends from "./components/ConversationTrends";
 import TopicPanel, { type ClusterStat } from "./components/TopicPanel";
 import { localPosts } from "./data/localPosts";
-import type { SocialPost, TimelineDatum, Topic } from "./types";
+import type { SocialPost, TimelineDatum } from "./types";
 
 const defaultFilters: Filters = {
   sentiment: "todos",
   platform: "todos",
-  topic: "todos",
   timeframe: "todo",
   cluster: "todos",
   subcluster: "todos",
-  microcluster: "todos",
   dateFrom: undefined,
   dateTo: undefined,
 };
@@ -148,11 +146,6 @@ function App() {
     return () => controller.abort();
   }, []);
 
-  const topics = useMemo(
-    () => Array.from(new Set(posts.map((p) => p.topic))).sort() as Topic[],
-    [posts]
-  );
-
   const clusters = useMemo(
     () => Array.from(new Set(posts.map((p) => p.cluster))).sort(),
     [posts]
@@ -160,11 +153,6 @@ function App() {
 
   const subclusters = useMemo(
     () => Array.from(new Set(posts.map((p) => p.subcluster))).sort(),
-    [posts]
-  );
-
-  const microclusters = useMemo(
-    () => Array.from(new Set(posts.map((p) => p.microcluster))).sort(),
     [posts]
   );
 
@@ -188,11 +176,8 @@ function App() {
         const postDate = new Date(post.timestamp);
         if (filters.sentiment !== "todos" && post.sentiment !== filters.sentiment) return false;
         if (filters.platform !== "todos" && post.platform !== filters.platform) return false;
-        if (filters.topic !== "todos" && post.topic !== filters.topic) return false;
         if (filters.cluster !== "todos" && post.cluster !== filters.cluster) return false;
         if (filters.subcluster !== "todos" && post.subcluster !== filters.subcluster)
-          return false;
-        if (filters.microcluster !== "todos" && post.microcluster !== filters.microcluster)
           return false;
         if (!hasCustomRange && filters.timeframe !== "todo" && postDate < cutoff) return false;
         if (hasCustomRange) {
@@ -415,10 +400,8 @@ function App() {
           search={search}
           onSearch={setSearch}
           filters={filters}
-          topics={topics}
           clusters={clusters}
           subclusters={subclusters}
-          microclusters={microclusters}
           onFiltersChange={setFilters}
           onToggleNav={() => setNavOpen((prev) => !prev)}
           onOpenInsight={() => setInsightOpen(true)}

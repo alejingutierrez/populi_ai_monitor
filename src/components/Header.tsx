@@ -5,17 +5,14 @@ import {
 } from "@heroicons/react/24/outline";
 import { motion } from "framer-motion";
 import type { FC } from "react";
-import type { Topic } from "../types";
 import FilterBar, { type Filters } from "./FilterBar";
 
 interface Props {
   search: string;
   onSearch: (value: string) => void;
   filters: Filters;
-  topics: Topic[];
   clusters: string[];
   subclusters: string[];
-  microclusters: string[];
   onFiltersChange: (filters: Filters) => void;
   onToggleNav?: () => void;
   onOpenInsight?: () => void;
@@ -25,10 +22,8 @@ const Header: FC<Props> = ({
   search,
   onSearch,
   filters,
-  topics,
   clusters,
   subclusters,
-  microclusters,
   onFiltersChange,
   onToggleNav,
   onOpenInsight,
@@ -111,10 +106,8 @@ const Header: FC<Props> = ({
 
       <FilterBar
         filters={filters}
-        topics={topics}
         clusters={clusters}
         subclusters={subclusters}
-        microclusters={microclusters}
         onChange={onFiltersChange}
       />
     </header>
