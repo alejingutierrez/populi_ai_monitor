@@ -14,8 +14,11 @@ interface Props {
   filters: Filters;
   topics: Topic[];
   clusters: string[];
+  subclusters: string[];
+  microclusters: string[];
   onFiltersChange: (filters: Filters) => void;
   onToggleNav?: () => void;
+  onOpenInsight?: () => void;
 }
 
 const Header: FC<Props> = ({
@@ -24,8 +27,11 @@ const Header: FC<Props> = ({
   filters,
   topics,
   clusters,
+  subclusters,
+  microclusters,
   onFiltersChange,
   onToggleNav,
+  onOpenInsight,
 }) => {
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-slate-200 px-4 md:px-6 py-4 flex flex-col gap-3 shadow-[0_8px_20px_rgba(15,23,42,0.06)]">
@@ -55,6 +61,8 @@ const Header: FC<Props> = ({
           </div>
           <motion.button
             whileTap={{ scale: 0.98 }}
+            type="button"
+            onClick={onOpenInsight}
             className="inline-flex items-center gap-2 bg-prBlue text-white px-3 py-2 rounded-xl shadow-glow text-sm font-medium border border-prBlue/80 hover:brightness-110"
           >
             <SparklesIcon className="h-4 w-4" />
@@ -93,6 +101,7 @@ const Header: FC<Props> = ({
         <motion.button
           type="button"
           whileTap={{ scale: 0.98 }}
+          onClick={onOpenInsight}
           className="inline-flex items-center gap-2 bg-prBlue text-white px-3 py-1.5 rounded-xl shadow-glow text-xs font-semibold border border-prBlue/80 hover:brightness-110"
         >
           <SparklesIcon className="h-4 w-4" />
@@ -104,6 +113,8 @@ const Header: FC<Props> = ({
         filters={filters}
         topics={topics}
         clusters={clusters}
+        subclusters={subclusters}
+        microclusters={microclusters}
         onChange={onFiltersChange}
       />
     </header>

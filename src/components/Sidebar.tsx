@@ -2,6 +2,8 @@ import {
   AdjustmentsHorizontalIcon,
   BellAlertIcon,
   ChartBarIcon,
+  ChevronDoubleLeftIcon,
+  ChevronDoubleRightIcon,
   GlobeAmericasIcon,
   MapIcon,
   XMarkIcon,
@@ -10,21 +12,25 @@ import { motion } from "framer-motion";
 import type { FC } from "react";
 
 const navItems = [
-  { label: "Panorama", icon: ChartBarIcon },
-  { label: "Rios de datos", icon: GlobeAmericasIcon },
-  { label: "Mapa vivo", icon: MapIcon },
-  { label: "Núcleos y grafos", icon: AdjustmentsHorizontalIcon },
-  { label: "Alertas", icon: BellAlertIcon },
+  { label: "Overview", icon: ChartBarIcon },
+  { label: "Feed Stream", icon: GlobeAmericasIcon },
+  { label: "Geo Tagging", icon: MapIcon },
+  { label: "Network Connections", icon: AdjustmentsHorizontalIcon },
+  { label: "Alerts", icon: BellAlertIcon },
 ];
 
 interface Props {
   isOpen?: boolean;
   onClose?: () => void;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
-const Sidebar: FC<Props> = ({ isOpen = false, onClose }) => {
+const Sidebar: FC<Props> = ({ isOpen = false, onClose, collapsed = false, onToggleCollapse }) => {
+  const isCollapsed = Boolean(collapsed);
+  const canToggle = Boolean(onToggleCollapse);
   const renderNav = (onItemClick?: () => void) => (
-    <nav className="px-4 space-y-1 mt-2">
+    <nav className={`px-4 space-y-1 mt-2 ${isCollapsed ? "px-2" : "px-4"}`}>
       {navItems.map(({ label, icon: Icon }, idx) => (
         <motion.button
           key={label}
@@ -32,6 +38,8 @@ const Sidebar: FC<Props> = ({ isOpen = false, onClose }) => {
           aria-current={idx === 0 ? "page" : undefined}
           whileHover={{ x: 4 }}
           onClick={onItemClick}
+          aria-label={label}
+          title={label}
           className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left ${
             idx === 0
               ? "bg-prBlue text-white shadow-md"
@@ -39,7 +47,11 @@ const Sidebar: FC<Props> = ({ isOpen = false, onClose }) => {
           }`}
         >
           <Icon className="h-5 w-5" />
-          <span className="text-sm font-medium">{label}</span>
+          {!isCollapsed ? (
+            <span className="text-sm font-medium">{label}</span>
+          ) : (
+            <span className="sr-only">{label}</span>
+          )}
         </motion.button>
       ))}
     </nav>
@@ -47,18 +59,43 @@ const Sidebar: FC<Props> = ({ isOpen = false, onClose }) => {
 
   return (
     <>
-      <aside className="hidden lg:flex w-72 flex-col bg-white/90 backdrop-blur border-r border-slate-200 shadow-[12px_0_35px_rgba(15,23,42,0.06)] h-screen sticky top-0 overflow-y-auto">
-        <div className="px-6 pt-6 pb-4 flex items-center gap-3">
+      <aside
+        className={`hidden lg:flex ${isCollapsed ? "w-20" : "w-72"} flex-col bg-white/90 backdrop-blur border-r border-slate-200 shadow-[12px_0_35px_rgba(15,23,42,0.06)] h-screen sticky top-0 overflow-y-auto transition-all duration-200`}
+      >
+        <div className={`px-6 pt-6 pb-4 flex items-center ${isCollapsed ? "justify-center" : "gap-3"}`}>
           <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-prBlue to-prRed flex items-center justify-center text-white font-bold shadow-lg">
             AI
           </div>
-          <div>
-            <p className="text-sm text-prBlue font-semibold">Populi Monitor</p>
-            <p className="text-xs text-slate-500">Puerto Rico en tiempo real</p>
-          </div>
+          {!isCollapsed ? (
+            <div>
+              <p className="text-sm text-prBlue font-semibold">Populi Monitor</p>
+              <p className="text-xs text-slate-500">Puerto Rico en tiempo real</p>
+            </div>
+          ) : null}
         </div>
 
         {renderNav()}
+
+        <div className={`mt-auto ${isCollapsed ? "px-2" : "px-4"} pb-6`}>
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            disabled={!canToggle}
+            aria-label={isCollapsed ? "Expandir navegación" : "Contraer navegación"}
+            className={`w-full flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-2 text-xs font-semibold text-slate-700 shadow-sm ${
+              canToggle ? "hover:bg-slate-50" : "opacity-60 cursor-not-allowed"
+            }`}
+          >
+            {isCollapsed ? (
+              <ChevronDoubleRightIcon className="h-4 w-4" />
+            ) : (
+              <>
+                <ChevronDoubleLeftIcon className="h-4 w-4" />
+                Contraer
+              </>
+            )}
+          </button>
+        </div>
       </aside>
 
       {isOpen ? (

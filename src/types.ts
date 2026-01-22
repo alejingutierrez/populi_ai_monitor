@@ -38,6 +38,8 @@ export interface SocialPost {
   engagement: number;
   mediaType: "texto" | "video" | "audio" | "imagen";
   cluster: string;
+  subcluster: string;
+  microcluster: string;
 }
 
 export interface TimelineDatum {

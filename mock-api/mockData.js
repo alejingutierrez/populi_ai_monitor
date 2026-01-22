@@ -31,16 +31,79 @@ const topics = [
 
 const sentiments = ["positivo", "neutral", "negativo"];
 const platforms = ["X/Twitter", "Facebook", "Instagram", "YouTube", "TikTok", "Reddit"];
-const clusters = [
-  "costas",
-  "infraestructura",
-  "inversion",
-  "emergencias",
-  "comunidad",
-  "innovacion",
-  "transporte",
-  "seguridad",
-  "talento",
+const clusterHierarchy = [
+  {
+    name: "costas",
+    subclusters: [
+      { name: "playas", microclusters: ["limpieza", "erosion costera", "turismo costero"] },
+      { name: "pesca", microclusters: ["veda", "infraestructura portuaria", "seguridad maritima"] },
+      { name: "clima marino", microclusters: ["oleaje", "marejadas", "alertas costeras"] },
+    ],
+  },
+  {
+    name: "infraestructura",
+    subclusters: [
+      { name: "carreteras", microclusters: ["baches", "puentes", "semaforos"] },
+      { name: "agua y energia", microclusters: ["acueductos", "microapagones", "planta solar"] },
+      { name: "obras publicas", microclusters: ["vivienda", "hospitales", "escuelas"] },
+    ],
+  },
+  {
+    name: "inversion",
+    subclusters: [
+      { name: "desarrollo", microclusters: ["incentivos", "capital privado", "alianzas publicas"] },
+      { name: "empresas", microclusters: ["startups", "manufactura", "pymes"] },
+      { name: "turismo", microclusters: ["hoteles", "eventos", "gastronomia"] },
+    ],
+  },
+  {
+    name: "emergencias",
+    subclusters: [
+      { name: "clima", microclusters: ["huracanes", "inundaciones", "alertas calor"] },
+      { name: "salud publica", microclusters: ["brotes", "hospitales", "vacunacion"] },
+      { name: "seguridad civil", microclusters: ["simulacros", "refugios", "rescate"] },
+    ],
+  },
+  {
+    name: "comunidad",
+    subclusters: [
+      { name: "participacion", microclusters: ["voluntariado", "asambleas", "donaciones"] },
+      { name: "educacion", microclusters: ["becas", "escuelas tecnicas", "alfabetizacion digital"] },
+      { name: "servicios", microclusters: ["transporte publico", "vivienda accesible", "salud comunitaria"] },
+    ],
+  },
+  {
+    name: "innovacion",
+    subclusters: [
+      { name: "tecnologia civica", microclusters: ["apps ciudadanas", "sensores", "datos abiertos"] },
+      { name: "energia limpia", microclusters: ["placas solares", "microredes", "eficiencia"] },
+      { name: "agrotech", microclusters: ["agricultura vertical", "riego inteligente", "automatizacion"] },
+    ],
+  },
+  {
+    name: "transporte",
+    subclusters: [
+      { name: "movilidad", microclusters: ["congestion", "rutas", "seguridad vial"] },
+      { name: "logistica", microclusters: ["puertos", "carga", "cadena suministro"] },
+      { name: "aviacion", microclusters: ["rutas aereas", "aeropuerto", "conectividad"] },
+    ],
+  },
+  {
+    name: "seguridad",
+    subclusters: [
+      { name: "policia", microclusters: ["operativos", "denuncias", "patrullaje"] },
+      { name: "eventos", microclusters: ["festivales", "multitudes", "control acceso"] },
+      { name: "prevencion", microclusters: ["iluminacion", "camaras", "comunidad"] },
+    ],
+  },
+  {
+    name: "talento",
+    subclusters: [
+      { name: "empleo", microclusters: ["ferias empleo", "reconversion", "salarios"] },
+      { name: "formacion", microclusters: ["bootcamps", "certificaciones", "universidades"] },
+      { name: "retencion", microclusters: ["migracion", "beneficios", "liderazgo"] },
+    ],
+  },
 ];
 const mediaTypes = ["texto", "video", "audio", "imagen"];
 
@@ -218,14 +281,24 @@ const pick = (list, seed) => {
   return list[idx % list.length];
 };
 
-const buildTimestamp = (index) => {
-  const start = new Date("2025-09-01T00:00:00Z").getTime();
-  const end = new Date("2025-12-31T23:59:59Z").getTime();
+const LEGACY_COUNT = 400;
+const LEGACY_RANGE = {
+  start: "2025-09-01T00:00:00Z",
+  end: "2025-12-31T23:59:59Z",
+};
+const JAN_RANGE = {
+  start: "2026-01-01T00:00:00Z",
+  end: "2026-01-20T23:59:59Z",
+};
+
+const buildTimestamp = (index, range, seedOffset = 0) => {
+  const start = new Date(range.start).getTime();
+  const end = new Date(range.end).getTime();
   const span = end - start;
-  const offset = Math.floor(pseudoRand(index * 7.3) * span);
+  const offset = Math.floor(pseudoRand(index * 7.3 + seedOffset) * span);
   const ts = new Date(start + offset);
-  const hourBias = Math.floor(pseudoRand(index * 11.1) * 18) + 6;
-  ts.setUTCHours(hourBias, Math.floor(pseudoRand(index * 13.7) * 60));
+  const hourBias = Math.floor(pseudoRand(index * 11.1 + seedOffset) * 18) + 6;
+  ts.setUTCHours(hourBias, Math.floor(pseudoRand(index * 13.7 + seedOffset) * 60));
   return ts.toISOString();
 };
 
@@ -235,35 +308,64 @@ const buildAuthor = (seed) => {
   return `${first} ${last}`;
 };
 
-export const generateMockPosts = (count = 400) => {
+export const generateMockPosts = (count = 1400) => {
   const posts = [];
 
-  for (let i = 0; i < count; i += 1) {
-    const muni = municipalities[i % municipalities.length];
-    const topic = pick(topics, i * 1.3);
-    const sentiment = pick(sentiments, i * 2.1);
-    const platform = pick(platforms, i * 0.9);
-    const cluster = pick(clusters, i * 1.7);
-    const content = `${pick(sampleContent, i)}. ${i % 4 === 0 ? "IA sugiere seguimiento y respuesta coordinada." : "Ciudadanía mantiene la conversación activa."}`;
+  const legacyCount = Math.min(count, LEGACY_COUNT);
+  const extraCount = Math.max(0, count - legacyCount);
+
+  const pickClusterPath = (seed) => {
+    const cluster = pick(clusterHierarchy, seed * 1.7);
+    const subcluster = pick(cluster.subclusters, seed * 2.3);
+    const microcluster = pick(subcluster.microclusters, seed * 3.1);
+    return {
+      cluster: cluster.name,
+      subcluster: subcluster.name,
+      microcluster,
+    };
+  };
+
+  const buildPost = (index, range, seedOffset) => {
+    const seed = index + seedOffset;
+    const muni = municipalities[index % municipalities.length];
+    const topic = pick(topics, seed * 1.3);
+    const sentiment = pick(sentiments, seed * 2.1);
+    const platform = pick(platforms, seed * 0.9);
+    const clusterPath = pickClusterPath(seed);
+    const content = `${pick(sampleContent, seed)}. ${
+      seed % 4 === 0
+        ? "IA sugiere seguimiento y respuesta coordinada."
+        : "Ciudadanía mantiene la conversación activa."
+    }`;
 
     posts.push({
-      id: `pr-${i + 1}`,
-      author: buildAuthor(i + 3),
-      handle: `@${buildAuthor(i * 2.3)
+      id: `pr-${index + 1}`,
+      author: buildAuthor(seed + 3),
+      handle: `@${buildAuthor(seed * 2.3)
         .toLowerCase()
         .replace(/[^a-z]/g, "")
-        .slice(0, 10)}_${(i % 87) + 13}`,
+        .slice(0, 10)}_${(seed % 87) + 13}`,
       platform,
       content: `${content} Tema: ${topic}.`,
       sentiment,
       topic,
       location: { ...muni },
-      timestamp: buildTimestamp(i),
-      reach: Math.floor(500 + pseudoRand(i * 3.2) * 9500),
-      engagement: Math.floor(30 + pseudoRand(i * 5.1) * 1200),
-      mediaType: pick(mediaTypes, i * 4.4),
-      cluster,
+      timestamp: buildTimestamp(index, range, seedOffset),
+      reach: Math.floor(500 + pseudoRand(seed * 3.2) * 9500),
+      engagement: Math.floor(30 + pseudoRand(seed * 5.1) * 1200),
+      mediaType: pick(mediaTypes, seed * 4.4),
+      cluster: clusterPath.cluster,
+      subcluster: clusterPath.subcluster,
+      microcluster: clusterPath.microcluster,
     });
+  };
+
+  for (let i = 0; i < legacyCount; i += 1) {
+    buildPost(i, LEGACY_RANGE, 0);
+  }
+
+  for (let i = 0; i < extraCount; i += 1) {
+    buildPost(legacyCount + i, JAN_RANGE, 900);
   }
 
   return posts;

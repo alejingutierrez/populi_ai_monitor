@@ -2,11 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { type Filters } from "./components/FilterBar";
 import Header from "./components/Header";
+import InsightModal from "./components/InsightModal";
 import MapView from "./components/MapView";
 import PostFeed from "./components/PostFeed";
 import Sidebar from "./components/Sidebar";
 import SummaryGrid from "./components/SummaryGrid";
 import TimelineChart from "./components/TimelineChart";
+import ConversationTrends from "./components/ConversationTrends";
 import TopicPanel, { type ClusterStat } from "./components/TopicPanel";
 import { localPosts } from "./data/localPosts";
 import type { SocialPost, TimelineDatum, Topic } from "./types";
@@ -17,6 +19,8 @@ const defaultFilters: Filters = {
   topic: "todos",
   timeframe: "todo",
   cluster: "todos",
+  subcluster: "todos",
+  microcluster: "todos",
   dateFrom: undefined,
   dateTo: undefined,
 };
@@ -124,6 +128,8 @@ function App() {
   const [filters, setFilters] = useState<Filters>(defaultFilters);
   const [search, setSearch] = useState("");
   const [navOpen, setNavOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [insightOpen, setInsightOpen] = useState(false);
   const [apiBase] = useState(resolveApiBase());
 
   useEffect(() => {
@@ -143,12 +149,22 @@ function App() {
   }, []);
 
   const topics = useMemo(
-    () => Array.from(new Set(posts.map((p) => p.topic))) as Topic[],
+    () => Array.from(new Set(posts.map((p) => p.topic))).sort() as Topic[],
     [posts]
   );
 
   const clusters = useMemo(
-    () => Array.from(new Set(posts.map((p) => p.cluster))),
+    () => Array.from(new Set(posts.map((p) => p.cluster))).sort(),
+    [posts]
+  );
+
+  const subclusters = useMemo(
+    () => Array.from(new Set(posts.map((p) => p.subcluster))).sort(),
+    [posts]
+  );
+
+  const microclusters = useMemo(
+    () => Array.from(new Set(posts.map((p) => p.microcluster))).sort(),
     [posts]
   );
 
@@ -174,6 +190,10 @@ function App() {
         if (filters.platform !== "todos" && post.platform !== filters.platform) return false;
         if (filters.topic !== "todos" && post.topic !== filters.topic) return false;
         if (filters.cluster !== "todos" && post.cluster !== filters.cluster) return false;
+        if (filters.subcluster !== "todos" && post.subcluster !== filters.subcluster)
+          return false;
+        if (filters.microcluster !== "todos" && post.microcluster !== filters.microcluster)
+          return false;
         if (!hasCustomRange && filters.timeframe !== "todo" && postDate < cutoff) return false;
         if (hasCustomRange) {
           if (rangeFrom && postDate < rangeFrom) return false;
@@ -181,7 +201,8 @@ function App() {
         }
         if (search) {
           const q = search.toLowerCase();
-          const haystack = `${post.content} ${post.author} ${post.handle} ${post.location.city} ${post.topic}`.toLowerCase();
+          const haystack =
+            `${post.content} ${post.author} ${post.handle} ${post.location.city} ${post.topic} ${post.cluster} ${post.subcluster} ${post.microcluster}`.toLowerCase();
           if (!haystack.includes(q)) return false;
         }
         return true;
@@ -248,21 +269,70 @@ function App() {
   }, [filteredPosts]);
 
   const clusterStats: ClusterStat[] = useMemo(() => {
-    const map = new Map<
+    const createStats = () => ({ positive: 0, negative: 0, volume: 0 });
+    const clusterMap = new Map<
       string,
-      { positive: number; negative: number; volume: number }
+      {
+        stats: { positive: number; negative: number; volume: number };
+        subclusters: Map<
+          string,
+          {
+            stats: { positive: number; negative: number; volume: number };
+            microclusters: Map<string, { positive: number; negative: number; volume: number }>;
+          }
+        >;
+      }
     >();
 
     filteredPosts.forEach((post) => {
-      const stats = map.get(post.cluster) ?? { positive: 0, negative: 0, volume: 0 };
-      stats.volume += 1;
-      if (post.sentiment === "positivo") stats.positive += 1;
-      if (post.sentiment === "negativo") stats.negative += 1;
-      map.set(post.cluster, stats);
+      const clusterEntry =
+        clusterMap.get(post.cluster) ??
+        {
+          stats: createStats(),
+          subclusters: new Map(),
+        };
+      clusterEntry.stats.volume += 1;
+      if (post.sentiment === "positivo") clusterEntry.stats.positive += 1;
+      if (post.sentiment === "negativo") clusterEntry.stats.negative += 1;
+
+      const subEntry =
+        clusterEntry.subclusters.get(post.subcluster) ??
+        {
+          stats: createStats(),
+          microclusters: new Map(),
+        };
+      subEntry.stats.volume += 1;
+      if (post.sentiment === "positivo") subEntry.stats.positive += 1;
+      if (post.sentiment === "negativo") subEntry.stats.negative += 1;
+
+      const microEntry =
+        subEntry.microclusters.get(post.microcluster) ?? createStats();
+      microEntry.volume += 1;
+      if (post.sentiment === "positivo") microEntry.positive += 1;
+      if (post.sentiment === "negativo") microEntry.negative += 1;
+
+      subEntry.microclusters.set(post.microcluster, microEntry);
+      clusterEntry.subclusters.set(post.subcluster, subEntry);
+      clusterMap.set(post.cluster, clusterEntry);
     });
 
-    return Array.from(map.entries())
-      .map(([name, stats]) => ({ name, ...stats }))
+    return Array.from(clusterMap.entries())
+      .map(([name, entry]) => ({
+        name,
+        ...entry.stats,
+        children: Array.from(entry.subclusters.entries())
+          .map(([subName, subEntry]) => ({
+            name: subName,
+            ...subEntry.stats,
+            children: Array.from(subEntry.microclusters.entries()).map(
+              ([microName, microStats]) => ({
+                name: microName,
+                ...microStats,
+              })
+            ),
+          }))
+          .sort((a, b) => b.volume - a.volume),
+      }))
       .sort((a, b) => b.volume - a.volume);
   }, [filteredPosts]);
 
@@ -334,7 +404,12 @@ function App() {
 
   return (
     <div className="min-h-[100svh] h-[100dvh] overflow-hidden bg-gradient-to-br from-prWhite to-prGray flex text-ink">
-      <Sidebar isOpen={navOpen} onClose={() => setNavOpen(false)} />
+      <Sidebar
+        isOpen={navOpen}
+        onClose={() => setNavOpen(false)}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
+      />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header
           search={search}
@@ -342,11 +417,15 @@ function App() {
           filters={filters}
           topics={topics}
           clusters={clusters}
+          subclusters={subclusters}
+          microclusters={microclusters}
           onFiltersChange={setFilters}
           onToggleNav={() => setNavOpen((prev) => !prev)}
+          onOpenInsight={() => setInsightOpen(true)}
         />
         <main className="p-4 md:p-6 space-y-6 overflow-y-auto">
           <SummaryGrid metrics={metrics} />
+          <ConversationTrends posts={filteredPosts} />
 
           <div className="grid gap-4 xl:grid-cols-2">
             <TimelineChart data={timelineData} />
@@ -356,6 +435,7 @@ function App() {
           </div>
         </main>
       </div>
+      <InsightModal isOpen={insightOpen} onClose={() => setInsightOpen(false)} />
     </div>
   );
 }

@@ -10,6 +10,8 @@ export interface Filters {
   topic: Topic | "todos";
   timeframe: Timeframe;
   cluster: string | "todos";
+  subcluster: string | "todos";
+  microcluster: string | "todos";
   dateFrom?: string;
   dateTo?: string;
 }
@@ -18,16 +20,20 @@ interface Props {
   filters: Filters;
   topics: Topic[];
   clusters: string[];
+  subclusters: string[];
+  microclusters: string[];
   onChange: (filters: Filters) => void;
 }
 
-const FilterBar: FC<Props> = ({ filters, topics, clusters, onChange }) => {
+const FilterBar: FC<Props> = ({ filters, topics, clusters, subclusters, microclusters, onChange }) => {
   const defaultReset: Filters = {
     sentiment: "todos",
     platform: "todos",
     topic: "todos",
     timeframe: "todo",
     cluster: "todos",
+    subcluster: "todos",
+    microcluster: "todos",
     dateFrom: undefined,
     dateTo: undefined,
   };
@@ -60,6 +66,16 @@ const FilterBar: FC<Props> = ({ filters, topics, clusters, onChange }) => {
   const clusterOptions: { value: Filters["cluster"]; label: string }[] = [
     { value: "todos", label: "Todos" },
     ...clusters.map((cluster) => ({ value: cluster, label: cluster })),
+  ];
+
+  const subclusterOptions: { value: Filters["subcluster"]; label: string }[] = [
+    { value: "todos", label: "Todos" },
+    ...subclusters.map((subcluster) => ({ value: subcluster, label: subcluster })),
+  ];
+
+  const microclusterOptions: { value: Filters["microcluster"]; label: string }[] = [
+    { value: "todos", label: "Todos" },
+    ...microclusters.map((microcluster) => ({ value: microcluster, label: microcluster })),
   ];
 
   return (
@@ -105,6 +121,26 @@ const FilterBar: FC<Props> = ({ filters, topics, clusters, onChange }) => {
           />
         </div>
 
+        <div className="filter-block min-w-[120px]">
+          <SelectField
+            label="Subcluster"
+            value={filters.subcluster}
+            options={subclusterOptions}
+            onChange={(value) => update("subcluster", value)}
+            className="space-y-1.5"
+          />
+        </div>
+
+        <div className="filter-block min-w-[130px]">
+          <SelectField
+            label="Microcluster"
+            value={filters.microcluster}
+            options={microclusterOptions}
+            onChange={(value) => update("microcluster", value)}
+            className="space-y-1.5"
+          />
+        </div>
+
         <div className="filter-block filter-block-wide min-w-[180px]">
           <p className="muted text-slate-500">Horizonte</p>
           <div className="flex flex-nowrap gap-1.5">
@@ -135,7 +171,7 @@ const FilterBar: FC<Props> = ({ filters, topics, clusters, onChange }) => {
             onChange={(e) => update("dateFrom", e.target.value || undefined)}
             aria-label="Desde"
             className="filter-control pr-3"
-            placeholder="2025-10-01"
+            placeholder="2026-01-01"
           />
         </div>
         <div className="filter-block min-w-[110px]">
@@ -146,7 +182,7 @@ const FilterBar: FC<Props> = ({ filters, topics, clusters, onChange }) => {
             onChange={(e) => update("dateTo", e.target.value || undefined)}
             aria-label="Hasta"
             className="filter-control pr-3"
-            placeholder="2025-12-31"
+            placeholder="2026-01-20"
           />
         </div>
 

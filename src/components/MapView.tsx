@@ -20,6 +20,7 @@ type CityInsight = {
 };
 
 const SOURCE_ID = "city-insights";
+const HEATMAP_LAYER_ID = "city-heatmap";
 const CLUSTER_LAYER_ID = "city-clusters";
 const CLUSTER_COUNT_LAYER_ID = "city-cluster-count";
 const UNCLUSTERED_LAYER_ID = "city-unclustered";
@@ -287,7 +288,7 @@ const MapView = ({ posts }: Props) => {
     if (containerRef.current && !mapRef.current) {
       const localMap = new maplibregl.Map({
         container: containerRef.current,
-        style: "https://demotiles.maplibre.org/style.json",
+        style: "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json",
         center: [-66.45, 18.2],
         zoom: 8,
       });
@@ -307,10 +308,47 @@ const MapView = ({ posts }: Props) => {
         });
 
         localMap.addLayer({
+          id: HEATMAP_LAYER_ID,
+          type: "heatmap",
+          source: SOURCE_ID,
+          maxzoom: 9,
+          paint: {
+            "heatmap-weight": [
+              "interpolate",
+              ["linear"],
+              ["get", "total"],
+              1,
+              0.2,
+              50,
+              1,
+            ],
+            "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 6, 0.8, 9, 1.3],
+            "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 6, 12, 9, 26],
+            "heatmap-color": [
+              "interpolate",
+              ["linear"],
+              ["heatmap-density"],
+              0,
+              "rgba(15, 23, 42, 0)",
+              0.2,
+              "#93c5fd",
+              0.45,
+              "#38bdf8",
+              0.7,
+              "#2563eb",
+              1,
+              "#1e3a8a",
+            ],
+            "heatmap-opacity": 0.6,
+          },
+        });
+
+        localMap.addLayer({
           id: CLUSTER_LAYER_ID,
           type: "circle",
           source: SOURCE_ID,
           filter: ["has", "point_count"],
+          minzoom: 7,
           paint: {
             "circle-color": [
               "step",
@@ -341,6 +379,7 @@ const MapView = ({ posts }: Props) => {
           type: "symbol",
           source: SOURCE_ID,
           filter: ["has", "point_count"],
+          minzoom: 7,
           layout: {
             "text-field": "{point_count_abbreviated}",
             "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
@@ -356,6 +395,7 @@ const MapView = ({ posts }: Props) => {
           type: "circle",
           source: SOURCE_ID,
           filter: ["!", ["has", "point_count"]],
+          minzoom: 8,
           paint: {
             "circle-color": [
               "match",
@@ -591,13 +631,13 @@ const MapView = ({ posts }: Props) => {
     <section className="card p-4 h-full flex flex-col min-h-[360px] min-w-0">
       <div className="card-header">
         <div>
-          <p className="muted">Mapa IA</p>
-        <p className="h-section">Calor social en PR</p>
-      </div>
-      <span className="px-3 py-1 bg-prBlue/10 text-prBlue rounded-full text-xs font-semibold">
+          <p className="muted">Geo Tagging</p>
+          <p className="h-section">Calor social en PR</p>
+        </div>
+        <span className="px-3 py-1 bg-prBlue/10 text-prBlue rounded-full text-xs font-semibold">
           {locationInsights.length} puntos
-      </span>
-    </div>
+        </span>
+      </div>
       <div
         ref={containerRef}
         className="flex-1 rounded-xl border border-slate-200 map-shell"
@@ -612,9 +652,7 @@ const MapView = ({ posts }: Props) => {
             top: `${activeTooltip.screen.y - 12}px`,
           }}
         >
-          <div
-          className="insight-flyout__panel"
-          >
+          <div className="insight-flyout__panel">
             <InsightPanel insight={activeTooltip.insight} />
           </div>
           <span className="insight-flyout__tip" />

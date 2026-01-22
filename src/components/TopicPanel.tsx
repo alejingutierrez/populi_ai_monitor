@@ -12,6 +12,9 @@ export interface ClusterStat {
   volume: number;
   positive: number;
   negative: number;
+  children?: ClusterStat[];
+  size?: number;
+  depth?: number;
 }
 
 interface Props {
@@ -37,10 +40,12 @@ type TileProps = TreemapNode &
     y: number;
     width: number;
     height: number;
+    depth?: number;
+    parent?: TreemapNode;
   };
 
 const CustomTile: FC<TileProps> = (props) => {
-  const { x, y, width, height, name, volume, positive, negative } = props;
+  const { x, y, width, height, name, volume, positive, negative, depth, children } = props;
   if (!width || !height || width <= 0 || height <= 0 || volume === undefined) {
     return null;
   }
@@ -48,6 +53,12 @@ const CustomTile: FC<TileProps> = (props) => {
   const tone =
     sentiment > 0.25 ? "Positivo" : sentiment < -0.2 ? "Negativo" : "Neutral";
   const palette = sentimentPalette(props);
+  const isLeaf = !children || children.length === 0;
+  const labelSize = depth === 1 ? 13 : depth === 2 ? 11 : 10;
+  const labelWeight = depth === 1 ? 700 : 600;
+  const padding = depth === 1 ? 10 : 8;
+  const radius = depth === 1 ? 14 : 10;
+  const showMetrics = isLeaf && width > 110 && height > 60;
 
   return (
     <g>
@@ -56,54 +67,61 @@ const CustomTile: FC<TileProps> = (props) => {
         y={y}
         width={width}
         height={height}
-        rx={12}
-        ry={12}
+        rx={radius}
+        ry={radius}
         style={{
           fill: palette.fill,
-          opacity: 0.8,
-          stroke: "#cbd5e1",
+          opacity: depth && depth > 1 ? 0.7 : 0.85,
+          stroke: "#e2e8f0",
+          strokeWidth: depth === 1 ? 2 : 1,
         }}
       />
-      <text
-        x={x! + 10}
-        y={y! + 18}
-        fill="#0f172a"
-        fontSize={13}
-        fontWeight={700}
-        stroke="none"
-      >
-        {name}
-      </text>
-      <text
-        x={x! + 10}
-        y={y! + 36}
-        fill="#475569"
-        fontSize={11}
-        fontWeight={600}
-        stroke="none"
-      >
-        {volume.toLocaleString("es-PR")} menciones
-      </text>
-      <rect
-        x={x! + 10}
-        y={y! + 44}
-        rx={8}
-        ry={8}
-        width={78}
-        height={20}
-        fill={palette.accent}
-        opacity={0.14}
-      />
-      <text
-        x={x! + 16}
-        y={y! + 58}
-        fill={palette.accent}
-        fontSize={10}
-        fontWeight={700}
-        stroke="none"
-      >
-        {tone}
-      </text>
+      {width > 40 && height > 24 ? (
+        <text
+          x={x! + padding}
+          y={y! + padding + labelSize}
+          fill="#0f172a"
+          fontSize={labelSize}
+          fontWeight={labelWeight}
+          stroke="none"
+        >
+          {name}
+        </text>
+      ) : null}
+      {showMetrics ? (
+        <>
+          <text
+            x={x! + padding}
+            y={y! + padding + labelSize + 18}
+            fill="#475569"
+            fontSize={10}
+            fontWeight={600}
+            stroke="none"
+          >
+            {volume.toLocaleString("es-PR")} menciones
+          </text>
+          <rect
+            x={x! + padding}
+            y={y! + padding + labelSize + 26}
+            rx={8}
+            ry={8}
+            width={70}
+            height={18}
+            fill={palette.accent}
+            opacity={0.14}
+          />
+          <text
+            x={x! + padding + 6}
+            y={y! + padding + labelSize + 39}
+            fill={palette.accent}
+            fontSize={9.5}
+            fontWeight={700}
+            stroke="none"
+          >
+            {tone}
+          </text>
+        </>
+      ) : null}
     </g>
   );
 };
@@ -114,8 +132,8 @@ const TopicPanel: FC<Props> = ({ clusters }) => {
       <section className="card p-4 h-full flex flex-col min-h-[360px] min-w-0">
         <div className="card-header">
           <div>
-            <p className="muted">Núcleos</p>
-            <p className="h-section">Clusters de conversación</p>
+            <p className="muted">Network Connections</p>
+            <p className="h-section">Clusters, subclusters y microclusters</p>
           </div>
         </div>
         <div className="flex-1 flex items-center justify-center text-sm text-slate-500">
@@ -125,14 +143,19 @@ const TopicPanel: FC<Props> = ({ clusters }) => {
     );
   }
 
-  const data = clusters.map((c) => ({
-    ...c,
-    size: c.volume,
-  }));
+  const enrichNodes = (nodes: ClusterStat[], depth = 1): ClusterStat[] =>
+    nodes.map((node) => ({
+      ...node,
+      size: node.volume,
+      depth,
+      children: node.children ? enrichNodes(node.children, depth + 1) : undefined,
+    }));
+
+  const data = enrichNodes(clusters);
 
   const renderTooltip = ({ active, payload }: TooltipContentProps<number, string>) => {
     if (!active || !payload?.length) return null;
-    const stat = payload[0]?.payload as ClusterStat | undefined;
+    const stat = payload[0]?.payload as ClusterStat & { parent?: TreemapNode } | undefined;
     if (!stat) return null;
 
     const palette = sentimentPalette(stat);
@@ -152,6 +175,18 @@ const TopicPanel: FC<Props> = ({ clusters }) => {
     const balanceLabel =
       net === 0 ? "Balance neutro" : net > 0 ? "Predominio favorable" : "Predominio crítico";
 
+    const buildPath = (node: { name?: string; parent?: TreemapNode | null }) => {
+      const names: string[] = [];
+      let cursor: TreemapNode | undefined | null = node as TreemapNode;
+      while (cursor && typeof (cursor as { name?: string }).name === "string") {
+        names.unshift((cursor as { name?: string }).name ?? "");
+        cursor = (cursor as { parent?: TreemapNode }).parent;
+      }
+      return names.filter((name) => name && name !== "root").join(" › ");
+    };
+
+    const pathLabel = buildPath(stat);
+
     return (
       <div className="relative min-w-[240px] max-w-[280px] overflow-hidden rounded-2xl border border-slate-200 bg-white/95 px-4 py-3 shadow-[0_18px_48px_rgba(15,23,42,0.16)] backdrop-blur">
         <div
@@ -164,9 +199,9 @@ const TopicPanel: FC<Props> = ({ clusters }) => {
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                Núcleo
+                Network path
               </p>
-              <p className="text-base font-bold leading-tight text-ink">{stat.name}</p>
+              <p className="text-base font-bold leading-tight text-ink">{pathLabel}</p>
               <p className="mt-1 text-[11px] text-slate-500">
                 {total.toLocaleString("es-PR")} menciones
               </p>
@@ -243,8 +278,8 @@ const TopicPanel: FC<Props> = ({ clusters }) => {
     <section className="card p-4 h-full flex flex-col min-h-[420px] min-w-0">
       <div className="card-header">
         <div>
-          <p className="muted">Núcleos</p>
-          <p className="h-section">Clusters de conversación</p>
+          <p className="muted">Network Connections</p>
+          <p className="h-section">Clusters, subclusters y microclusters</p>
         </div>
         <span className="px-3 py-1 rounded-full bg-prRed/10 text-prRed text-xs font-semibold">
           IA agrupa
