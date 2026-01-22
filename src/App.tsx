@@ -136,7 +136,7 @@ function App() {
     const controller = new AbortController();
     const load = async () => {
       try {
-        const res = await fetch(`${apiBase}/posts`, { signal: controller.signal });
+        const res = await fetch(`${apiBase}/posts?count=1400`, { signal: controller.signal });
         if (!res.ok) throw new Error("No API");
         const data: SocialPost[] = await res.json();
         setPosts(data);
