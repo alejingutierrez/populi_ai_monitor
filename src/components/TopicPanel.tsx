@@ -5,7 +5,7 @@ import {
   type TreemapNode,
   type TooltipContentProps,
 } from "recharts";
-import type { FC } from "react";
+import { useMemo, useState, type FC } from "react";
 
 export interface ClusterStat {
   name: string;
@@ -43,10 +43,27 @@ type TileProps = TreemapNode &
     height: number;
     depth?: number;
     parent?: TreemapNode;
+    hideSubLabels?: boolean;
+    isClickable?: boolean;
+    onSelect?: (name: string) => void;
   };
 
 const CustomTile: FC<TileProps> = (props) => {
-  const { x, y, width, height, name, volume, positive, negative, depth, children } = props;
+  const {
+    x,
+    y,
+    width,
+    height,
+    name,
+    volume,
+    positive,
+    negative,
+    depth,
+    children,
+    hideSubLabels,
+    isClickable,
+    onSelect,
+  } = props;
   if (!width || !height || width <= 0 || height <= 0 || volume === undefined) {
     return null;
   }
@@ -59,10 +76,15 @@ const CustomTile: FC<TileProps> = (props) => {
   const labelWeight = depth === 1 ? 700 : 600;
   const padding = depth === 1 ? 10 : 8;
   const radius = depth === 1 ? 14 : 10;
-  const showMetrics = isLeaf && width > 110 && height > 60;
+  const allowLabel = !(hideSubLabels && depth && depth > 1);
+  const showMetrics = isLeaf && width > 110 && height > 60 && allowLabel;
+  const showLabel = allowLabel && width > 40 && height > 24;
 
   return (
-    <g>
+    <g
+      onClick={isClickable ? () => onSelect?.(name) : undefined}
+      style={{ cursor: isClickable ? "pointer" : "default" }}
+    >
       <rect
         x={x}
         y={y}
@@ -77,7 +99,7 @@ const CustomTile: FC<TileProps> = (props) => {
           strokeWidth: depth === 1 ? 2 : 1,
         }}
       />
-      {width > 40 && height > 24 ? (
+      {showLabel ? (
         <text
           x={x! + padding}
           y={y! + padding + labelSize}
@@ -128,6 +150,8 @@ const CustomTile: FC<TileProps> = (props) => {
 };
 
 const TopicPanel: FC<Props> = ({ clusters }) => {
+  const [activeCluster, setActiveCluster] = useState<string | null>(null);
+
   if (!clusters.length) {
     return (
       <section className="card p-4 h-full flex flex-col min-h-[360px] min-w-0">
@@ -144,15 +168,30 @@ const TopicPanel: FC<Props> = ({ clusters }) => {
     );
   }
 
-  const enrichNodes = (nodes: ClusterStat[], depth = 1): ClusterStat[] =>
+  const enrichNodes = (
+    nodes: ClusterStat[],
+    depth = 1,
+    depthLimit = 2
+  ): ClusterStat[] =>
     nodes.map((node) => ({
       ...node,
       size: node.volume,
       depth,
-      children: node.children ? enrichNodes(node.children, depth + 1) : undefined,
+      children:
+        depth < depthLimit && node.children
+          ? enrichNodes(node.children, depth + 1, depthLimit)
+          : undefined,
     }));
 
-  const data = enrichNodes(clusters);
+  const activeClusterNode = useMemo(
+    () => clusters.find((cluster) => cluster.name === activeCluster) ?? null,
+    [activeCluster, clusters]
+  );
+
+  const data = useMemo(
+    () => enrichNodes(activeClusterNode?.children ?? clusters, 1, 2),
+    [activeClusterNode, clusters]
+  );
 
   const renderTooltip = ({ active, payload }: TooltipContentProps<number, string>) => {
     if (!active || !payload?.length) return null;
@@ -187,6 +226,9 @@ const TopicPanel: FC<Props> = ({ clusters }) => {
     };
 
     const pathLabel = buildPath(stat);
+    const fullPath = activeClusterNode?.name
+      ? `${activeClusterNode.name} › ${pathLabel}`
+      : pathLabel;
 
     return (
       <div className="relative min-w-[240px] max-w-[280px] overflow-hidden rounded-2xl border border-slate-200 bg-white/95 px-4 py-3 shadow-[0_18px_48px_rgba(15,23,42,0.16)] backdrop-blur">
@@ -202,7 +244,7 @@ const TopicPanel: FC<Props> = ({ clusters }) => {
               <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
                 Network path
               </p>
-              <p className="text-base font-bold leading-tight text-ink">{pathLabel}</p>
+              <p className="text-base font-bold leading-tight text-ink">{fullPath}</p>
               <p className="mt-1 text-[11px] text-slate-500">
                 {total.toLocaleString("es-PR")} menciones
               </p>
@@ -275,16 +317,31 @@ const TopicPanel: FC<Props> = ({ clusters }) => {
     );
   };
 
+  const headerTitle = activeClusterNode
+    ? `Subclusters y microclusters · ${activeClusterNode.name}`
+    : "Clusters de conversación";
+
   return (
     <section className="card p-4 h-full flex flex-col min-h-[420px] min-w-0">
       <div className="card-header">
         <div>
           <p className="muted">Network Connections</p>
-          <p className="h-section">Clusters, subclusters y microclusters</p>
+          <p className="h-section">{headerTitle}</p>
         </div>
-        <span className="px-3 py-1 rounded-full bg-prRed/10 text-prRed text-xs font-semibold">
-          IA agrupa
-        </span>
+        <div className="flex items-center gap-2">
+          {activeClusterNode ? (
+            <button
+              type="button"
+              onClick={() => setActiveCluster(null)}
+              className="px-3 py-1 rounded-full border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+            >
+              Volver
+            </button>
+          ) : null}
+          <span className="px-3 py-1 rounded-full bg-prRed/10 text-prRed text-xs font-semibold">
+            IA agrupa
+          </span>
+        </div>
       </div>
 
       <div className="flex-1 min-w-0 min-h-[360px]">
@@ -293,7 +350,14 @@ const TopicPanel: FC<Props> = ({ clusters }) => {
             data={data}
             dataKey="size"
             stroke="#fff"
-            content={(node) => <CustomTile {...(node as TileProps)} />}
+            content={(node) => (
+              <CustomTile
+                {...(node as TileProps)}
+                hideSubLabels={!activeClusterNode}
+                isClickable={!activeClusterNode && (node as TileProps).depth === 1}
+                onSelect={(name) => setActiveCluster(name)}
+              />
+            )}
             animationDuration={700}
           >
             <Tooltip cursor={{ fill: "rgba(11, 79, 156, 0.06)" }} content={renderTooltip} />
