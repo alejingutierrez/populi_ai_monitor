@@ -408,7 +408,6 @@ function App() {
         />
         <main className="p-4 md:p-6 space-y-6 overflow-y-auto">
           <SummaryGrid metrics={metrics} />
-          <ConversationTrends posts={filteredPosts} />
 
           <div className="grid gap-4 xl:grid-cols-2">
             <TimelineChart data={timelineData} />
@@ -416,6 +415,8 @@ function App() {
             <PostFeed posts={filteredPosts} />
             <TopicPanel clusters={clusterStats} />
           </div>
+
+          <ConversationTrends allPosts={posts} filters={filters} search={search} />
         </main>
       </div>
       <InsightModal isOpen={insightOpen} onClose={() => setInsightOpen(false)} />

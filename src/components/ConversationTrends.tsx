@@ -1,9 +1,12 @@
 import { ArrowTrendingDownIcon, ArrowTrendingUpIcon } from "@heroicons/react/24/outline";
 import { useMemo, useState, type FC } from "react";
 import type { SocialPost } from "../types";
+import type { Filters } from "./FilterBar";
 
 interface Props {
-  posts: SocialPost[];
+  allPosts: SocialPost[];
+  filters: Filters;
+  search: string;
 }
 
 type WindowKey = "24h" | "7d";
@@ -13,11 +16,12 @@ const hoursByWindow: Record<WindowKey, number> = {
   "7d": 24 * 7,
 };
 
-const ConversationTrends: FC<Props> = ({ posts }) => {
+const ConversationTrends: FC<Props> = ({ allPosts, filters, search }) => {
   const [windowKey, setWindowKey] = useState<WindowKey>("24h");
+  const isDateConstrained = filters.timeframe !== "todo" || Boolean(filters.dateFrom || filters.dateTo);
 
   const trendData = useMemo(() => {
-    if (!posts.length) {
+    if (!allPosts.length) {
       return {
         rangeLabel: "Sin datos",
         totalCurrent: 0,
@@ -33,17 +37,75 @@ const ConversationTrends: FC<Props> = ({ posts }) => {
       };
     }
 
-    const timestamps = posts.map((post) => new Date(post.timestamp).getTime());
-    const end = new Date(Math.max(...timestamps));
-    const hours = hoursByWindow[windowKey];
-    const windowMs = hours * 60 * 60 * 1000;
-    const start = new Date(end.getTime() - windowMs);
+    const now = new Date();
+    const allTimestamps = allPosts.map((post) => new Date(post.timestamp).getTime());
+    const maxTs = allTimestamps.length ? Math.max(...allTimestamps) : now.getTime();
+
+    const matchesNonDateFilters = (post: SocialPost) => {
+      if (filters.sentiment !== "todos" && post.sentiment !== filters.sentiment) return false;
+      if (filters.platform !== "todos" && post.platform !== filters.platform) return false;
+      if (filters.cluster !== "todos" && post.cluster !== filters.cluster) return false;
+      if (filters.subcluster !== "todos" && post.subcluster !== filters.subcluster) return false;
+      if (search) {
+        const q = search.toLowerCase();
+        const haystack =
+          `${post.content} ${post.author} ${post.handle} ${post.location.city} ${post.topic} ${post.cluster} ${post.subcluster} ${post.microcluster}`.toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      return true;
+    };
+
+    const allMatching = allPosts.filter(matchesNonDateFilters);
+    const matchingTimestamps = allMatching.map((post) => new Date(post.timestamp).getTime());
+    const matchingMin = matchingTimestamps.length ? Math.min(...matchingTimestamps) : maxTs;
+    const matchingMax = matchingTimestamps.length ? Math.max(...matchingTimestamps) : maxTs;
+
+    const timeframeHours: Record<Filters["timeframe"], number> = {
+      "24h": 24,
+      "72h": 72,
+      "7d": 24 * 7,
+      "1m": 24 * 30,
+      todo: 0,
+    };
+
+    const resolveRange = () => {
+      if (filters.dateFrom || filters.dateTo) {
+        const start = filters.dateFrom ? new Date(filters.dateFrom) : new Date(matchingMin);
+        const end = filters.dateTo
+          ? new Date(new Date(filters.dateTo).setHours(23, 59, 59, 999))
+          : new Date(matchingMax);
+        return { start, end, label: `${start.toLocaleDateString("es-PR", { month: "short", day: "numeric" })} — ${end.toLocaleDateString("es-PR", { month: "short", day: "numeric" })}` };
+      }
+
+      if (filters.timeframe !== "todo") {
+        const hours = timeframeHours[filters.timeframe];
+        const end = now;
+        const start = new Date(end.getTime() - hours * 60 * 60 * 1000);
+        return {
+          start,
+          end,
+          label: `${start.toLocaleDateString("es-PR", { month: "short", day: "numeric" })} — ${end.toLocaleDateString("es-PR", { month: "short", day: "numeric" })}`,
+        };
+      }
+
+      const hours = hoursByWindow[windowKey];
+      const end = new Date(maxTs);
+      const start = new Date(end.getTime() - hours * 60 * 60 * 1000);
+      return {
+        start,
+        end,
+        label: `${start.toLocaleDateString("es-PR", { month: "short", day: "numeric" })} — ${end.toLocaleDateString("es-PR", { month: "short", day: "numeric" })}`,
+      };
+    };
+
+    const { start, end, label } = resolveRange();
+    const windowMs = end.getTime() - start.getTime();
     const prevStart = new Date(start.getTime() - windowMs);
 
     const currentMap = new Map<string, number>();
     const prevMap = new Map<string, number>();
 
-    posts.forEach((post) => {
+    allMatching.forEach((post) => {
       const ts = new Date(post.timestamp).getTime();
       if (ts >= start.getTime() && ts <= end.getTime()) {
         currentMap.set(post.topic, (currentMap.get(post.topic) ?? 0) + 1);
@@ -65,20 +127,15 @@ const ConversationTrends: FC<Props> = ({ posts }) => {
     const topTopic = topics[0]?.name ?? "N/A";
     const maxCount = topics[0]?.current ?? 0;
 
-    const rangeLabel = `${start.toLocaleDateString("es-PR", {
-      month: "short",
-      day: "numeric",
-    })} — ${end.toLocaleDateString("es-PR", { month: "short", day: "numeric" })}`;
-
     return {
-      rangeLabel,
+      rangeLabel: label,
       totalCurrent,
       totalPrev,
       topTopic,
       topics,
       maxCount,
     };
-  }, [posts, windowKey]);
+  }, [allPosts, filters, search, windowKey]);
 
   const totalDelta =
     trendData.totalPrev === 0
@@ -96,20 +153,26 @@ const ConversationTrends: FC<Props> = ({ posts }) => {
           <p className="text-xs text-slate-500 mt-1">{trendData.rangeLabel}</p>
         </div>
         <div className="flex items-center gap-2">
-          {(["24h", "7d"] as WindowKey[]).map((key) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setWindowKey(key)}
-              className={`h-9 px-3 rounded-xl text-xs font-semibold border transition ${
-                windowKey === key
-                  ? "bg-prBlue text-white border-prBlue"
-                  : "bg-white text-slate-700 border-slate-200 hover:border-prBlue"
-              }`}
-            >
-              {key === "24h" ? "24h" : "7 días"}
-            </button>
-          ))}
+          {isDateConstrained ? (
+            <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600">
+              Filtro global activo
+            </span>
+          ) : (
+            (["24h", "7d"] as WindowKey[]).map((key) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setWindowKey(key)}
+                className={`h-9 px-3 rounded-xl text-xs font-semibold border transition ${
+                  windowKey === key
+                    ? "bg-prBlue text-white border-prBlue"
+                    : "bg-white text-slate-700 border-slate-200 hover:border-prBlue"
+                }`}
+              >
+                {key === "24h" ? "24h" : "7 días"}
+              </button>
+            ))
+          )}
         </div>
       </div>
 
