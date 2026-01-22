@@ -43,7 +43,7 @@ type TileProps = TreemapNode &
     height: number;
     depth?: number;
     parent?: TreemapNode;
-    hideSubLabels?: boolean;
+    labelDepth?: number;
     isClickable?: boolean;
     onSelect?: (name: string) => void;
   };
@@ -60,7 +60,7 @@ const CustomTile: FC<TileProps> = (props) => {
     negative,
     depth,
     children,
-    hideSubLabels,
+    labelDepth,
     isClickable,
     onSelect,
   } = props;
@@ -76,15 +76,12 @@ const CustomTile: FC<TileProps> = (props) => {
   const labelWeight = depth === 1 ? 700 : 600;
   const padding = depth === 1 ? 10 : 8;
   const radius = depth === 1 ? 14 : 10;
-  const allowLabel = !(hideSubLabels && depth && depth > 1);
+  const allowLabel = depth ? depth <= (labelDepth ?? 1) : true;
   const showMetrics = isLeaf && width > 110 && height > 60 && allowLabel;
   const showLabel = allowLabel && width > 40 && height > 24;
 
   return (
-    <g
-      onClick={isClickable ? () => onSelect?.(name) : undefined}
-      style={{ cursor: isClickable ? "pointer" : "default" }}
-    >
+    <g style={{ cursor: isClickable ? "pointer" : "default" }}>
       <rect
         x={x}
         y={y}
@@ -92,6 +89,8 @@ const CustomTile: FC<TileProps> = (props) => {
         height={height}
         rx={radius}
         ry={radius}
+        pointerEvents="all"
+        onClick={isClickable ? () => onSelect?.(name) : undefined}
         style={{
           fill: palette.fill,
           opacity: depth && depth > 1 ? 0.7 : 0.85,
@@ -188,10 +187,12 @@ const TopicPanel: FC<Props> = ({ clusters }) => {
     [activeCluster, clusters]
   );
 
-  const data = useMemo(
-    () => enrichNodes(activeClusterNode?.children ?? clusters, 1, 2),
-    [activeClusterNode, clusters]
-  );
+  const data = useMemo(() => {
+    if (activeClusterNode?.children?.length) {
+      return enrichNodes(activeClusterNode.children, 1, 2);
+    }
+    return enrichNodes(clusters, 1, 2);
+  }, [activeClusterNode, clusters]);
 
   const renderTooltip = ({ active, payload }: TooltipContentProps<number, string>) => {
     if (!active || !payload?.length) return null;
@@ -321,12 +322,17 @@ const TopicPanel: FC<Props> = ({ clusters }) => {
     ? `Subclusters y microclusters · ${activeClusterNode.name}`
     : "Clusters de conversación";
 
+  const headerHint = activeClusterNode
+    ? "Selecciona un subcluster para explorar el detalle del microcluster en tooltip."
+    : "Click en un cluster para ver su desglose.";
+
   return (
     <section className="card p-4 h-full flex flex-col min-h-[420px] min-w-0">
       <div className="card-header">
         <div>
           <p className="muted">Network Connections</p>
           <p className="h-section">{headerTitle}</p>
+          <p className="text-xs text-slate-500 mt-1">{headerHint}</p>
         </div>
         <div className="flex items-center gap-2">
           {activeClusterNode ? (
@@ -350,10 +356,17 @@ const TopicPanel: FC<Props> = ({ clusters }) => {
             data={data}
             dataKey="size"
             stroke="#fff"
+            onClick={(node) => {
+              const depth = (node as TreemapNode).depth ?? 0;
+              const name = (node as { name?: string }).name;
+              if (!activeClusterNode && depth === 1 && name) {
+                setActiveCluster(String(name));
+              }
+            }}
             content={(node) => (
               <CustomTile
                 {...(node as TileProps)}
-                hideSubLabels={!activeClusterNode}
+                labelDepth={activeClusterNode ? 1 : 1}
                 isClickable={!activeClusterNode && (node as TileProps).depth === 1}
                 onSelect={(name) => setActiveCluster(name)}
               />
