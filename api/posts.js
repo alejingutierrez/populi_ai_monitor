@@ -12,8 +12,8 @@ const parseCount = (value) => {
     return parseCount(value[0]);
   }
   const parsed = Number.parseInt(value, 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) return 2000;
-  return Math.min(parsed, 2000);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 7000;
+  return Math.min(parsed, 10000);
 };
 
 export default function handler(req, res) {
