@@ -281,7 +281,7 @@ const pick = (list, seed) => {
   return list[idx % list.length];
 };
 
-const LEGACY_COUNT = 400;
+const LEGACY_COUNT = 1000;
 const LEGACY_RANGE = {
   start: "2025-09-01T00:00:00Z",
   end: "2025-12-31T23:59:59Z",
@@ -308,7 +308,7 @@ const buildAuthor = (seed) => {
   return `${first} ${last}`;
 };
 
-export const generateMockPosts = (count = 1400) => {
+export const generateMockPosts = (count = 2000) => {
   const posts = [];
 
   const legacyCount = Math.min(count, LEGACY_COUNT);

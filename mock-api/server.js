@@ -15,9 +15,9 @@ app.use(cors());
 app.get("/health", (_req, res) => res.json({ status: "ok" }));
 
 app.get("/posts", async (req, res) => {
-  const count = Math.min(Number.parseInt(req.query?.count ?? "1400", 10) || 1400, 2000);
+  const count = Math.min(Number.parseInt(req.query?.count ?? "2000", 10) || 2000, 2000);
   if (!process.env.DATABASE_URL && !process.env.POSTGRES_URL && !process.env.POSTGRES_PRISMA_URL) {
-    const posts = generateMockPosts(1400).slice(0, count);
+    const posts = generateMockPosts(2000).slice(0, count);
     res.json(posts);
     return;
   }

@@ -8,7 +8,7 @@ const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, "..");
 const outputPath = path.join(rootDir, "db", "seed.sql");
 
-const posts = generateMockPosts(1400);
+const posts = generateMockPosts(2000);
 
 const escapeSql = (value) => String(value).replace(/'/g, "''");
 const sqlString = (value) => `'${escapeSql(value)}'`;

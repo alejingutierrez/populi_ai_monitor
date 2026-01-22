@@ -4,7 +4,7 @@ Dashboard prototipo para monitorear conversaciones sociales y noticias de Puerto
 
 ## Características
 - Layout profesional en React + TypeScript + Tailwind, colores bandera PR y acentos IA.
-- 1400 posts de ejemplo (400 Sep–Dic 2025 + 1000 Ene 1–20, 2026) con coordenadas en Puerto Rico, sentimiento, tema, plataforma y estructura de cluster/subcluster/microcluster.
+- 2000 posts de ejemplo (1000 Sep–Dic 2025 + 1000 Ene 1–20, 2026) con coordenadas en Puerto Rico, sentimiento, tema, plataforma y estructura de cluster/subcluster/microcluster.
 - MapLibre con puntos en tiempo real y densidad geográfica.
 - Filtros rápidos (sentimiento, plataforma, tema, horizonte temporal, cluster/subcluster/microcluster).
 - Paneles: métricas, timeline, feed priorizado, treemap jerárquico y tendencias de conversación.
@@ -44,7 +44,7 @@ docker-compose up --build
 
 ## Estructura
 - `src/` componentes del dashboard (sidebar, header, filtros, mapa, gráficos).
-- `src/data/localPosts.ts` datos mock (1400 posts) con generador determinista.
+- `src/data/localPosts.ts` datos mock (2000 posts) con generador determinista.
 - `mock-api/` mock API Express con el mismo generador de posts.
 - `api/` funciones serverless para Vercel.
 - `Dockerfile` (frontend) y `mock-api/Dockerfile` (API); `docker-compose.yml` para orquestar.

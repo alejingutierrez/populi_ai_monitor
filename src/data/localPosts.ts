@@ -293,7 +293,7 @@ const pick = <T,>(list: T[], seed: number) => {
   return list[idx % list.length];
 };
 
-const LEGACY_COUNT = 400;
+const LEGACY_COUNT = 1000;
 const LEGACY_RANGE = {
   start: "2025-09-01T00:00:00Z",
   end: "2025-12-31T23:59:59Z",
@@ -321,7 +321,7 @@ const buildAuthor = (seed: number) => {
   return `${first} ${last}`;
 };
 
-export const generateMockPosts = (count = 1400): SocialPost[] => {
+export const generateMockPosts = (count = 2000): SocialPost[] => {
   const posts: SocialPost[] = [];
 
   const legacyCount = Math.min(count, LEGACY_COUNT);
@@ -388,4 +388,4 @@ export const generateMockPosts = (count = 1400): SocialPost[] => {
   return posts;
 };
 
-export const localPosts: SocialPost[] = generateMockPosts(1400);
+export const localPosts: SocialPost[] = generateMockPosts(2000);
