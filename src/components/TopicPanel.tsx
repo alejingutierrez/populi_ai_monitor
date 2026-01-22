@@ -15,6 +15,7 @@ export interface ClusterStat {
   children?: ClusterStat[];
   size?: number;
   depth?: number;
+  [key: string]: unknown;
 }
 
 interface Props {
