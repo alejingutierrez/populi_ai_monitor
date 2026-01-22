@@ -1,5 +1,5 @@
 import { ArrowTrendingDownIcon, ArrowTrendingUpIcon } from "@heroicons/react/24/outline";
-import { useMemo, useState, type FC } from "react";
+import { useMemo, type FC } from "react";
 import type { SocialPost } from "../types";
 import type { Filters } from "./FilterBar";
 
@@ -9,17 +9,7 @@ interface Props {
   search: string;
 }
 
-type WindowKey = "24h" | "7d";
-
-const hoursByWindow: Record<WindowKey, number> = {
-  "24h": 24,
-  "7d": 24 * 7,
-};
-
 const ConversationTrends: FC<Props> = ({ allPosts, filters, search }) => {
-  const [windowKey, setWindowKey] = useState<WindowKey>("24h");
-  const isDateConstrained = filters.timeframe !== "todo" || Boolean(filters.dateFrom || filters.dateTo);
-
   const trendData = useMemo(() => {
     if (!allPosts.length) {
       return {
@@ -87,14 +77,16 @@ const ConversationTrends: FC<Props> = ({ allPosts, filters, search }) => {
           label: `${start.toLocaleDateString("es-PR", { month: "short", day: "numeric" })} — ${end.toLocaleDateString("es-PR", { month: "short", day: "numeric" })}`,
         };
       }
-
-      const hours = hoursByWindow[windowKey];
-      const end = new Date(maxTs);
-      const start = new Date(end.getTime() - hours * 60 * 60 * 1000);
       return {
-        start,
-        end,
-        label: `${start.toLocaleDateString("es-PR", { month: "short", day: "numeric" })} — ${end.toLocaleDateString("es-PR", { month: "short", day: "numeric" })}`,
+        start: new Date(matchingMin),
+        end: new Date(matchingMax),
+        label: `${new Date(matchingMin).toLocaleDateString("es-PR", {
+          month: "short",
+          day: "numeric",
+        })} — ${new Date(matchingMax).toLocaleDateString("es-PR", {
+          month: "short",
+          day: "numeric",
+        })}`,
       };
     };
 
@@ -135,7 +127,7 @@ const ConversationTrends: FC<Props> = ({ allPosts, filters, search }) => {
       topics,
       maxCount,
     };
-  }, [allPosts, filters, search, windowKey]);
+  }, [allPosts, filters, search]);
 
   const totalDelta =
     trendData.totalPrev === 0
@@ -153,26 +145,9 @@ const ConversationTrends: FC<Props> = ({ allPosts, filters, search }) => {
           <p className="text-xs text-slate-500 mt-1">{trendData.rangeLabel}</p>
         </div>
         <div className="flex items-center gap-2">
-          {isDateConstrained ? (
-            <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600">
-              Filtro global activo
-            </span>
-          ) : (
-            (["24h", "7d"] as WindowKey[]).map((key) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setWindowKey(key)}
-                className={`h-9 px-3 rounded-xl text-xs font-semibold border transition ${
-                  windowKey === key
-                    ? "bg-prBlue text-white border-prBlue"
-                    : "bg-white text-slate-700 border-slate-200 hover:border-prBlue"
-                }`}
-              >
-                {key === "24h" ? "24h" : "7 días"}
-              </button>
-            ))
-          )}
+          <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600">
+            Ventana global
+          </span>
         </div>
       </div>
 
@@ -204,7 +179,7 @@ const ConversationTrends: FC<Props> = ({ allPosts, filters, search }) => {
               Comparativa previa: {trendData.totalPrev.toLocaleString("es-PR")} menciones
             </p>
             <p>
-              Ventana analizada: {windowKey === "24h" ? "últimas 24 horas" : "últimos 7 días"}
+              Ventana analizada: {trendData.rangeLabel}
             </p>
           </div>
         </div>
