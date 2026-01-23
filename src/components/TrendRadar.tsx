@@ -497,9 +497,6 @@ const TrendRadar: FC<Props> = ({ posts, filters, timelineData }) => {
     return tags.slice(0, 3)
   }, [momentum, negativeShare, totalDeltaBadge.delta, trendData.riskScore])
 
-  const maxTopicCurrent = trendData.topTopics[0]?.current ?? 0
-  const maxClusterCurrent = trendData.topClusters[0]?.current ?? 0
-
   return (
     <section className="card p-4">
       <div className="card-header items-start gap-4 flex-col lg:flex-row lg:items-center">
@@ -519,7 +516,7 @@ const TrendRadar: FC<Props> = ({ posts, filters, timelineData }) => {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.3fr_1fr]">
-        <div className="space-y-4">
+        <div className="space-y-4 min-w-0">
           <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-4 shadow-inner space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -641,162 +638,59 @@ const TrendRadar: FC<Props> = ({ posts, filters, timelineData }) => {
             </div>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-2">
-            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-              <p className="text-xs font-semibold text-slate-600 uppercase tracking-[0.16em]">
-                Sentimiento y riesgo
-              </p>
-              <div className="mt-3 h-2.5 rounded-full bg-slate-100 overflow-hidden">
-                <div
-                  className="h-full bg-emerald-500"
-                  style={{ width: `${sentimentTotal ? (trendData.sentimentCurrent.positivo / sentimentTotal) * 100 : 0}%` }}
-                />
-                <div
-                  className="h-full bg-slate-300"
-                  style={{ width: `${sentimentTotal ? (trendData.sentimentCurrent.neutral / sentimentTotal) * 100 : 0}%` }}
-                />
-                <div
-                  className="h-full bg-rose-500"
-                  style={{ width: `${sentimentTotal ? (trendData.sentimentCurrent.negativo / sentimentTotal) * 100 : 0}%` }}
-                />
-              </div>
-              <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-semibold">
-                <span className="rounded-full bg-emerald-50 px-2 py-1 text-emerald-700">
-                  Positivo {sentimentTotal ? Math.round((trendData.sentimentCurrent.positivo / sentimentTotal) * 100) : 0}%
-                </span>
-                <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-600">
-                  Neutral {sentimentTotal ? Math.round((trendData.sentimentCurrent.neutral / sentimentTotal) * 100) : 0}%
-                </span>
-                <span className="rounded-full bg-rose-50 px-2 py-1 text-rose-700">
-                  Negativo {sentimentTotal ? Math.round((trendData.sentimentCurrent.negativo / sentimentTotal) * 100) : 0}%
-                </span>
-              </div>
-              <div className="mt-3 text-[11px] text-slate-500 space-y-1">
-                <p>
-                  Negatividad actual: {negativeShare.toFixed(0)}% ({negativeDelta >= 0 ? '+' : ''}
-                  {negativeDelta.toFixed(0)} pp vs previa)
-                </p>
-                <p>Índice sentimiento: {trendData.sentimentIndex.toFixed(1)} / 100</p>
-                <p>Riesgo reputacional: {trendData.riskScore.toFixed(1)} / 100</p>
-                {trendData.riskTopics[0] ? (
-                  <p>
-                    Tema más negativo: {trendData.riskTopics[0].name} ({trendData.riskTopics[0].negativeShare.toFixed(0)}%)
-                  </p>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-              <p className="text-xs font-semibold text-slate-600 uppercase tracking-[0.16em]">
-                Canales clave
-              </p>
-              <div className="mt-3 space-y-3">
-                <div className="space-y-2">
-                  <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.16em]">Plataformas</p>
-                  {trendData.platformMix.map((item) => (
-                    <div key={item.name} className="flex items-center justify-between text-xs text-slate-600">
-                      <span className="font-semibold text-slate-700">{item.name}</span>
-                      <span>{item.share.toFixed(0)}%</span>
-                    </div>
-                  ))}
-                  {!trendData.platformMix.length ? (
-                    <p className="text-xs text-slate-500">Sin datos de plataformas.</p>
-                  ) : null}
-                </div>
-                <div className="space-y-2">
-                  <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.16em]">Formatos</p>
-                  <div className="flex flex-wrap gap-2 text-[11px] font-semibold">
-                    {trendData.mediaMix.slice(0, 3).map((item) => (
-                      <span
-                        key={item.name}
-                        className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-slate-600"
-                      >
-                        {item.name} · {item.share.toFixed(0)}%
-                      </span>
-                    ))}
-                    {!trendData.mediaMix.length ? (
-                      <span className="text-xs text-slate-500">Sin datos de formatos.</span>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
           <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
             <p className="text-xs font-semibold text-slate-600 uppercase tracking-[0.16em]">
-              Impulsores principales
+              Sentimiento y riesgo
             </p>
-            <div className="mt-3 grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.16em]">Top temas</p>
-                {trendData.topTopics.map((topic) => (
-                  <div key={topic.name} className="space-y-1">
-                    <div className="flex items-center justify-between text-xs font-semibold text-ink">
-                      <span>{topic.name}</span>
-                      <span className="text-[11px] text-slate-500">
-                        {fullFormatter.format(topic.current)}
-                      </span>
-                    </div>
-                    <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-gradient-to-r from-prBlue to-prRed"
-                        style={{ width: `${maxTopicCurrent ? (topic.current / maxTopicCurrent) * 100 : 0}%` }}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between text-[11px] text-slate-500">
-                      <span>{fullFormatter.format(topic.previous)} previas</span>
-                      <span className={topic.deltaPct >= 0 ? 'text-emerald-600' : 'text-rose-600'}>
-                        {topic.deltaPct >= 0 ? '+' : ''}
-                        {topic.deltaPct.toFixed(0)}%
-                      </span>
-                    </div>
-                  </div>
-                ))}
-                {!trendData.topTopics.length ? (
-                  <p className="text-xs text-slate-500">Sin datos de temas.</p>
-                ) : null}
-              </div>
-              <div className="space-y-2">
-                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.16em]">Top clusters</p>
-                {trendData.topClusters.map((cluster) => (
-                  <div key={cluster.name} className="space-y-1">
-                    <div className="flex items-center justify-between text-xs font-semibold text-ink">
-                      <span>{cluster.name}</span>
-                      <span className="text-[11px] text-slate-500">
-                        {fullFormatter.format(cluster.current)}
-                      </span>
-                    </div>
-                    <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-gradient-to-r from-prBlue to-prRed"
-                        style={{ width: `${maxClusterCurrent ? (cluster.current / maxClusterCurrent) * 100 : 0}%` }}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between text-[11px] text-slate-500">
-                      <span>{fullFormatter.format(cluster.previous)} previas</span>
-                      <span className={cluster.deltaPct >= 0 ? 'text-emerald-600' : 'text-rose-600'}>
-                        {cluster.deltaPct >= 0 ? '+' : ''}
-                        {cluster.deltaPct.toFixed(0)}%
-                      </span>
-                    </div>
-                  </div>
-                ))}
-                {!trendData.topClusters.length ? (
-                  <p className="text-xs text-slate-500">Sin datos de clusters.</p>
-                ) : null}
-              </div>
+            <div className="mt-3 h-2.5 rounded-full bg-slate-100 overflow-hidden">
+              <div
+                className="h-full bg-emerald-500"
+                style={{ width: `${sentimentTotal ? (trendData.sentimentCurrent.positivo / sentimentTotal) * 100 : 0}%` }}
+              />
+              <div
+                className="h-full bg-slate-300"
+                style={{ width: `${sentimentTotal ? (trendData.sentimentCurrent.neutral / sentimentTotal) * 100 : 0}%` }}
+              />
+              <div
+                className="h-full bg-rose-500"
+                style={{ width: `${sentimentTotal ? (trendData.sentimentCurrent.negativo / sentimentTotal) * 100 : 0}%` }}
+              />
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-semibold">
+              <span className="rounded-full bg-emerald-50 px-2 py-1 text-emerald-700">
+                Positivo {sentimentTotal ? Math.round((trendData.sentimentCurrent.positivo / sentimentTotal) * 100) : 0}%
+              </span>
+              <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-600">
+                Neutral {sentimentTotal ? Math.round((trendData.sentimentCurrent.neutral / sentimentTotal) * 100) : 0}%
+              </span>
+              <span className="rounded-full bg-rose-50 px-2 py-1 text-rose-700">
+                Negativo {sentimentTotal ? Math.round((trendData.sentimentCurrent.negativo / sentimentTotal) * 100) : 0}%
+              </span>
+            </div>
+            <div className="mt-3 text-[11px] text-slate-500 space-y-1">
+              <p>
+                Negatividad actual: {negativeShare.toFixed(0)}% ({negativeDelta >= 0 ? '+' : ''}
+                {negativeDelta.toFixed(0)} pp vs previa)
+              </p>
+              <p>Índice sentimiento: {trendData.sentimentIndex.toFixed(1)} / 100</p>
+              <p>Riesgo reputacional: {trendData.riskScore.toFixed(1)} / 100</p>
+              {trendData.riskTopics[0] ? (
+                <p>
+                  Tema más negativo: {trendData.riskTopics[0].name} ({trendData.riskTopics[0].negativeShare.toFixed(0)}%)
+                </p>
+              ) : null}
             </div>
           </div>
+
         </div>
 
-        <div className="space-y-3">
-          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1 min-w-0">
+          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm min-w-0">
             <div className="flex items-center gap-2">
               <SparklesIcon className="h-4 w-4 text-prBlue" />
               <p className="text-xs font-semibold text-slate-600 uppercase tracking-[0.16em]">IA observa</p>
             </div>
-            <ul className="mt-2 space-y-2 text-xs text-slate-600">
+            <ul className="mt-2 space-y-2 text-xs text-slate-600 leading-relaxed">
               {insights.map((item) => (
                 <li key={item}>{item}</li>
               ))}
@@ -811,7 +705,43 @@ const TrendRadar: FC<Props> = ({ posts, filters, timelineData }) => {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm min-w-0">
+            <p className="text-xs font-semibold text-slate-600 uppercase tracking-[0.16em]">
+              Canales clave
+            </p>
+            <div className="mt-3 space-y-3">
+              <div className="space-y-2">
+                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.16em]">Plataformas</p>
+                {trendData.platformMix.map((item) => (
+                  <div key={item.name} className="flex items-center justify-between gap-2 text-xs text-slate-600 min-w-0">
+                    <span className="font-semibold text-slate-700 truncate" title={item.name}>{item.name}</span>
+                    <span className="shrink-0">{item.share.toFixed(0)}%</span>
+                  </div>
+                ))}
+                {!trendData.platformMix.length ? (
+                  <p className="text-xs text-slate-500">Sin datos de plataformas.</p>
+                ) : null}
+              </div>
+              <div className="space-y-2">
+                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.16em]">Formatos</p>
+                <div className="flex flex-wrap gap-2 text-[11px] font-semibold">
+                  {trendData.mediaMix.slice(0, 3).map((item) => (
+                    <span
+                      key={item.name}
+                      className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-slate-600"
+                    >
+                      {item.name} · {item.share.toFixed(0)}%
+                    </span>
+                  ))}
+                  {!trendData.mediaMix.length ? (
+                    <span className="text-xs text-slate-500">Sin datos de formatos.</span>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm min-w-0">
             <div className="flex items-center gap-2">
               <MapPinIcon className="h-4 w-4 text-prBlue" />
               <p className="text-xs font-semibold text-slate-600 uppercase tracking-[0.16em]">
@@ -820,9 +750,9 @@ const TrendRadar: FC<Props> = ({ posts, filters, timelineData }) => {
             </div>
             <div className="mt-3 space-y-2">
               {trendData.cityMix.map((city) => (
-                <div key={city.name} className="flex items-center justify-between text-xs text-slate-600">
-                  <span className="font-semibold text-slate-700">{city.name}</span>
-                  <span>
+                <div key={city.name} className="flex items-center justify-between gap-2 text-xs text-slate-600 min-w-0">
+                  <span className="font-semibold text-slate-700 truncate" title={city.name}>{city.name}</span>
+                  <span className="shrink-0">
                     {city.share.toFixed(0)}% · {fullFormatter.format(city.current)}
                   </span>
                 </div>
@@ -833,7 +763,7 @@ const TrendRadar: FC<Props> = ({ posts, filters, timelineData }) => {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm min-w-0">
             <div className="flex items-center gap-2">
               <UserGroupIcon className="h-4 w-4 text-prBlue" />
               <p className="text-xs font-semibold text-slate-600 uppercase tracking-[0.16em]">
@@ -843,13 +773,13 @@ const TrendRadar: FC<Props> = ({ posts, filters, timelineData }) => {
             <div className="mt-3 space-y-2">
               {trendData.authors.map((author) => (
                 <div key={author.name} className="text-xs text-slate-600">
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold text-slate-700">{author.name}</span>
-                    <span>{formatCompact(author.reach)} alcance</span>
+                  <div className="flex items-center justify-between gap-2 min-w-0">
+                    <span className="font-semibold text-slate-700 truncate" title={author.name}>{author.name}</span>
+                    <span className="shrink-0">{formatCompact(author.reach)} alcance</span>
                   </div>
-                  <div className="flex items-center justify-between text-[11px] text-slate-500">
-                    <span>{author.posts} posts · {author.engagementRate.toFixed(1)}% engagement</span>
-                    <span>{formatCompact(author.engagement)} interacciones</span>
+                  <div className="flex items-center justify-between gap-2 text-[11px] text-slate-500 min-w-0">
+                    <span className="truncate">{author.posts} posts · {author.engagementRate.toFixed(1)}% engagement</span>
+                    <span className="shrink-0">{formatCompact(author.engagement)} interacciones</span>
                   </div>
                 </div>
               ))}
