@@ -124,11 +124,11 @@ const TopicPanel: FC<Props> = ({ clusters }) => {
     } satisfies ClusterStat;
   }, [activeNode, clusters, normalizedPath]);
 
-  const tiles = useMemo(() => {
-    if (!bounds.width || !bounds.height) return [] as TreemapNode[];
+  const tiles = useMemo<TreemapNode[]>(() => {
+    if (!bounds.width || !bounds.height) return [];
     const root = hierarchy<ClusterStat>(treeRoot)
-      .sum((d) => d.volume ?? 0)
-      .sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
+      .sum((d: ClusterStat) => d.volume ?? 0)
+      .sort((a: TreemapNode, b: TreemapNode) => (b.value ?? 0) - (a.value ?? 0));
 
     const padding = clamp(Math.min(bounds.width, bounds.height) * 0.03, 8, 18);
     const innerPadding = clamp(padding * 0.55, 4, 12);
@@ -333,7 +333,7 @@ const TopicPanel: FC<Props> = ({ clusters }) => {
         >
           {bounds.width && bounds.height ? (
             <svg width={bounds.width} height={bounds.height}>
-              {tiles.map((node, index) => {
+              {tiles.map((node: TreemapNode, index: number) => {
                 const width = Math.max(0, node.x1 - node.x0);
                 const height = Math.max(0, node.y1 - node.y0);
                 if (width < 6 || height < 6) return null;
