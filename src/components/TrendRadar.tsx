@@ -272,7 +272,7 @@ const TrendRadar: FC<Props> = ({ posts, filters, timelineData }) => {
                 {trendData.topAuthors.map((author) => (
                   <div key={author.name} className="flex items-center justify-between text-xs text-slate-600">
                     <span className="font-semibold text-slate-700">{author.name}</span>
-                    <span>{author.count.toLocaleString(\"es-PR\")} menciones</span>
+                    <span>{author.count.toLocaleString("es-PR")} menciones</span>
                   </div>
                 ))}
                 {!trendData.topAuthors.length ? (

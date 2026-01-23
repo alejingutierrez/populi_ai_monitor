@@ -9,6 +9,8 @@ Mantén las historias organizadas por área. Añade una nueva historia por solic
   - Criterios: nueva vista navegable desde el sidebar; componentes implementados con datos actuales; layout responsive consistente con Overview.
 - US-2026-01-23-006 — Como operador, quiero mejoras de UX en Feed Stream (filtros rápidos, densidad, alertas y resúmenes) para acelerar la revisión diaria.
   - Criterios: mejoras aplicadas solo en componentes existentes; sin nuevos componentes.
+- US-2026-01-23-007 — Como desarrollador, quiero corregir el error de build en TrendRadar para restaurar el deploy en Vercel.
+  - Criterios: build sin error TS1127/TS1381; deploy vuelve a Ready.
 - US-2026-01-23-005 — Como desarrollador, quiero corregir el tipado de navegación para evitar fallos de build en Vercel.
   - Criterios: tipos alineados entre Sidebar y App; build sin error de TS2322.
 
