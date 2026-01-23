@@ -14,3 +14,4 @@ Estados sugeridos: Planned, In progress, Blocked, Done.
 | US-2026-01-23-008 | Done | 2026-01-23 | Feed Stream usa cards de métricas de Overview. |
 | US-2026-01-23-009 | Done | 2026-01-23 | Pulso operativo enriquecido y responsive mejorado. |
 | US-2026-01-23-010 | Done | 2026-01-23 | Feed Stream vuelve a SummaryGrid. |
+| US-2026-01-23-011 | Done | 2026-01-23 | Trend Radar enriquecido y más inteligente; pendiente revisar logs de Vercel (sin acceso). |

@@ -17,6 +17,8 @@ Mantén las historias organizadas por área. Añade una nueva historia por solic
   - Criterios: Pulso operativo actualizado con mas informacion y layout responsive mejorado.
 - US-2026-01-23-010 — Como operador, quiero reemplazar Pulso operativo por las cards de métricas del overview en Feed Stream.
   - Criterios: Feed Stream muestra SummaryGrid en lugar de Pulso operativo.
+- US-2026-01-23-011 — Como analista, quiero un Trend Radar más inteligente, con más métricas y responsive para análisis útil en Feed Stream.
+  - Criterios: radar incluye métricas comparativas (volumen, alcance, engagement, riesgo), señales IA, mix de canales/formatos, hotspots y autores; layout responsive mejorado.
 - US-2026-01-23-005 — Como desarrollador, quiero corregir el tipado de navegación para evitar fallos de build en Vercel.
   - Criterios: tipos alineados entre Sidebar y App; build sin error de TS2322.
 
