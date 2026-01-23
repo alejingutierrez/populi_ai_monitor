@@ -13,6 +13,8 @@ Mantén las historias organizadas por área. Añade una nueva historia por solic
   - Criterios: build sin error TS1127/TS1381; deploy vuelve a Ready.
 - US-2026-01-23-008 — Como operador, quiero reemplazar el bloque Pulso operativo por las tarjetas de métricas del overview en Feed Stream.
   - Criterios: se elimina Pulso operativo y se usan las cards de `SummaryGrid` en Feed Stream.
+- US-2026-01-23-009 — Como operador, quiero enriquecer y mejorar el responsive del Pulso operativo para tener mas contexto y analisis en Feed Stream.
+  - Criterios: Pulso operativo actualizado con mas informacion y layout responsive mejorado.
 - US-2026-01-23-005 — Como desarrollador, quiero corregir el tipado de navegación para evitar fallos de build en Vercel.
   - Criterios: tipos alineados entre Sidebar y App; build sin error de TS2322.
 

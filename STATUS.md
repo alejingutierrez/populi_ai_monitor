@@ -12,3 +12,4 @@ Estados sugeridos: Planned, In progress, Blocked, Done.
 | US-2026-01-23-006 | Done | 2026-01-23 | Mejoras UX en componentes existentes de Feed Stream. |
 | US-2026-01-23-007 | Done | 2026-01-23 | Fix de build TS1127/TS1381 en TrendRadar. |
 | US-2026-01-23-008 | Done | 2026-01-23 | Feed Stream usa cards de métricas de Overview. |
+| US-2026-01-23-009 | Done | 2026-01-23 | Pulso operativo enriquecido y responsive mejorado. |

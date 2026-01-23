@@ -5,7 +5,7 @@ import type { SocialPost, TimelineDatum } from "../types";
 import FeedStreamList from "../components/FeedStreamList";
 import TrendRadar from "../components/TrendRadar";
 import SubConversationExplorer from "../components/SubConversationExplorer";
-import SummaryGrid from "../components/SummaryGrid";
+import StreamPulse from "../components/StreamPulse";
 
 interface Props {
   metrics: {
@@ -42,7 +42,7 @@ const FeedStreamPage: FC<Props> = ({
   filters,
 }) => (
   <main className="p-4 md:p-6 space-y-6 overflow-y-auto">
-    <SummaryGrid metrics={metrics} />
+    <StreamPulse posts={filteredPosts} metrics={metrics} />
 
     <div className="grid gap-4 xl:grid-cols-[1.5fr_1fr]">
       <FeedStreamList posts={filteredPosts} />
