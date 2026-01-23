@@ -3,6 +3,7 @@ import {
   hierarchy,
   treemap,
   treemapSquarify,
+  type HierarchyNode,
   type HierarchyRectangularNode,
 } from "d3-hierarchy";
 
@@ -124,23 +125,26 @@ const TopicPanel: FC<Props> = ({ clusters }) => {
     } satisfies ClusterStat;
   }, [activeNode, clusters, normalizedPath]);
 
-  const tiles = useMemo<TreemapNode[]>(() => {
+  const tiles = useMemo((): TreemapNode[] => {
     if (!bounds.width || !bounds.height) return [];
     const root = hierarchy<ClusterStat>(treeRoot)
       .sum((d: ClusterStat) => d.volume ?? 0)
-      .sort((a: TreemapNode, b: TreemapNode) => (b.value ?? 0) - (a.value ?? 0));
+      .sort(
+        (a: HierarchyNode<ClusterStat>, b: HierarchyNode<ClusterStat>) =>
+          (b.value ?? 0) - (a.value ?? 0)
+      );
 
     const padding = clamp(Math.min(bounds.width, bounds.height) * 0.03, 8, 18);
     const innerPadding = clamp(padding * 0.55, 4, 12);
 
-    treemap<ClusterStat>()
+    const layoutRoot = treemap<ClusterStat>()
       .size([bounds.width, bounds.height])
       .paddingInner(innerPadding)
       .paddingOuter(padding)
       .tile(treemapSquarify)
       .round(true)(root);
 
-    return root.children ?? [];
+    return layoutRoot.children ?? [];
   }, [bounds.height, bounds.width, treeRoot]);
 
   const headerTitle =
