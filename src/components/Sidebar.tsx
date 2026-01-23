@@ -17,15 +17,17 @@ const navItems = [
   { label: "Geo Tagging", icon: MapIcon },
   { label: "Network Connections", icon: AdjustmentsHorizontalIcon },
   { label: "Alerts", icon: BellAlertIcon },
-];
+] as const;
+
+export type NavLabel = (typeof navItems)[number]["label"];
 
 interface Props {
   isOpen?: boolean;
   onClose?: () => void;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
-  activeItem?: string;
-  onNavigate?: (label: string) => void;
+  activeItem?: NavLabel;
+  onNavigate?: (label: NavLabel) => void;
 }
 
 const Sidebar: FC<Props> = ({

@@ -33,7 +33,7 @@ No dedicated test runner. Validate with `npm run lint` and `npm run build`. If y
 - Every request must add/update a user story organized by area in `USER_STORIES.md` (Frontend, Backend/API, Data/DB, Infra/Deploy, Docs/Process).
 - Always update `STATUS.md` with progress for the active story.
 - Review `USER_STORIES.md` and `STATUS.md` at task start for full context.
-- When a story is closed, push the branch and verify automatic deploy logs in Vercel.
+- Always review the automatic deploy logs in Vercel after each push or task completion.
 
 ## Database (Neon/Postgres) Overview
 Neon uses Postgres with `sentiment` and `media_type` enums. Core tables:

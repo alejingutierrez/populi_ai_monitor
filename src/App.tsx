@@ -3,7 +3,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { type Filters } from "./components/FilterBar";
 import Header from "./components/Header";
 import InsightModal from "./components/InsightModal";
-import Sidebar from "./components/Sidebar";
+import Sidebar, { type NavLabel } from "./components/Sidebar";
 import type { ClusterStat } from "./components/TopicPanel";
 import ComingSoon from "./components/ComingSoon";
 import { localPosts } from "./data/localPosts";
@@ -127,9 +127,7 @@ function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [insightOpen, setInsightOpen] = useState(false);
   const [apiBase] = useState(resolveApiBase());
-  const [activeNav, setActiveNav] = useState<
-    "Overview" | "Feed Stream" | "Geo Tagging" | "Network Connections" | "Alerts"
-  >("Overview");
+  const [activeNav, setActiveNav] = useState<NavLabel>("Overview");
 
   const pageMeta = {
     Overview: {

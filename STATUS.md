@@ -7,3 +7,5 @@ Estados sugeridos: Planned, In progress, Blocked, Done.
 | US-2026-01-23-001 | Done | 2026-01-23 | Docs y proceso actualizados. |
 | US-2026-01-23-002 | Done | 2026-01-23 | Esquema visual y definición de componentes. |
 | US-2026-01-23-003 | Done | 2026-01-23 | Vista Feed Stream construida con 4 componentes. |
+| US-2026-01-23-004 | Done | 2026-01-23 | Instrucción de revisar logs Vercel siempre. |
+| US-2026-01-23-005 | Done | 2026-01-23 | Fix de tipado para navegación en Sidebar/App. |
