@@ -48,6 +48,8 @@ interface Props {
   timelineData: TimelineDatum[]
 }
 
+type NumericTimelineKey = Exclude<keyof TimelineDatum, 'time'>
+
 const compactFormatter = new Intl.NumberFormat('es-PR', {
   notation: 'compact',
   maximumFractionDigits: 1,
@@ -390,9 +392,9 @@ const TrendRadar: FC<Props> = ({ posts, filters, timelineData }) => {
     const mid = Math.floor(slice.length / 2)
     const prev = slice.slice(0, mid)
     const curr = slice.slice(mid)
-    const sum = (arr: TimelineDatum[], key: keyof TimelineDatum) =>
+    const sum = (arr: TimelineDatum[], key: NumericTimelineKey) =>
       arr.reduce((acc, item) => acc + item[key], 0)
-    const avg = (arr: TimelineDatum[], key: keyof TimelineDatum) =>
+    const avg = (arr: TimelineDatum[], key: NumericTimelineKey) =>
       arr.reduce((acc, item) => acc + item[key], 0) / (arr.length || 1)
 
     const volumeCurr = sum(curr, 'publicaciones')
