@@ -10,7 +10,8 @@ import {
   TrashIcon,
 } from "@heroicons/react/24/outline";
 import { motion, useReducedMotion } from "framer-motion";
-import { useEffect, useState, type FC } from "react";
+import { useEffect, useRef, useState, type FC } from "react";
+import { createPortal } from "react-dom";
 import type { SocialPost } from "../types";
 
 interface Props {
@@ -34,6 +35,9 @@ const PostFeed: FC<Props> = ({ posts }) => {
   const baseCount = isSmall ? 8 : 12;
   const [visibleCount, setVisibleCount] = useState(baseCount);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [menuAnchor, setMenuAnchor] = useState<DOMRect | null>(null);
+  const scrollAreaRef = useRef<HTMLDivElement | null>(null);
+  const actionButtonRefs = useRef(new Map<string, HTMLButtonElement>());
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -58,14 +62,63 @@ const PostFeed: FC<Props> = ({ posts }) => {
       const target = event.target as HTMLElement | null;
       if (!target) return;
       if (target.closest(`[data-post-id="${openMenuId}"]`)) return;
+      if (target.closest(`[data-menu-id="${openMenuId}"]`)) return;
       setOpenMenuId(null);
     };
     window.addEventListener("click", handleClick);
     return () => window.removeEventListener("click", handleClick);
   }, [openMenuId]);
 
+  useEffect(() => {
+    if (!openMenuId || typeof window === "undefined") {
+      setMenuAnchor(null);
+      return;
+    }
+    let raf = 0;
+    const updateAnchor = () => {
+      const anchor = actionButtonRefs.current.get(openMenuId);
+      if (!anchor) {
+        setMenuAnchor(null);
+        return;
+      }
+      setMenuAnchor(anchor.getBoundingClientRect());
+    };
+    const handleReflow = () => {
+      if (raf) cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(updateAnchor);
+    };
+    updateAnchor();
+    const scroller = scrollAreaRef.current;
+    window.addEventListener("resize", handleReflow);
+    scroller?.addEventListener("scroll", handleReflow, { passive: true });
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      window.removeEventListener("resize", handleReflow);
+      scroller?.removeEventListener("scroll", handleReflow);
+    };
+  }, [openMenuId]);
+
   const items = posts.slice(0, visibleCount);
   const canShowMore = posts.length > visibleCount;
+
+  const menuWidth = 208;
+  const menuHeight = 250;
+  const viewportWidth = typeof window === "undefined" ? 0 : window.innerWidth;
+  const viewportHeight = typeof window === "undefined" ? 0 : window.innerHeight;
+  const canRenderMenu =
+    openMenuId && menuAnchor && typeof document !== "undefined";
+  const menuTop = menuAnchor
+    ? menuAnchor.bottom + menuHeight > viewportHeight &&
+      menuAnchor.top - menuHeight > 12
+      ? menuAnchor.top - menuHeight - 8
+      : menuAnchor.bottom + 8
+    : 0;
+  const menuLeft = menuAnchor
+    ? Math.min(
+        Math.max(12, menuAnchor.right - menuWidth),
+        Math.max(12, viewportWidth - menuWidth - 12)
+      )
+    : 0;
 
   return (
     <section className="card p-4 h-full min-w-0">
@@ -82,7 +135,10 @@ const PostFeed: FC<Props> = ({ posts }) => {
         </span>
       </div>
 
-      <div className="space-y-3 overflow-y-auto max-h-[45vh] md:max-h-[560px] pr-1">
+      <div
+        ref={scrollAreaRef}
+        className="space-y-3 overflow-y-auto max-h-[45vh] md:max-h-[560px] pr-1"
+      >
         {items.map((post, idx) => (
           <motion.article
             key={post.id}
@@ -130,6 +186,13 @@ const PostFeed: FC<Props> = ({ posts }) => {
                   onClick={() =>
                     setOpenMenuId((current) => (current === post.id ? null : post.id))
                   }
+                  ref={(node) => {
+                    if (!node) {
+                      actionButtonRefs.current.delete(post.id);
+                      return;
+                    }
+                    actionButtonRefs.current.set(post.id, node);
+                  }}
                   aria-haspopup="menu"
                   aria-expanded={openMenuId === post.id}
                   className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm hover:bg-slate-50"
@@ -179,67 +242,72 @@ const PostFeed: FC<Props> = ({ posts }) => {
               </span>
             </div>
 
-            {openMenuId === post.id ? (
-              <div
-                role="menu"
-                className="absolute right-3 top-12 z-10 w-52 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.18)]"
-              >
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => setOpenMenuId(null)}
-                  className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                >
-                  <TagIcon className="h-4 w-4 text-slate-500" />
-                  Clasificar
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => setOpenMenuId(null)}
-                  className="flex w-full items-start gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                >
-                  <SquaresPlusIcon className="h-4 w-4 text-slate-500" />
-                  <span className="text-left">
-                    Agregar a Núcleos
-                    <span className="block text-[10px] text-slate-400">
-                      cluster / subcluster / microcluster
-                    </span>
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => setOpenMenuId(null)}
-                  className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                >
-                  <FlagIcon className="h-4 w-4 text-slate-500" />
-                  Priorizar hilo
-                </button>
-                <div className="divider" />
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => setOpenMenuId(null)}
-                  className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                >
-                  <EyeSlashIcon className="h-4 w-4 text-slate-500" />
-                  Ocultar
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => setOpenMenuId(null)}
-                  className="flex w-full items-center gap-2 px-4 py-2 text-sm text-rose-600 hover:bg-rose-50"
-                >
-                  <TrashIcon className="h-4 w-4 text-rose-500" />
-                  Eliminar
-                </button>
-              </div>
-            ) : null}
           </motion.article>
         ))}
       </div>
+      {canRenderMenu
+        ? createPortal(
+            <div
+              role="menu"
+              data-menu-id={openMenuId ?? undefined}
+              className="fixed z-[120] w-52 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.18)]"
+              style={{ top: menuTop, left: menuLeft }}
+            >
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => setOpenMenuId(null)}
+                className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                <TagIcon className="h-4 w-4 text-slate-500" />
+                Clasificar
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => setOpenMenuId(null)}
+                className="flex w-full items-start gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                <SquaresPlusIcon className="h-4 w-4 text-slate-500" />
+                <span className="text-left">
+                  Agregar a Núcleos
+                  <span className="block text-[10px] text-slate-400">
+                    cluster / subcluster / microcluster
+                  </span>
+                </span>
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => setOpenMenuId(null)}
+                className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                <FlagIcon className="h-4 w-4 text-slate-500" />
+                Priorizar hilo
+              </button>
+              <div className="divider" />
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => setOpenMenuId(null)}
+                className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                <EyeSlashIcon className="h-4 w-4 text-slate-500" />
+                Ocultar
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => setOpenMenuId(null)}
+                className="flex w-full items-center gap-2 px-4 py-2 text-sm text-rose-600 hover:bg-rose-50"
+              >
+                <TrashIcon className="h-4 w-4 text-rose-500" />
+                Eliminar
+              </button>
+            </div>,
+            document.body
+          )
+        : null}
 
       <div className="pt-3 flex flex-col sm:flex-row gap-2">
         {canShowMore ? (
