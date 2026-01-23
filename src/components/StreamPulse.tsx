@@ -101,12 +101,26 @@ const StreamPulse: FC<Props> = ({ posts, metrics }) => {
     signals.push({ label: "Sin alertas críticas en este rango", tone: "bg-emerald-50 text-emerald-700" });
   }
 
+  const getTrendTone = (delta: number, prefersLower = false) => {
+    const safeDelta = Number.isFinite(delta) ? delta : 0;
+    const isImprovement = prefersLower ? safeDelta <= 0 : safeDelta >= 0;
+    return {
+      arrow: safeDelta >= 0 ? "▲" : "▼",
+      value: Math.abs(safeDelta).toFixed(1),
+      tone: isImprovement
+        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+        : "bg-rose-50 text-rose-700 border-rose-200",
+    };
+  };
+
   const cards: {
     label: string;
     value: string;
     valueTitle?: string;
     accent: string;
     icon: ReactNode;
+    delta: number;
+    preferLower?: boolean;
   }[] = [
     {
       label: "Publicaciones",
@@ -114,6 +128,7 @@ const StreamPulse: FC<Props> = ({ posts, metrics }) => {
       valueTitle: fullFormatter.format(metrics.totalPosts),
       accent: "from-prBlue to-prBlue/90",
       icon: <GlobeAmericasIcon className="h-5 w-5 text-white" />,
+      delta: metrics.deltas.totalPct,
     },
     {
       label: "Alcance",
@@ -121,6 +136,7 @@ const StreamPulse: FC<Props> = ({ posts, metrics }) => {
       valueTitle: fullFormatter.format(metrics.reach),
       accent: "from-prRed to-prBlue",
       icon: <BoltIcon className="h-5 w-5 text-white" />,
+      delta: metrics.deltas.reachPct,
     },
     {
       label: "Engagement prom.",
@@ -128,18 +144,22 @@ const StreamPulse: FC<Props> = ({ posts, metrics }) => {
       valueTitle: fullFormatter.format(Math.round(metrics.avgEngagement)),
       accent: "from-prBlue to-prRed",
       icon: <ArrowTrendingUpIcon className="h-5 w-5 text-white" />,
+      delta: metrics.deltas.engagementPct,
     },
     {
       label: "Sentimiento",
       value: `${metrics.sentimentIndex.toFixed(1)} / 100`,
       accent: "from-emerald-500 to-teal-500",
       icon: <SparklesIcon className="h-5 w-5 text-white" />,
+      delta: metrics.deltas.sentimentPct,
     },
     {
       label: "Riesgo",
       value: `${metrics.reputationalRisk.toFixed(1)} / 100`,
       accent: "from-orange-400 to-red-500",
       icon: <ExclamationTriangleIcon className="h-5 w-5 text-white" />,
+      delta: metrics.deltas.reputationPct,
+      preferLower: true,
     },
   ];
 
@@ -166,30 +186,40 @@ const StreamPulse: FC<Props> = ({ posts, metrics }) => {
 
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {cards.map((card) => (
-            <motion.div
-              key={card.label}
-              whileHover={reduceMotion ? undefined : { y: -2 }}
-              className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm flex flex-col gap-2"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <div className="space-y-1">
-                  <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500 font-semibold">
-                    {card.label}
-                  </p>
-                  <p className="text-lg font-semibold text-ink" title={card.valueTitle}>
-                    {card.value}
-                  </p>
+          {cards.map((card) => {
+            const trend = getTrendTone(card.delta, card.preferLower);
+            return (
+              <motion.div
+                key={card.label}
+                whileHover={reduceMotion ? undefined : { y: -2 }}
+                className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm flex flex-col gap-2"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="space-y-1">
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500 font-semibold">
+                      {card.label}
+                    </p>
+                    <p className="text-lg font-semibold text-ink" title={card.valueTitle}>
+                      {card.value}
+                    </p>
+                  </div>
+                  <div className={`metric-icon-box bg-gradient-to-br ${card.accent}`}>
+                    {card.icon}
+                  </div>
                 </div>
-                <div className={`metric-icon-box bg-gradient-to-br ${card.accent}`}>
-                  {card.icon}
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] text-slate-500">
+                    Ventana actual · {metrics.totalPosts.toLocaleString("es-PR")} posts
+                  </span>
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${trend.tone}`}
+                  >
+                    {trend.arrow} {trend.value}%
+                  </span>
                 </div>
-              </div>
-              <div className="text-[11px] text-slate-500">
-                Ventana actual · {metrics.totalPosts.toLocaleString("es-PR")} posts
-              </div>
-            </motion.div>
-          ))}
+              </motion.div>
+            );
+          })}
         </div>
 
         <div className="space-y-3">

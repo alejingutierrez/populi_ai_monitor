@@ -28,6 +28,7 @@ const TrendRadar: FC<Props> = ({ posts, filters, timelineData }) => {
         totalPrev: 0,
         topTopics: [] as TrendItem[],
         topClusters: [] as TrendItem[],
+        topAuthors: [] as { name: string; count: number }[],
         sentimentShare: { positivo: 0, neutral: 0, negativo: 0 },
       };
     }
@@ -62,6 +63,7 @@ const TrendRadar: FC<Props> = ({ posts, filters, timelineData }) => {
     const topicMap = new Map<string, { current: number; prev: number }>();
     const clusterMap = new Map<string, { current: number; prev: number }>();
     const sentimentCount = { positivo: 0, neutral: 0, negativo: 0 };
+    const authorMap = new Map<string, number>();
 
     posts.forEach((post) => {
       const ts = new Date(post.timestamp).getTime();
@@ -81,6 +83,9 @@ const TrendRadar: FC<Props> = ({ posts, filters, timelineData }) => {
 
       updateMap(topicMap, post.topic);
       updateMap(clusterMap, post.cluster);
+      if (isCurrent) {
+        authorMap.set(post.author, (authorMap.get(post.author) ?? 0) + 1);
+      }
     });
 
     const toTrendItems = (map: Map<string, { current: number; prev: number }>) =>
@@ -100,6 +105,10 @@ const TrendRadar: FC<Props> = ({ posts, filters, timelineData }) => {
       totalPrev,
       topTopics: toTrendItems(topicMap).slice(0, 5),
       topClusters: toTrendItems(clusterMap).slice(0, 5),
+      topAuthors: Array.from(authorMap.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 4)
+        .map(([name, count]) => ({ name, count })),
       sentimentShare: sentimentCount,
     };
   }, [filters.dateFrom, filters.dateTo, filters.timeframe, posts]);
@@ -120,6 +129,13 @@ const TrendRadar: FC<Props> = ({ posts, filters, timelineData }) => {
   const negativeShare = (trendData.sentimentShare.negativo / sentimentTotal) * 100;
   const topTopic = trendData.topTopics[0];
   const topCluster = trendData.topClusters[0];
+  const alerts = [
+    totalDelta >= 20 ? "Crecimiento acelerado de volumen" : null,
+    negativeShare >= 35 ? "Sentimiento negativo por encima del 35%" : null,
+    topCluster && Math.abs(topCluster.deltaPct) >= 40
+      ? `Cluster ${topCluster.name} con variacion ${topCluster.deltaPct.toFixed(0)}%`
+      : null,
+  ].filter(Boolean) as string[];
 
   return (
     <section className="card p-4 h-full flex flex-col min-h-[320px]">
@@ -191,6 +207,22 @@ const TrendRadar: FC<Props> = ({ posts, filters, timelineData }) => {
                   : "Pulso estable: sentimiento crítico bajo control en esta ventana."}
               </li>
             </ul>
+            {alerts.length ? (
+              <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold">
+                {alerts.map((alert) => (
+                  <span
+                    key={alert}
+                    className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-amber-700"
+                  >
+                    {alert}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-3 text-[11px] text-slate-500">
+                Sin alertas criticas en esta ventana.
+              </div>
+            )}
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -231,6 +263,20 @@ const TrendRadar: FC<Props> = ({ posts, filters, timelineData }) => {
                 })}
                 {!trendData.topClusters.length ? (
                   <p className="text-xs text-slate-500">Sin datos de clusters.</p>
+                ) : null}
+              </div>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm sm:col-span-2">
+              <p className="text-xs font-semibold text-slate-600 uppercase tracking-[0.16em]">Top autores</p>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                {trendData.topAuthors.map((author) => (
+                  <div key={author.name} className="flex items-center justify-between text-xs text-slate-600">
+                    <span className="font-semibold text-slate-700">{author.name}</span>
+                    <span>{author.count.toLocaleString(\"es-PR\")} menciones</span>
+                  </div>
+                ))}
+                {!trendData.topAuthors.length ? (
+                  <p className="text-xs text-slate-500">Sin autores destacados.</p>
                 ) : null}
               </div>
             </div>

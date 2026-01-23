@@ -7,6 +7,8 @@ Mantén las historias organizadas por área. Añade una nueva historia por solic
   - Criterios: propuesta de 4 componentes (propósito, datos, interacciones); mapeo con esquema Neon; plan de implementación sin ejecutar; esquema visual en `FEED_STREAM_VISUAL_SCHEMA.md`.
 - US-2026-01-23-003 — Como operador de monitoreo, quiero la construcción completa de la página Feed Stream con sus cuatro componentes (Pulse, Feed, Trend Radar, Sub-conversaciones) para operar el feed en tiempo real.
   - Criterios: nueva vista navegable desde el sidebar; componentes implementados con datos actuales; layout responsive consistente con Overview.
+- US-2026-01-23-006 — Como operador, quiero mejoras de UX en Feed Stream (filtros rápidos, densidad, alertas y resúmenes) para acelerar la revisión diaria.
+  - Criterios: mejoras aplicadas solo en componentes existentes; sin nuevos componentes.
 - US-2026-01-23-005 — Como desarrollador, quiero corregir el tipado de navegación para evitar fallos de build en Vercel.
   - Criterios: tipos alineados entre Sidebar y App; build sin error de TS2322.
 

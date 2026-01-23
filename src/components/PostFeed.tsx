@@ -22,6 +22,8 @@ interface Props {
   subtitle?: string;
   scrollClassName?: string;
   headerActions?: ReactNode;
+  density?: "comfortable" | "compact";
+  showMetaBadges?: boolean;
 }
 
 const sentimentColor = (sentiment: SocialPost["sentiment"]) => {
@@ -58,8 +60,11 @@ const PostFeed: FC<Props> = ({
   subtitle,
   scrollClassName,
   headerActions,
+  density = "comfortable",
+  showMetaBadges = true,
 }) => {
   const reduceMotion = useReducedMotion();
+  const isCompact = density === "compact";
   const [isSmall, setIsSmall] = useState(false);
   const baseCount = isSmall ? 8 : 12;
   const [visibleCount, setVisibleCount] = useState(baseCount);
@@ -97,6 +102,12 @@ const PostFeed: FC<Props> = ({
     window.addEventListener("click", handleClick);
     return () => window.removeEventListener("click", handleClick);
   }, [openMenuId]);
+
+  useEffect(() => {
+    if (isCompact && openMenuId) {
+      setOpenMenuId(null);
+    }
+  }, [isCompact, openMenuId]);
 
   const feedIntel = useMemo(() => {
     const topicCount = new Map<string, number>();
@@ -282,7 +293,7 @@ const PostFeed: FC<Props> = ({
   const fallbackSubtitle = `Mostrando ${items.length} de ${posts.length} · Última actividad ${lastActivityLabel}`;
 
   return (
-    <section className="card p-4 h-full min-w-0">
+    <section className={`card h-full min-w-0 ${isCompact ? "p-3" : "p-4"}`}>
       <div className="card-header mb-4 items-start gap-4 flex-col lg:flex-row lg:items-center">
         <div>
           <p className="muted">{eyebrow}</p>
@@ -291,16 +302,20 @@ const PostFeed: FC<Props> = ({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {headerActions}
-          <span className="inline-flex items-center gap-1 rounded-full bg-slate-900 px-3 py-1 text-[11px] font-semibold text-white">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-            IA en vivo
-          </span>
-          <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-600">
-            {formatCompact(feedIntel.totalReach)} alcance
-          </span>
-          <span className="text-xs px-3 py-1 bg-prBlue/10 text-prBlue rounded-full font-semibold">
-            {posts.length} encontrados
-          </span>
+          {showMetaBadges ? (
+            <>
+              <span className="inline-flex items-center gap-1 rounded-full bg-slate-900 px-3 py-1 text-[11px] font-semibold text-white">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                IA en vivo
+              </span>
+              <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-600">
+                {formatCompact(feedIntel.totalReach)} alcance
+              </span>
+              <span className="text-xs px-3 py-1 bg-prBlue/10 text-prBlue rounded-full font-semibold">
+                {posts.length} encontrados
+              </span>
+            </>
+          ) : null}
         </div>
       </div>
 
@@ -327,15 +342,21 @@ const PostFeed: FC<Props> = ({
                 transition={reduceMotion ? { duration: 0 } : { delay: idx * 0.03 }}
                 layout
                 whileHover={reduceMotion ? undefined : { scale: 1.005 }}
-                className="relative border border-slate-200 rounded-xl p-3 bg-gradient-to-br from-white to-slate-50 shadow-[0_10px_24px_rgba(15,23,42,0.06)]"
+                className={`relative border border-slate-200 rounded-xl bg-gradient-to-br from-white to-slate-50 shadow-[0_10px_24px_rgba(15,23,42,0.06)] ${
+                  isCompact ? "p-2" : "p-3"
+                }`}
               >
                   <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <div className="h-10 w-10 rounded-full bg-gradient-to-br from-prBlue to-prRed text-white font-semibold flex items-center justify-center">
-                        {post.author.charAt(0)}
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-ink">{post.author}</p>
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={`rounded-full bg-gradient-to-br from-prBlue to-prRed text-white font-semibold flex items-center justify-center ${
+                        isCompact ? "h-8 w-8 text-xs" : "h-10 w-10"
+                      }`}
+                    >
+                      {post.author.charAt(0)}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-ink">{post.author}</p>
                         <p className="text-xs text-slate-500 flex gap-1 items-center flex-wrap">
                           <span>{post.platform}</span>
                           <span className="text-slate-300">•</span>
@@ -365,24 +386,26 @@ const PostFeed: FC<Props> = ({
                       >
                         IA {score} · {tone.label}
                       </span>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setOpenMenuId((current) => (current === post.id ? null : post.id))
-                        }
-                        ref={(node) => {
-                          if (!node) {
-                            actionButtonRefs.current.delete(post.id);
-                            return;
+                      {isCompact ? null : (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setOpenMenuId((current) => (current === post.id ? null : post.id))
                           }
-                          actionButtonRefs.current.set(post.id, node);
-                        }}
-                        aria-haspopup="menu"
-                        aria-expanded={openMenuId === post.id}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm hover:bg-slate-50"
-                      >
-                        <EllipsisVerticalIcon className="h-4 w-4" />
-                      </button>
+                          ref={(node) => {
+                            if (!node) {
+                              actionButtonRefs.current.delete(post.id);
+                              return;
+                            }
+                            actionButtonRefs.current.set(post.id, node);
+                          }}
+                          aria-haspopup="menu"
+                          aria-expanded={openMenuId === post.id}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm hover:bg-slate-50"
+                        >
+                          <EllipsisVerticalIcon className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -399,7 +422,9 @@ const PostFeed: FC<Props> = ({
                   </div>
 
                   <p
-                    className="text-sm text-slate-700 mt-2 leading-relaxed max-h-[4.5em] overflow-hidden md:max-h-none md:overflow-visible"
+                    className={`text-sm text-slate-700 mt-2 leading-relaxed ${
+                      isCompact ? "max-h-[3.2em] overflow-hidden" : "max-h-[4.5em] overflow-hidden md:max-h-none md:overflow-visible"
+                    }`}
                     title={post.content}
                   >
                     {post.content}
@@ -419,15 +444,23 @@ const PostFeed: FC<Props> = ({
                   </div>
 
                   <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-slate-700">
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-prRed/10 text-prRed font-semibold border border-prRed/30">
-                      Cluster {post.cluster}
-                    </span>
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-prBlue/10 text-prBlue font-semibold border border-prBlue/30">
-                      Subcluster {post.subcluster}
-                    </span>
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 font-semibold border border-emerald-200">
-                      Micro {post.microcluster}
-                    </span>
+                    {isCompact ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-prBlue/10 text-prBlue font-semibold border border-prBlue/30">
+                        {post.cluster} · {post.subcluster}
+                      </span>
+                    ) : (
+                      <>
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-prRed/10 text-prRed font-semibold border border-prRed/30">
+                          Cluster {post.cluster}
+                        </span>
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-prBlue/10 text-prBlue font-semibold border border-prBlue/30">
+                          Subcluster {post.subcluster}
+                        </span>
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 font-semibold border border-emerald-200">
+                          Micro {post.microcluster}
+                        </span>
+                      </>
+                    )}
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white border border-slate-200 shadow-sm">
                       <HeartIcon className="h-4 w-4 text-prRed" />
                       {post.engagement.toLocaleString("es-PR")} interacciones

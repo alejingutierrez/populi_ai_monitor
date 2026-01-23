@@ -60,6 +60,15 @@ const SubConversationExplorer: FC<Props> = ({ clusters, posts }) => {
   }, [posts]);
 
   const topFocus = focusItems[0];
+  const topMicroclusters = useMemo(() => {
+    const microMap = new Map<string, number>();
+    posts.forEach((post) => {
+      microMap.set(post.microcluster, (microMap.get(post.microcluster) ?? 0) + 1);
+    });
+    return Array.from(microMap.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6);
+  }, [posts]);
 
   return (
     <section className="grid gap-4 xl:grid-cols-[1.6fr_0.9fr]">
@@ -97,6 +106,51 @@ const SubConversationExplorer: FC<Props> = ({ clusters, posts }) => {
                 ? `Balance: ${topFocus.positive} positivas, ${topFocus.neutral} neutrales, ${topFocus.negative} negativas.`
                 : "Pulso general por definir."}
             </p>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+          <p className="text-xs font-semibold text-slate-600 uppercase tracking-[0.16em]">
+            Microclusters destacados
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {topMicroclusters.map(([name, count]) => (
+              <span
+                key={name}
+                className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600"
+              >
+                {name} · {count}
+              </span>
+            ))}
+            {!topMicroclusters.length ? (
+              <span className="text-xs text-slate-500">Sin microclusters aun.</span>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 px-4 py-3 shadow-sm">
+          <p className="text-xs font-semibold text-slate-600 uppercase tracking-[0.16em]">
+            Acciones rapidas
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="rounded-full border border-prBlue/30 bg-prBlue/10 px-3 py-1 text-[11px] font-semibold text-prBlue"
+            >
+              Crear insight IA
+            </button>
+            <button
+              type="button"
+              className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-600"
+            >
+              Priorizar seguimiento
+            </button>
+            <button
+              type="button"
+              className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-600"
+            >
+              Exportar ejemplos
+            </button>
           </div>
         </div>
 
