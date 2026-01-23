@@ -59,7 +59,6 @@ const CustomTile: FC<TileProps> = (props) => {
     positive,
     negative,
     depth,
-    children,
     labelDepth,
     isDrillable,
     onDrill,
