@@ -146,9 +146,10 @@ const TrendRadar: FC<Props> = ({ posts, filters, timelineData }) => {
       start = new Date(end.getTime() - timeframeHours[filters.timeframe] * 60 * 60 * 1000)
     }
 
+    const dayMs = 24 * 60 * 60 * 1000
     const windowMs = Math.max(1, end.getTime() - start.getTime())
     const prevStart = new Date(start.getTime() - windowMs)
-    const windowDays = Math.max(1, Math.round(windowMs / (24 * 60 * 60 * 1000)))
+    const windowDays = Math.max(1, Math.ceil(windowMs / dayMs))
 
     const sentimentCurrent = { positivo: 0, neutral: 0, negativo: 0 }
     const sentimentPrev = { positivo: 0, neutral: 0, negativo: 0 }
@@ -299,7 +300,7 @@ const TrendRadar: FC<Props> = ({ posts, filters, timelineData }) => {
         score: data.reach + data.engagement * 5,
       }))
       .sort((a, b) => b.score - a.score)
-      .slice(0, 4)
+      .slice(0, 3)
 
     const avgEngagementCurrent = totalCurrent ? engagementCurrent / totalCurrent : 0
     const avgEngagementPrev = totalPrev ? engagementPrev / totalPrev : 0
@@ -351,13 +352,13 @@ const TrendRadar: FC<Props> = ({ posts, filters, timelineData }) => {
       clusters,
       subclusters,
       microclusters,
-      topTopics: topics.slice(0, 6),
-      topClusters: clusters.slice(0, 6),
+      topTopics: topics.slice(0, 4),
+      topClusters: clusters.slice(0, 4),
       topSubclusters: risingSubclusters,
       topMicroclusters: risingMicroclusters,
-      platformMix: toRankedItems(platformMap, totalCurrent).slice(0, 5),
+      platformMix: toRankedItems(platformMap, totalCurrent).slice(0, 3),
       mediaMix: toRankedItems(mediaMap, totalCurrent),
-      cityMix: cityMix.slice(0, 5),
+      cityMix: cityMix.slice(0, 4),
       authors,
       riskTopics,
     }
@@ -365,17 +366,14 @@ const TrendRadar: FC<Props> = ({ posts, filters, timelineData }) => {
 
   const totalDeltaBadge = buildDeltaBadge(trendData.totalCurrent, trendData.totalPrev)
   const reachDeltaBadge = buildDeltaBadge(trendData.reachCurrent, trendData.reachPrev)
-  const engagementDeltaBadge = buildDeltaBadge(
-    trendData.avgEngagementCurrent,
-    trendData.avgEngagementPrev
+  const engagementTotalBadge = buildDeltaBadge(
+    trendData.engagementCurrent,
+    trendData.engagementPrev
   )
   const rateDeltaBadge = buildDeltaBadge(
     trendData.engagementRateCurrent,
     trendData.engagementRatePrev
   )
-  const postsPerDay = trendData.totalCurrent / trendData.windowDays
-  const prevPostsPerDay = trendData.totalPrev / trendData.windowDays
-  const densityDeltaBadge = buildDeltaBadge(postsPerDay, prevPostsPerDay)
 
   const sparkline = useMemo(() => {
     if (!timelineData.length) return { points: [] as number[], maxValue: 0 }
@@ -446,6 +444,8 @@ const TrendRadar: FC<Props> = ({ posts, filters, timelineData }) => {
 
     const topTopic = trendData.topTopics[0]
     const topCluster = trendData.topClusters[0]
+    const topRisk = trendData.riskTopics[0]
+    const risingSubcluster = trendData.topSubclusters[0]
     if (topTopic) {
       items.push(
         `Tema dominante: ${topTopic.name} (${topTopic.share.toFixed(0)}% del volumen actual).`
@@ -462,11 +462,19 @@ const TrendRadar: FC<Props> = ({ posts, filters, timelineData }) => {
     if (negativeShare >= 35) {
       items.push(`Riesgo: negatividad alta (${negativeShare.toFixed(0)}%).`)
     }
+    if (topRisk && topRisk.negativeShare >= 40) {
+      items.push(
+        `Foco negativo: ${topRisk.name} (${topRisk.negativeShare.toFixed(0)}% negativo).`
+      )
+    }
+    if (risingSubcluster && risingSubcluster.deltaPct >= 35) {
+      items.push(`Subcluster en alza: ${risingSubcluster.name} (+${risingSubcluster.deltaPct.toFixed(0)}%).`)
+    }
     if (momentum?.viralidad && momentum.viralidad.deltaPct >= 20) {
       items.push('Potencial viral en aumento durante los últimos días.')
     }
 
-    return items.slice(0, 4)
+    return items.slice(0, 3)
   }, [momentum, negativeShare, totalDeltaBadge.delta, trendData])
 
   const alertTags = useMemo(() => {
@@ -486,7 +494,7 @@ const TrendRadar: FC<Props> = ({ posts, filters, timelineData }) => {
     if (!tags.length) {
       tags.push({ label: 'Sin alertas críticas', tone: 'border-slate-200 bg-slate-100 text-slate-600' })
     }
-    return tags
+    return tags.slice(0, 3)
   }, [momentum, negativeShare, totalDeltaBadge.delta, trendData.riskScore])
 
   const maxTopicCurrent = trendData.topTopics[0]?.current ?? 0
@@ -505,12 +513,12 @@ const TrendRadar: FC<Props> = ({ posts, filters, timelineData }) => {
             Ventana comparativa
           </span>
           <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-600">
-            {trendData.windowDays} días · {formatCompact(postsPerDay)} posts/día
+            Ventana: {trendData.windowDays} días
           </span>
         </div>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
+      <div className="grid gap-4 xl:grid-cols-[1.3fr_1fr]">
         <div className="space-y-4">
           <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-4 shadow-inner space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -531,7 +539,7 @@ const TrendRadar: FC<Props> = ({ posts, filters, timelineData }) => {
               </span>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {[
                 {
                   label: 'Alcance total',
@@ -541,10 +549,10 @@ const TrendRadar: FC<Props> = ({ posts, filters, timelineData }) => {
                   icon: <BoltIcon className="h-4 w-4" />,
                 },
                 {
-                  label: 'Engagement prom.',
-                  value: formatCompact(trendData.avgEngagementCurrent),
-                  title: fullFormatter.format(Math.round(trendData.avgEngagementCurrent)),
-                  badge: engagementDeltaBadge,
+                  label: 'Engagement total',
+                  value: formatCompact(trendData.engagementCurrent),
+                  title: fullFormatter.format(trendData.engagementCurrent),
+                  badge: engagementTotalBadge,
                   icon: <ChatBubbleLeftRightIcon className="h-4 w-4" />,
                 },
                 {
@@ -553,20 +561,6 @@ const TrendRadar: FC<Props> = ({ posts, filters, timelineData }) => {
                   title: `${trendData.engagementRateCurrent.toFixed(2)}%`,
                   badge: rateDeltaBadge,
                   icon: <ChartBarIcon className="h-4 w-4" />,
-                },
-                {
-                  label: 'Posts/día',
-                  value: postsPerDay.toFixed(1),
-                  title: postsPerDay.toFixed(2),
-                  badge: densityDeltaBadge,
-                  icon: <ChartBarIcon className="h-4 w-4" />,
-                },
-                {
-                  label: 'Índice sentimiento',
-                  value: `${trendData.sentimentIndex.toFixed(1)} / 100`,
-                  title: `${trendData.sentimentIndex.toFixed(2)} / 100`,
-                  badge: buildDeltaBadge(trendData.sentimentIndex, trendData.sentimentIndexPrev),
-                  icon: <SparklesIcon className="h-4 w-4" />,
                 },
                 {
                   label: 'Riesgo reputacional',
@@ -627,9 +621,8 @@ const TrendRadar: FC<Props> = ({ posts, filters, timelineData }) => {
                 {momentum ? (
                   [
                     { label: 'Volumen', data: momentum.volumen },
-                    { label: 'Alcance', data: momentum.alcance },
-                    { label: 'Engagement', data: momentum.engagement },
                     { label: 'Viralidad', data: momentum.viralidad },
+                    { label: 'Sentimiento', data: momentum.sentimiento },
                   ].map((item) => {
                     const tone = buildDeltaBadge(item.data.current, item.data.prev)
                     return (
@@ -685,25 +678,25 @@ const TrendRadar: FC<Props> = ({ posts, filters, timelineData }) => {
                 </p>
                 <p>Índice sentimiento: {trendData.sentimentIndex.toFixed(1)} / 100</p>
                 <p>Riesgo reputacional: {trendData.riskScore.toFixed(1)} / 100</p>
+                {trendData.riskTopics[0] ? (
+                  <p>
+                    Tema más negativo: {trendData.riskTopics[0].name} ({trendData.riskTopics[0].negativeShare.toFixed(0)}%)
+                  </p>
+                ) : null}
               </div>
             </div>
 
             <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
               <p className="text-xs font-semibold text-slate-600 uppercase tracking-[0.16em]">
-                Mix de canales y formatos
+                Canales clave
               </p>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div className="mt-3 space-y-3">
                 <div className="space-y-2">
                   <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.16em]">Plataformas</p>
                   {trendData.platformMix.map((item) => (
-                    <div key={item.name} className="space-y-1">
-                      <div className="flex items-center justify-between text-xs text-slate-600">
-                        <span className="font-semibold text-slate-700">{item.name}</span>
-                        <span>{item.share.toFixed(0)}%</span>
-                      </div>
-                      <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
-                        <div className="h-full rounded-full bg-prBlue" style={{ width: `${item.share}%` }} />
-                      </div>
+                    <div key={item.name} className="flex items-center justify-between text-xs text-slate-600">
+                      <span className="font-semibold text-slate-700">{item.name}</span>
+                      <span>{item.share.toFixed(0)}%</span>
                     </div>
                   ))}
                   {!trendData.platformMix.length ? (
@@ -713,7 +706,7 @@ const TrendRadar: FC<Props> = ({ posts, filters, timelineData }) => {
                 <div className="space-y-2">
                   <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.16em]">Formatos</p>
                   <div className="flex flex-wrap gap-2 text-[11px] font-semibold">
-                    {trendData.mediaMix.map((item) => (
+                    {trendData.mediaMix.slice(0, 3).map((item) => (
                       <span
                         key={item.name}
                         className="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-slate-600"
@@ -730,10 +723,13 @@ const TrendRadar: FC<Props> = ({ posts, filters, timelineData }) => {
             </div>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-2">
-            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-              <p className="text-xs font-semibold text-slate-600 uppercase tracking-[0.16em]">Top temas</p>
-              <div className="mt-2 space-y-2">
+          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <p className="text-xs font-semibold text-slate-600 uppercase tracking-[0.16em]">
+              Impulsores principales
+            </p>
+            <div className="mt-3 grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.16em]">Top temas</p>
                 {trendData.topTopics.map((topic) => (
                   <div key={topic.name} className="space-y-1">
                     <div className="flex items-center justify-between text-xs font-semibold text-ink">
@@ -761,11 +757,8 @@ const TrendRadar: FC<Props> = ({ posts, filters, timelineData }) => {
                   <p className="text-xs text-slate-500">Sin datos de temas.</p>
                 ) : null}
               </div>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-              <p className="text-xs font-semibold text-slate-600 uppercase tracking-[0.16em]">Top clusters</p>
-              <div className="mt-2 space-y-2">
+              <div className="space-y-2">
+                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.16em]">Top clusters</p>
                 {trendData.topClusters.map((cluster) => (
                   <div key={cluster.name} className="space-y-1">
                     <div className="flex items-center justify-between text-xs font-semibold text-ink">
@@ -791,38 +784,6 @@ const TrendRadar: FC<Props> = ({ posts, filters, timelineData }) => {
                 ))}
                 {!trendData.topClusters.length ? (
                   <p className="text-xs text-slate-500">Sin datos de clusters.</p>
-                ) : null}
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-            <p className="text-xs font-semibold text-slate-600 uppercase tracking-[0.16em]">
-              Subclusters y microclusters en aceleración
-            </p>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <div className="space-y-2">
-                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.16em]">Subclusters</p>
-                {trendData.topSubclusters.map((item) => (
-                  <div key={item.name} className="flex items-center justify-between text-xs text-slate-600">
-                    <span className="font-semibold text-slate-700">{item.name}</span>
-                    <span className="text-emerald-600">+{item.deltaPct.toFixed(0)}%</span>
-                  </div>
-                ))}
-                {!trendData.topSubclusters.length ? (
-                  <p className="text-xs text-slate-500">Sin subclusters en alza.</p>
-                ) : null}
-              </div>
-              <div className="space-y-2">
-                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.16em]">Microclusters</p>
-                {trendData.topMicroclusters.map((item) => (
-                  <div key={item.name} className="flex items-center justify-between text-xs text-slate-600">
-                    <span className="font-semibold text-slate-700">{item.name}</span>
-                    <span className="text-emerald-600">+{item.deltaPct.toFixed(0)}%</span>
-                  </div>
-                ))}
-                {!trendData.topMicroclusters.length ? (
-                  <p className="text-xs text-slate-500">Sin microclusters en alza.</p>
                 ) : null}
               </div>
             </div>
@@ -898,27 +859,6 @@ const TrendRadar: FC<Props> = ({ posts, filters, timelineData }) => {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-            <div className="flex items-center gap-2">
-              <ExclamationTriangleIcon className="h-4 w-4 text-prBlue" />
-              <p className="text-xs font-semibold text-slate-600 uppercase tracking-[0.16em]">
-                Temas con mayor negatividad
-              </p>
-            </div>
-            <div className="mt-3 space-y-2">
-              {trendData.riskTopics.map((topic) => (
-                <div key={topic.name} className="flex items-center justify-between text-xs text-slate-600">
-                  <span className="font-semibold text-slate-700">{topic.name}</span>
-                  <span className="text-rose-600">
-                    {topic.negativeShare.toFixed(0)}% · {fullFormatter.format(topic.total)} menciones
-                  </span>
-                </div>
-              ))}
-              {!trendData.riskTopics.length ? (
-                <p className="text-xs text-slate-500">Sin temas críticos.</p>
-              ) : null}
-            </div>
-          </div>
         </div>
       </div>
     </section>

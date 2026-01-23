@@ -19,6 +19,8 @@ Mantén las historias organizadas por área. Añade una nueva historia por solic
   - Criterios: Feed Stream muestra SummaryGrid en lugar de Pulso operativo.
 - US-2026-01-23-011 — Como analista, quiero un Trend Radar más inteligente, con más métricas y responsive para análisis útil en Feed Stream.
   - Criterios: radar incluye métricas comparativas (volumen, alcance, engagement, riesgo), señales IA, mix de canales/formatos, hotspots y autores; layout responsive mejorado.
+- US-2026-01-23-012 — Como operador, quiero simplificar Trend Radar para que sea legible y no esté saturado.
+  - Criterios: menos bloques, métricas esenciales, mayor aire visual y cálculos ajustados.
 - US-2026-01-23-005 — Como desarrollador, quiero corregir el tipado de navegación para evitar fallos de build en Vercel.
   - Criterios: tipos alineados entre Sidebar y App; build sin error de TS2322.
 

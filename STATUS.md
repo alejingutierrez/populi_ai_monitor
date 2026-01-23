@@ -15,3 +15,4 @@ Estados sugeridos: Planned, In progress, Blocked, Done.
 | US-2026-01-23-009 | Done | 2026-01-23 | Pulso operativo enriquecido y responsive mejorado. |
 | US-2026-01-23-010 | Done | 2026-01-23 | Feed Stream vuelve a SummaryGrid. |
 | US-2026-01-23-011 | Done | 2026-01-23 | Trend Radar enriquecido; fix TS2365 y logs de Vercel revisados. |
+| US-2026-01-23-012 | In progress | 2026-01-23 | Simplificación y ajuste de cálculos en Trend Radar. |
