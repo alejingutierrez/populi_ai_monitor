@@ -2,10 +2,10 @@ import type { FC } from "react";
 import type { Filters } from "../components/FilterBar";
 import type { ClusterStat } from "../components/TopicPanel";
 import type { SocialPost, TimelineDatum } from "../types";
-import StreamPulse from "../components/StreamPulse";
 import FeedStreamList from "../components/FeedStreamList";
 import TrendRadar from "../components/TrendRadar";
 import SubConversationExplorer from "../components/SubConversationExplorer";
+import SummaryGrid from "../components/SummaryGrid";
 
 interface Props {
   metrics: {
@@ -42,7 +42,7 @@ const FeedStreamPage: FC<Props> = ({
   filters,
 }) => (
   <main className="p-4 md:p-6 space-y-6 overflow-y-auto">
-    <StreamPulse posts={filteredPosts} metrics={metrics} />
+    <SummaryGrid metrics={metrics} />
 
     <div className="grid gap-4 xl:grid-cols-[1.5fr_1fr]">
       <FeedStreamList posts={filteredPosts} />

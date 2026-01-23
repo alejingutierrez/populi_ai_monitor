@@ -11,6 +11,8 @@ Mantén las historias organizadas por área. Añade una nueva historia por solic
   - Criterios: mejoras aplicadas solo en componentes existentes; sin nuevos componentes.
 - US-2026-01-23-007 — Como desarrollador, quiero corregir el error de build en TrendRadar para restaurar el deploy en Vercel.
   - Criterios: build sin error TS1127/TS1381; deploy vuelve a Ready.
+- US-2026-01-23-008 — Como operador, quiero reemplazar el bloque Pulso operativo por las tarjetas de métricas del overview en Feed Stream.
+  - Criterios: se elimina Pulso operativo y se usan las cards de `SummaryGrid` en Feed Stream.
 - US-2026-01-23-005 — Como desarrollador, quiero corregir el tipado de navegación para evitar fallos de build en Vercel.
   - Criterios: tipos alineados entre Sidebar y App; build sin error de TS2322.
 
