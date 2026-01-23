@@ -267,11 +267,6 @@ const PostFeed: FC<Props> = ({ posts }) => {
         minute: "2-digit",
       })
     : "—";
-  const velocityLabel =
-    feedIntel.prevCount > 0
-      ? `${feedIntel.velocityDelta >= 0 ? "+" : ""}${Math.round(feedIntel.velocityDelta)}%`
-      : "nuevo";
-
   return (
     <section className="card p-4 h-full min-w-0">
       <div className="card-header mb-4 items-start gap-4 flex-col lg:flex-row lg:items-center">
