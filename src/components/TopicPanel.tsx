@@ -5,7 +5,7 @@ import {
   type TreemapNode,
   type TooltipContentProps,
 } from "recharts";
-import { useMemo, useState, type FC } from "react";
+import { useMemo, useState, useEffect, type FC } from "react";
 
 export interface ClusterStat {
   name: string;
@@ -44,8 +44,8 @@ type TileProps = TreemapNode &
     depth?: number;
     parent?: TreemapNode;
     labelDepth?: number;
-    isClickable?: boolean;
-    onSelect?: (name: string) => void;
+    isDrillable?: boolean;
+    onDrill?: (name: string) => void;
   };
 
 const CustomTile: FC<TileProps> = (props) => {
@@ -61,8 +61,8 @@ const CustomTile: FC<TileProps> = (props) => {
     depth,
     children,
     labelDepth,
-    isClickable,
-    onSelect,
+    isDrillable,
+    onDrill,
   } = props;
   if (!width || !height || width <= 0 || height <= 0 || volume === undefined) {
     return null;
@@ -71,17 +71,20 @@ const CustomTile: FC<TileProps> = (props) => {
   const tone =
     sentiment > 0.25 ? "Positivo" : sentiment < -0.2 ? "Negativo" : "Neutral";
   const palette = sentimentPalette(props);
-  const isLeaf = !children || children.length === 0;
-  const labelSize = depth === 1 ? 13 : depth === 2 ? 11 : 10;
-  const labelWeight = depth === 1 ? 700 : 600;
-  const padding = depth === 1 ? 10 : 8;
-  const radius = depth === 1 ? 14 : 10;
-  const allowLabel = depth ? depth <= (labelDepth ?? 1) : true;
-  const showMetrics = isLeaf && width > 110 && height > 60 && allowLabel;
-  const showLabel = allowLabel && width > 40 && height > 24;
+  const level = depth ?? 1;
+  const labelSize = level === 1 ? 13 : level === 2 ? 11 : 10;
+  const labelWeight = level === 1 ? 700 : 600;
+  const padding = level === 1 ? 12 : level === 2 ? 10 : 8;
+  const radius = level === 1 ? 16 : level === 2 ? 12 : 9;
+  const allowLabel = level <= (labelDepth ?? 2);
+  const showLabel = allowLabel && width > 46 && height > 26;
+  const showMetrics = width > 120 && height > 64;
+  const showTone = width > 92 && height > 46;
+  const showDrillHint = isDrillable && width > 72 && height > 26;
+  const headerHeight = showLabel ? (level === 1 ? 26 : 22) : 0;
 
   return (
-    <g style={{ cursor: isClickable ? "pointer" : "default" }}>
+    <g style={{ cursor: isDrillable ? "zoom-in" : "default" }}>
       <rect
         x={x}
         y={y}
@@ -90,66 +93,99 @@ const CustomTile: FC<TileProps> = (props) => {
         rx={radius}
         ry={radius}
         pointerEvents="all"
-        onClick={isClickable ? () => onSelect?.(name) : undefined}
+        onDoubleClick={isDrillable ? () => onDrill?.(name) : undefined}
         style={{
           fill: palette.fill,
-          opacity: depth && depth > 1 ? 0.7 : 0.85,
-          stroke: "#e2e8f0",
-          strokeWidth: depth === 1 ? 2 : 1,
+          opacity: level > 1 ? 0.75 : 0.92,
+          stroke: level === 1 ? palette.accent : "#e2e8f0",
+          strokeWidth: level === 1 ? 2 : 1,
         }}
       />
       {showLabel ? (
+        <rect
+          x={x + 1}
+          y={y + 1}
+          width={Math.max(0, width - 2)}
+          height={headerHeight}
+          rx={radius}
+          ry={radius}
+          fill="rgba(255,255,255,0.5)"
+          pointerEvents="none"
+        />
+      ) : null}
+      {showLabel ? (
         <text
           x={x! + padding}
-          y={y! + padding + labelSize}
+          y={y! + padding + labelSize - 2}
           fill="#0f172a"
           fontSize={labelSize}
           fontWeight={labelWeight}
           stroke="none"
+          pointerEvents="none"
         >
           {name}
         </text>
       ) : null}
-      {showMetrics ? (
+      {showMetrics && volume !== undefined ? (
         <>
           <text
             x={x! + padding}
-            y={y! + padding + labelSize + 18}
+            y={y! + padding + labelSize + (showLabel ? 18 : 14)}
             fill="#475569"
             fontSize={10}
             fontWeight={600}
             stroke="none"
+            pointerEvents="none"
           >
             {volume.toLocaleString("es-PR")} menciones
           </text>
-          <rect
-            x={x! + padding}
-            y={y! + padding + labelSize + 26}
-            rx={8}
-            ry={8}
-            width={70}
-            height={18}
-            fill={palette.accent}
-            opacity={0.14}
-          />
-          <text
-            x={x! + padding + 6}
-            y={y! + padding + labelSize + 39}
-            fill={palette.accent}
-            fontSize={9.5}
-            fontWeight={700}
-            stroke="none"
-          >
-            {tone}
-          </text>
+          {showTone ? (
+            <>
+              <rect
+                x={x! + padding}
+                y={y! + padding + labelSize + (showLabel ? 26 : 22)}
+                rx={8}
+                ry={8}
+                width={78}
+                height={18}
+                fill={palette.accent}
+                opacity={0.14}
+                pointerEvents="none"
+              />
+              <text
+                x={x! + padding + 6}
+                y={y! + padding + labelSize + (showLabel ? 39 : 35)}
+                fill={palette.accent}
+                fontSize={9.5}
+                fontWeight={700}
+                stroke="none"
+                pointerEvents="none"
+              >
+                {tone}
+              </text>
+            </>
+          ) : null}
         </>
+      ) : null}
+      {showDrillHint ? (
+        <text
+          x={x! + width - padding}
+          y={y! + padding + labelSize - 2}
+          fill="#64748b"
+          fontSize={9}
+          fontWeight={700}
+          textAnchor="end"
+          pointerEvents="none"
+        >
+          2x
+        </text>
       ) : null}
     </g>
   );
 };
 
 const TopicPanel: FC<Props> = ({ clusters }) => {
-  const [activeCluster, setActiveCluster] = useState<string | null>(null);
+  const [activePath, setActivePath] = useState<string[]>([]);
 
   if (!clusters.length) {
     return (
@@ -182,17 +218,38 @@ const TopicPanel: FC<Props> = ({ clusters }) => {
           : undefined,
     }));
 
-  const activeClusterNode = useMemo(
-    () => clusters.find((cluster) => cluster.name === activeCluster) ?? null,
-    [activeCluster, clusters]
+  const resolvePath = (path: string[]) => {
+    let cursor: ClusterStat | null = null;
+    let cursorList = clusters;
+    const validPath: string[] = [];
+    for (const name of path) {
+      const match = cursorList.find((item) => item.name === name);
+      if (!match) break;
+      validPath.push(name);
+      cursor = match;
+      cursorList = match.children ?? [];
+    }
+    return { node: cursor, path: validPath };
+  };
+
+  const { node: activeNode, path: normalizedPath } = useMemo(
+    () => resolvePath(activePath),
+    [activePath, clusters]
   );
 
-  const data = useMemo(() => {
-    if (activeClusterNode?.children?.length) {
-      return enrichNodes(activeClusterNode.children, 1, 2);
+  useEffect(() => {
+    if (normalizedPath.join(" / ") !== activePath.join(" / ")) {
+      setActivePath(normalizedPath);
     }
-    return enrichNodes(clusters, 1, 2);
-  }, [activeClusterNode, clusters]);
+  }, [activePath, normalizedPath]);
+
+  const data = useMemo(() => {
+    const depthLimit = normalizedPath.length === 0 ? 2 : normalizedPath.length === 1 ? 2 : 1;
+    if (activeNode?.children?.length) {
+      return enrichNodes(activeNode.children, 1, depthLimit);
+    }
+    return enrichNodes(clusters, 1, depthLimit);
+  }, [activeNode, clusters, normalizedPath.length]);
 
   const renderTooltip = ({ active, payload }: TooltipContentProps<number, string>) => {
     if (!active || !payload?.length) return null;
@@ -227,9 +284,8 @@ const TopicPanel: FC<Props> = ({ clusters }) => {
     };
 
     const pathLabel = buildPath(stat);
-    const fullPath = activeClusterNode?.name
-      ? `${activeClusterNode.name} › ${pathLabel}`
-      : pathLabel;
+    const basePath = normalizedPath.join(" › ");
+    const fullPath = basePath ? [basePath, pathLabel].filter(Boolean).join(" › ") : pathLabel;
 
     return (
       <div className="relative min-w-[240px] max-w-[280px] overflow-hidden rounded-2xl border border-slate-200 bg-white/95 px-4 py-3 shadow-[0_18px_48px_rgba(15,23,42,0.16)] backdrop-blur">
@@ -318,13 +374,20 @@ const TopicPanel: FC<Props> = ({ clusters }) => {
     );
   };
 
-  const headerTitle = activeClusterNode
-    ? `Subclusters y microclusters · ${activeClusterNode.name}`
-    : "Clusters de conversación";
+  const activeLevel = normalizedPath.length + 1;
+  const headerTitle =
+    activeLevel === 1
+      ? "Clusters de conversación"
+      : activeLevel === 2
+      ? `Subclusters · ${normalizedPath[0] ?? ""}`
+      : `Microclusters · ${normalizedPath[1] ?? ""}`;
 
-  const headerHint = activeClusterNode
-    ? "Selecciona un subcluster para explorar el detalle del microcluster en tooltip."
-    : "Click en un cluster para ver su desglose.";
+  const headerHint =
+    activeLevel === 1
+      ? "Doble clic en un cluster para explorar sus subclusters."
+      : activeLevel === 2
+      ? "Doble clic en un subcluster para abrir microclusters."
+      : "Explora el detalle en cada microcluster con el tooltip enriquecido.";
 
   return (
     <section className="card p-4 h-full flex flex-col min-h-[420px] min-w-0">
@@ -335,20 +398,46 @@ const TopicPanel: FC<Props> = ({ clusters }) => {
           <p className="text-xs text-slate-500 mt-1">{headerHint}</p>
         </div>
         <div className="flex items-center gap-2">
-          {activeClusterNode ? (
+          {normalizedPath.length ? (
             <button
               type="button"
-              onClick={() => setActiveCluster(null)}
+              onClick={() => setActivePath(normalizedPath.slice(0, -1))}
               className="px-3 py-1 rounded-full border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50"
             >
-              Volver
+              Subir un nivel
             </button>
           ) : null}
+          <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold">
+            Nivel {activeLevel} de 3
+          </span>
           <span className="px-3 py-1 rounded-full bg-prRed/10 text-prRed text-xs font-semibold">
             IA agrupa
           </span>
         </div>
       </div>
+      {normalizedPath.length ? (
+        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 mb-2">
+          <button
+            type="button"
+            className="font-semibold text-slate-600 hover:text-slate-800"
+            onClick={() => setActivePath([])}
+          >
+            Clusters
+          </button>
+          {normalizedPath.map((segment, index) => (
+            <div key={`${segment}-${index}`} className="flex items-center gap-2">
+              <span className="text-slate-300">/</span>
+              <button
+                type="button"
+                className="font-semibold text-slate-600 hover:text-slate-800"
+                onClick={() => setActivePath(normalizedPath.slice(0, index + 1))}
+              >
+                {segment}
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       <div className="flex-1 min-w-0 min-h-[360px]">
         <ResponsiveContainer width="100%" height="100%">
@@ -356,19 +445,15 @@ const TopicPanel: FC<Props> = ({ clusters }) => {
             data={data}
             dataKey="size"
             stroke="#fff"
-            onClick={(node) => {
-              const depth = (node as TreemapNode).depth ?? 0;
-              const name = (node as { name?: string }).name;
-              if (!activeClusterNode && depth === 1 && name) {
-                setActiveCluster(String(name));
-              }
-            }}
             content={(node) => (
               <CustomTile
                 {...(node as TileProps)}
-                labelDepth={activeClusterNode ? 1 : 1}
-                isClickable={!activeClusterNode && (node as TileProps).depth === 1}
-                onSelect={(name) => setActiveCluster(name)}
+                labelDepth={normalizedPath.length === 2 ? 1 : 2}
+                isDrillable={Boolean((node as TileProps).children?.length)}
+                onDrill={(name) => {
+                  if (normalizedPath.length >= 2) return;
+                  setActivePath([...normalizedPath, name]);
+                }}
               />
             )}
             animationDuration={700}
