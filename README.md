@@ -48,6 +48,12 @@ docker-compose up --build
 - `mock-api/` mock API Express con el mismo generador de posts.
 - `api/` funciones serverless para Vercel.
 - `Dockerfile` (frontend) y `mock-api/Dockerfile` (API); `docker-compose.yml` para orquestar.
+- `USER_STORIES.md` y `STATUS.md` para contexto de trabajo del equipo/agente.
+
+## Flujo de trabajo (agentes)
+- Cada solicitud debe crear/actualizar una historia de usuario organizada por áreas en `USER_STORIES.md`.
+- Actualiza `STATUS.md` con el progreso de la historia activa.
+- Al cerrar una historia, haz push del branch y revisa los logs de deploy automático en Vercel.
 
 ## Notas de diseño
 - MapLibre usa estilo público Carto Voyager; los colores siguen la bandera (azul PR, rojo, blanco).
@@ -69,6 +75,14 @@ node scripts/generate-seed.mjs
 ```bash
 psql "$DATABASE_URL" -f db/seed.sql
 ```
+
+Esquema básico:
+- Enums: `sentiment` (positivo/neutral/negativo), `media_type` (texto/video/audio/imagen).
+- Taxonomía: `platforms`, `topics`, `clusters`, `subclusters`, `microclusters`, `locations`.
+- Contenido: `posts` con referencias a plataforma/tema/cluster, sentimiento, timestamp, reach/engagement.
+- Etiquetas: `classification_labels` y `post_classifications` (manual/AI + confidence).
+- Acciones: `post_actions`.
+- Insights: `insight_requests` y `insight_snapshots`.
 
 ## Puertos en Docker (conflictos)
 Si tienes algo usando `4000`, el compose mapea la API en el host `4001`→`4000` del contenedor. Frontend queda en `4173`.

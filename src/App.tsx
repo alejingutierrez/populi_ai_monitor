@@ -3,14 +3,12 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { type Filters } from "./components/FilterBar";
 import Header from "./components/Header";
 import InsightModal from "./components/InsightModal";
-import MapView from "./components/MapView";
-import PostFeed from "./components/PostFeed";
 import Sidebar from "./components/Sidebar";
-import SummaryGrid from "./components/SummaryGrid";
-import TimelineChart from "./components/TimelineChart";
-import ConversationTrends from "./components/ConversationTrends";
-import TopicPanel, { type ClusterStat } from "./components/TopicPanel";
+import type { ClusterStat } from "./components/TopicPanel";
+import ComingSoon from "./components/ComingSoon";
 import { localPosts } from "./data/localPosts";
+import FeedStreamPage from "./pages/FeedStreamPage";
+import OverviewPage from "./pages/OverviewPage";
 import type { SocialPost, TimelineDatum } from "./types";
 
 const defaultFilters: Filters = {
@@ -129,6 +127,34 @@ function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [insightOpen, setInsightOpen] = useState(false);
   const [apiBase] = useState(resolveApiBase());
+  const [activeNav, setActiveNav] = useState<
+    "Overview" | "Feed Stream" | "Geo Tagging" | "Network Connections" | "Alerts"
+  >("Overview");
+
+  const pageMeta = {
+    Overview: {
+      eyebrow: "Dashboard IA",
+      title: "Monitoreo social Puerto Rico",
+    },
+    "Feed Stream": {
+      eyebrow: "Feed Stream",
+      title: "Centro operativo de conversaciones",
+    },
+    "Geo Tagging": {
+      eyebrow: "Geo Tagging",
+      title: "Mapas y cobertura territorial",
+    },
+    "Network Connections": {
+      eyebrow: "Network Connections",
+      title: "Redes y conexiones",
+    },
+    Alerts: {
+      eyebrow: "Alertas",
+      title: "Monitoreo de alertas",
+    },
+  } as const;
+
+  const activeMeta = pageMeta[activeNav] ?? pageMeta.Overview;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -394,6 +420,8 @@ function App() {
         onClose={() => setNavOpen(false)}
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
+        activeItem={activeNav}
+        onNavigate={setActiveNav}
       />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header
@@ -405,19 +433,30 @@ function App() {
           onFiltersChange={setFilters}
           onToggleNav={() => setNavOpen((prev) => !prev)}
           onOpenInsight={() => setInsightOpen(true)}
+          eyebrow={activeMeta.eyebrow}
+          title={activeMeta.title}
         />
-        <main className="p-4 md:p-6 space-y-6 overflow-y-auto">
-          <SummaryGrid metrics={metrics} />
-
-          <div className="grid gap-4 xl:grid-cols-2">
-            <TimelineChart data={timelineData} />
-            <MapView posts={filteredPosts} />
-            <PostFeed posts={filteredPosts} />
-            <TopicPanel clusters={clusterStats} />
-          </div>
-
-          <ConversationTrends allPosts={posts} filters={filters} search={search} />
-        </main>
+        {activeNav === "Overview" ? (
+          <OverviewPage
+            metrics={metrics}
+            filteredPosts={filteredPosts}
+            timelineData={timelineData}
+            clusterStats={clusterStats}
+            allPosts={posts}
+            filters={filters}
+            search={search}
+          />
+        ) : activeNav === "Feed Stream" ? (
+          <FeedStreamPage
+            metrics={metrics}
+            filteredPosts={filteredPosts}
+            timelineData={timelineData}
+            clusterStats={clusterStats}
+            filters={filters}
+          />
+        ) : (
+          <ComingSoon title={activeNav} />
+        )}
       </div>
       <InsightModal isOpen={insightOpen} onClose={() => setInsightOpen(false)} />
     </div>

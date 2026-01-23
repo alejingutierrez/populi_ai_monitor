@@ -16,6 +16,8 @@ interface Props {
   onFiltersChange: (filters: Filters) => void;
   onToggleNav?: () => void;
   onOpenInsight?: () => void;
+  eyebrow?: string;
+  title?: string;
 }
 
 const Header: FC<Props> = ({
@@ -27,6 +29,8 @@ const Header: FC<Props> = ({
   onFiltersChange,
   onToggleNav,
   onOpenInsight,
+  eyebrow = "Dashboard IA",
+  title = "Monitoreo social Puerto Rico",
 }) => {
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-slate-200 px-4 md:px-6 py-4 flex flex-col gap-3 shadow-[0_8px_20px_rgba(15,23,42,0.06)]">
@@ -42,10 +46,10 @@ const Header: FC<Props> = ({
           </button>
           <div>
           <p className="text-xs text-slate-500 uppercase tracking-[0.2em]">
-            Dashboard IA
+            {eyebrow}
           </p>
           <h1 className="text-2xl font-semibold text-ink">
-            Monitoreo social Puerto Rico
+            {title}
           </h1>
           </div>
         </div>

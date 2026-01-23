@@ -11,12 +11,17 @@ import {
   TrashIcon,
 } from "@heroicons/react/24/outline";
 import { motion, useReducedMotion } from "framer-motion";
-import { useEffect, useMemo, useRef, useState, type FC } from "react";
+import { useEffect, useMemo, useRef, useState, type FC, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { SocialPost } from "../types";
 
 interface Props {
   posts: SocialPost[];
+  eyebrow?: string;
+  title?: string;
+  subtitle?: string;
+  scrollClassName?: string;
+  headerActions?: ReactNode;
 }
 
 const sentimentColor = (sentiment: SocialPost["sentiment"]) => {
@@ -46,7 +51,14 @@ const topEntries = (map: Map<string, number>, limit = 3) =>
     .slice(0, limit)
     .map(([name, count]) => ({ name, count }));
 
-const PostFeed: FC<Props> = ({ posts }) => {
+const PostFeed: FC<Props> = ({
+  posts,
+  eyebrow = "Feed Stream",
+  title = "Hilos priorizados",
+  subtitle,
+  scrollClassName,
+  headerActions,
+}) => {
   const reduceMotion = useReducedMotion();
   const [isSmall, setIsSmall] = useState(false);
   const baseCount = isSmall ? 8 : 12;
@@ -267,17 +279,18 @@ const PostFeed: FC<Props> = ({ posts }) => {
         minute: "2-digit",
       })
     : "—";
+  const fallbackSubtitle = `Mostrando ${items.length} de ${posts.length} · Última actividad ${lastActivityLabel}`;
+
   return (
     <section className="card p-4 h-full min-w-0">
       <div className="card-header mb-4 items-start gap-4 flex-col lg:flex-row lg:items-center">
         <div>
-          <p className="muted">Feed Stream</p>
-          <p className="h-section">Hilos priorizados</p>
-          <p className="text-[11px] text-slate-500">
-            Mostrando {items.length} de {posts.length} · Última actividad {lastActivityLabel}
-          </p>
+          <p className="muted">{eyebrow}</p>
+          <p className="h-section">{title}</p>
+          <p className="text-[11px] text-slate-500">{subtitle ?? fallbackSubtitle}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {headerActions}
           <span className="inline-flex items-center gap-1 rounded-full bg-slate-900 px-3 py-1 text-[11px] font-semibold text-white">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
             IA en vivo
@@ -294,7 +307,9 @@ const PostFeed: FC<Props> = ({ posts }) => {
       <div className="space-y-3 min-w-0">
         <div
           ref={scrollAreaRef}
-          className="space-y-3 overflow-y-auto max-h-[45vh] md:max-h-[560px] pr-1"
+          className={`space-y-3 overflow-y-auto pr-1 ${
+            scrollClassName ?? "max-h-[45vh] md:max-h-[560px]"
+          }`}
         >
           {items.map((post, idx) => {
             const score = scorePost(post);

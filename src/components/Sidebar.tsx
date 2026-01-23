@@ -24,36 +24,51 @@ interface Props {
   onClose?: () => void;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
+  activeItem?: string;
+  onNavigate?: (label: string) => void;
 }
 
-const Sidebar: FC<Props> = ({ isOpen = false, onClose, collapsed = false, onToggleCollapse }) => {
+const Sidebar: FC<Props> = ({
+  isOpen = false,
+  onClose,
+  collapsed = false,
+  onToggleCollapse,
+  activeItem,
+  onNavigate,
+}) => {
   const isCollapsed = Boolean(collapsed);
   const canToggle = Boolean(onToggleCollapse);
   const renderNav = (onItemClick?: () => void) => (
     <nav className={`px-4 space-y-1 mt-2 ${isCollapsed ? "px-2" : "px-4"}`}>
-      {navItems.map(({ label, icon: Icon }, idx) => (
-        <motion.button
-          key={label}
-          type="button"
-          aria-current={idx === 0 ? "page" : undefined}
-          whileHover={{ x: 4 }}
-          onClick={onItemClick}
-          aria-label={label}
-          title={label}
-          className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left ${
-            idx === 0
-              ? "bg-prBlue text-white shadow-md"
-              : "text-slate-700 hover:bg-prGray"
-          }`}
-        >
-          <Icon className="h-5 w-5" />
-          {!isCollapsed ? (
-            <span className="text-sm font-medium">{label}</span>
-          ) : (
-            <span className="sr-only">{label}</span>
-          )}
-        </motion.button>
-      ))}
+      {navItems.map(({ label, icon: Icon }, idx) => {
+        const isActive = activeItem ? activeItem === label : idx === 0;
+        return (
+          <motion.button
+            key={label}
+            type="button"
+            aria-current={isActive ? "page" : undefined}
+            whileHover={{ x: 4 }}
+            onClick={() => {
+              onNavigate?.(label);
+              onItemClick?.();
+            }}
+            aria-label={label}
+            title={label}
+            className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left ${
+              isActive
+                ? "bg-prBlue text-white shadow-md"
+                : "text-slate-700 hover:bg-prGray"
+            }`}
+          >
+            <Icon className="h-5 w-5" />
+            {!isCollapsed ? (
+              <span className="text-sm font-medium">{label}</span>
+            ) : (
+              <span className="sr-only">{label}</span>
+            )}
+          </motion.button>
+        );
+      })}
     </nav>
   );
 
