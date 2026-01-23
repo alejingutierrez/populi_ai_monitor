@@ -1,11 +1,10 @@
+import { useEffect, useId, useMemo, useRef, useState, type FC } from "react";
 import {
-  ResponsiveContainer,
-  Tooltip,
-  Treemap,
-  type TreemapNode,
-  type TooltipContentProps,
-} from "recharts";
-import { useMemo, useState, useEffect, type FC } from "react";
+  hierarchy,
+  treemap,
+  treemapSquarify,
+  type HierarchyRectangularNode,
+} from "d3-hierarchy";
 
 export interface ClusterStat {
   name: string;
@@ -35,156 +34,41 @@ const sentimentPalette = (stat: ClusterStat) => {
   return { fill: "#e5e7eb", accent: "#334155" };
 };
 
-type TileProps = TreemapNode &
-  ClusterStat & {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    depth?: number;
-    parent?: TreemapNode;
-    labelDepth?: number;
-    isDrillable?: boolean;
-    onDrill?: (name: string) => void;
-  };
+const clamp = (value: number, min: number, max: number) =>
+  Math.max(min, Math.min(max, value));
 
-const CustomTile: FC<TileProps> = (props) => {
-  const {
-    x,
-    y,
-    width,
-    height,
-    name,
-    volume,
-    positive,
-    negative,
-    depth,
-    labelDepth,
-    isDrillable,
-    onDrill,
-  } = props;
-  if (!width || !height || width <= 0 || height <= 0 || volume === undefined) {
-    return null;
-  }
-  const sentiment = volume ? (positive - negative) / volume : 0;
-  const tone =
-    sentiment > 0.25 ? "Positivo" : sentiment < -0.2 ? "Negativo" : "Neutral";
-  const palette = sentimentPalette(props);
-  const level = depth ?? 1;
-  const labelSize = level === 1 ? 13 : level === 2 ? 11 : 10;
-  const labelWeight = level === 1 ? 700 : 600;
-  const padding = level === 1 ? 12 : level === 2 ? 10 : 8;
-  const radius = level === 1 ? 16 : level === 2 ? 12 : 9;
-  const allowLabel = level <= (labelDepth ?? 2);
-  const showLabel = allowLabel && width > 46 && height > 26;
-  const showMetrics = width > 120 && height > 64;
-  const showTone = width > 92 && height > 46;
-  const showDrillHint = isDrillable && width > 72 && height > 26;
-  const headerHeight = showLabel ? (level === 1 ? 26 : 22) : 0;
+const truncateLabel = (label: string, maxChars: number) => {
+  if (label.length <= maxChars) return label;
+  return `${label.slice(0, Math.max(1, maxChars - 1))}…`;
+};
 
-  return (
-    <g style={{ cursor: isDrillable ? "zoom-in" : "default" }}>
-      <rect
-        x={x}
-        y={y}
-        width={width}
-        height={height}
-        rx={radius}
-        ry={radius}
-        pointerEvents="all"
-        onDoubleClick={isDrillable ? () => onDrill?.(name) : undefined}
-        style={{
-          fill: palette.fill,
-          opacity: level > 1 ? 0.75 : 0.92,
-          stroke: level === 1 ? palette.accent : "#e2e8f0",
-          strokeWidth: level === 1 ? 2 : 1,
-        }}
-      />
-      {showLabel ? (
-        <rect
-          x={x + 1}
-          y={y + 1}
-          width={Math.max(0, width - 2)}
-          height={headerHeight}
-          rx={radius}
-          ry={radius}
-          fill="rgba(255,255,255,0.5)"
-          pointerEvents="none"
-        />
-      ) : null}
-      {showLabel ? (
-        <text
-          x={x! + padding}
-          y={y! + padding + labelSize - 2}
-          fill="#0f172a"
-          fontSize={labelSize}
-          fontWeight={labelWeight}
-          stroke="none"
-          pointerEvents="none"
-        >
-          {name}
-        </text>
-      ) : null}
-      {showMetrics && volume !== undefined ? (
-        <>
-          <text
-            x={x! + padding}
-            y={y! + padding + labelSize + (showLabel ? 18 : 14)}
-            fill="#475569"
-            fontSize={10}
-            fontWeight={600}
-            stroke="none"
-            pointerEvents="none"
-          >
-            {volume.toLocaleString("es-PR")} menciones
-          </text>
-          {showTone ? (
-            <>
-              <rect
-                x={x! + padding}
-                y={y! + padding + labelSize + (showLabel ? 26 : 22)}
-                rx={8}
-                ry={8}
-                width={78}
-                height={18}
-                fill={palette.accent}
-                opacity={0.14}
-                pointerEvents="none"
-              />
-              <text
-                x={x! + padding + 6}
-                y={y! + padding + labelSize + (showLabel ? 39 : 35)}
-                fill={palette.accent}
-                fontSize={9.5}
-                fontWeight={700}
-                stroke="none"
-                pointerEvents="none"
-              >
-                {tone}
-              </text>
-            </>
-          ) : null}
-        </>
-      ) : null}
-      {showDrillHint ? (
-        <text
-          x={x! + width - padding}
-          y={y! + padding + labelSize - 2}
-          fill="#64748b"
-          fontSize={9}
-          fontWeight={700}
-          textAnchor="end"
-          pointerEvents="none"
-        >
-          2x
-        </text>
-      ) : null}
-    </g>
-  );
+type TreemapNode = HierarchyRectangularNode<ClusterStat>;
+
+type TooltipState = {
+  id: string;
+  node: TreemapNode;
+  x: number;
+  y: number;
 };
 
 const TopicPanel: FC<Props> = ({ clusters }) => {
   const [activePath, setActivePath] = useState<string[]>([]);
+  const [tooltip, setTooltip] = useState<TooltipState | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [bounds, setBounds] = useState({ width: 0, height: 0 });
+  const idPrefix = useId().replace(/[:]/g, "");
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const element = containerRef.current;
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      setBounds({ width: entry.contentRect.width, height: entry.contentRect.height });
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
 
   if (!clusters.length) {
     return (
@@ -201,21 +85,6 @@ const TopicPanel: FC<Props> = ({ clusters }) => {
       </section>
     );
   }
-
-  const enrichNodes = (
-    nodes: ClusterStat[],
-    depth = 1,
-    depthLimit = 2
-  ): ClusterStat[] =>
-    nodes.map((node) => ({
-      ...node,
-      size: node.volume,
-      depth,
-      children:
-        depth < depthLimit && node.children
-          ? enrichNodes(node.children, depth + 1, depthLimit)
-          : undefined,
-    }));
 
   const resolvePath = (path: string[]) => {
     let cursor: ClusterStat | null = null;
@@ -242,19 +111,62 @@ const TopicPanel: FC<Props> = ({ clusters }) => {
     }
   }, [activePath, normalizedPath]);
 
-  const data = useMemo(() => {
-    const depthLimit = normalizedPath.length === 0 ? 2 : normalizedPath.length === 1 ? 2 : 1;
-    if (activeNode?.children?.length) {
-      return enrichNodes(activeNode.children, 1, depthLimit);
-    }
-    return enrichNodes(clusters, 1, depthLimit);
-  }, [activeNode, clusters, normalizedPath.length]);
+  const activeLevel = normalizedPath.length + 1;
 
-  const renderTooltip = ({ active, payload }: TooltipContentProps<number, string>) => {
-    if (!active || !payload?.length) return null;
-    const stat = payload[0]?.payload as ClusterStat & { parent?: TreemapNode } | undefined;
-    if (!stat) return null;
+  const treeRoot = useMemo(() => {
+    const children = normalizedPath.length ? activeNode?.children ?? [] : clusters;
+    return {
+      name: normalizedPath[normalizedPath.length - 1] ?? "root",
+      volume: 0,
+      positive: 0,
+      negative: 0,
+      children,
+    } satisfies ClusterStat;
+  }, [activeNode, clusters, normalizedPath]);
 
+  const tiles = useMemo(() => {
+    if (!bounds.width || !bounds.height) return [] as TreemapNode[];
+    const root = hierarchy<ClusterStat>(treeRoot)
+      .sum((d) => d.volume ?? 0)
+      .sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
+
+    const padding = clamp(Math.min(bounds.width, bounds.height) * 0.03, 8, 18);
+    const innerPadding = clamp(padding * 0.55, 4, 12);
+
+    treemap<ClusterStat>()
+      .size([bounds.width, bounds.height])
+      .paddingInner(innerPadding)
+      .paddingOuter(padding)
+      .tile(treemapSquarify)
+      .round(true)(root);
+
+    return root.children ?? [];
+  }, [bounds.height, bounds.width, treeRoot]);
+
+  const headerTitle =
+    activeLevel === 1
+      ? "Clusters de conversación"
+      : activeLevel === 2
+      ? `Subclusters · ${normalizedPath[0] ?? ""}`
+      : `Microclusters · ${normalizedPath[1] ?? ""}`;
+
+  const headerHint =
+    activeLevel === 1
+      ? "Doble clic en un cluster para explorar sus subclusters."
+      : activeLevel === 2
+      ? "Doble clic en un subcluster para abrir microclusters."
+      : "Explora el detalle en cada microcluster con el tooltip enriquecido.";
+
+  const tooltipNode = tooltip?.node;
+  const tooltipStat = tooltipNode?.data;
+  const tooltipStyle = tooltip
+    ? {
+        left: clamp(tooltip.x + 16, 12, Math.max(12, bounds.width - 300)),
+        top: clamp(tooltip.y + 16, 12, Math.max(12, bounds.height - 220)),
+      }
+    : undefined;
+
+  const renderTooltip = (stat: ClusterStat) => {
     const palette = sentimentPalette(stat);
     const total = stat.volume ?? 0;
     const positivePct = total ? Math.round((stat.positive / total) * 100) : 0;
@@ -271,20 +183,7 @@ const TopicPanel: FC<Props> = ({ clusters }) => {
         : "Pulso mixto";
     const balanceLabel =
       net === 0 ? "Balance neutro" : net > 0 ? "Predominio favorable" : "Predominio crítico";
-
-    const buildPath = (node: { name?: string; parent?: TreemapNode | null }) => {
-      const names: string[] = [];
-      let cursor: TreemapNode | undefined | null = node as TreemapNode;
-      while (cursor && typeof (cursor as { name?: string }).name === "string") {
-        names.unshift((cursor as { name?: string }).name ?? "");
-        cursor = (cursor as { parent?: TreemapNode }).parent;
-      }
-      return names.filter((name) => name && name !== "root").join(" › ");
-    };
-
-    const pathLabel = buildPath(stat);
-    const basePath = normalizedPath.join(" › ");
-    const fullPath = basePath ? [basePath, pathLabel].filter(Boolean).join(" › ") : pathLabel;
+    const pathLabel = [...normalizedPath, stat.name].filter(Boolean).join(" › ");
 
     return (
       <div className="relative min-w-[240px] max-w-[280px] overflow-hidden rounded-2xl border border-slate-200 bg-white/95 px-4 py-3 shadow-[0_18px_48px_rgba(15,23,42,0.16)] backdrop-blur">
@@ -300,7 +199,7 @@ const TopicPanel: FC<Props> = ({ clusters }) => {
               <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
                 Network path
               </p>
-              <p className="text-base font-bold leading-tight text-ink">{fullPath}</p>
+              <p className="text-base font-bold leading-tight text-ink">{pathLabel}</p>
               <p className="mt-1 text-[11px] text-slate-500">
                 {total.toLocaleString("es-PR")} menciones
               </p>
@@ -373,21 +272,6 @@ const TopicPanel: FC<Props> = ({ clusters }) => {
     );
   };
 
-  const activeLevel = normalizedPath.length + 1;
-  const headerTitle =
-    activeLevel === 1
-      ? "Clusters de conversación"
-      : activeLevel === 2
-      ? `Subclusters · ${normalizedPath[0] ?? ""}`
-      : `Microclusters · ${normalizedPath[1] ?? ""}`;
-
-  const headerHint =
-    activeLevel === 1
-      ? "Doble clic en un cluster para explorar sus subclusters."
-      : activeLevel === 2
-      ? "Doble clic en un subcluster para abrir microclusters."
-      : "Explora el detalle en cada microcluster con el tooltip enriquecido.";
-
   return (
     <section className="card p-4 h-full flex flex-col min-h-[420px] min-w-0">
       <div className="card-header">
@@ -438,28 +322,167 @@ const TopicPanel: FC<Props> = ({ clusters }) => {
         </div>
       ) : null}
 
-      <div className="flex-1 min-w-0 min-h-[360px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <Treemap
-            data={data}
-            dataKey="size"
-            stroke="#fff"
-            content={(node) => (
-              <CustomTile
-                {...(node as TileProps)}
-                labelDepth={normalizedPath.length === 2 ? 1 : 2}
-                isDrillable={Boolean((node as TileProps).children?.length)}
-                onDrill={(name) => {
-                  if (normalizedPath.length >= 2) return;
-                  setActivePath([...normalizedPath, name]);
-                }}
-              />
-            )}
-            animationDuration={700}
-          >
-            <Tooltip cursor={{ fill: "rgba(11, 79, 156, 0.06)" }} content={renderTooltip} />
-          </Treemap>
-        </ResponsiveContainer>
+      <div className="flex-1 min-w-0 min-h-[360px] relative">
+        <div
+          ref={containerRef}
+          className="h-full w-full overflow-hidden rounded-2xl border border-slate-100"
+          style={{
+            background:
+              "radial-gradient(120% 80% at 0% 0%, rgba(248,250,252,0.95) 0%, rgba(255,255,255,0.95) 55%, rgba(255,255,255,1) 100%)",
+          }}
+        >
+          {bounds.width && bounds.height ? (
+            <svg width={bounds.width} height={bounds.height}>
+              {tiles.map((node, index) => {
+                const width = Math.max(0, node.x1 - node.x0);
+                const height = Math.max(0, node.y1 - node.y0);
+                if (width < 6 || height < 6) return null;
+                const stat = node.data;
+                const palette = sentimentPalette(stat);
+                const isDrillable = Boolean(stat.children?.length) && activeLevel < 3;
+                const nodeId = `${normalizedPath.join("/")}|${stat.name}|${index}`;
+                const isHovered = tooltip?.id === nodeId;
+                const padding = width > 140 ? 12 : 10;
+                const labelSize = width > 180 ? 13 : 11;
+                const labelMaxChars = Math.max(4, Math.floor((width - padding * 2) / (labelSize * 0.6)));
+                const showLabel = width > 70 && height > 30;
+                const showMetrics = width > 140 && height > 70;
+                const showTone = width > 110 && height > 52;
+                const showDrillHint = isDrillable && width > 68 && height > 26;
+                const radius = width > 160 && height > 120 ? 16 : 12;
+                const clipId = `${idPrefix}-clip-${index}`;
+
+                return (
+                  <g
+                    key={nodeId}
+                    transform={`translate(${node.x0}, ${node.y0})`}
+                    onMouseMove={(event) => {
+                      const rect = containerRef.current?.getBoundingClientRect();
+                      if (!rect) return;
+                      setTooltip({
+                        id: nodeId,
+                        node,
+                        x: event.clientX - rect.left,
+                        y: event.clientY - rect.top,
+                      });
+                    }}
+                    onMouseLeave={() => setTooltip(null)}
+                    onDoubleClick={() => {
+                      if (!isDrillable) return;
+                      setActivePath([...normalizedPath, stat.name]);
+                    }}
+                    style={{ cursor: isDrillable ? "zoom-in" : "default" }}
+                  >
+                    <defs>
+                      <clipPath id={clipId}>
+                        <rect width={width} height={height} rx={radius} ry={radius} />
+                      </clipPath>
+                    </defs>
+                    <rect
+                      width={width}
+                      height={height}
+                      rx={radius}
+                      ry={radius}
+                      fill={palette.fill}
+                      stroke={isHovered ? palette.accent : "rgba(148,163,184,0.5)"}
+                      strokeWidth={isHovered ? 2.2 : 1.2}
+                      opacity={isHovered ? 0.95 : 0.9}
+                    />
+                    <g clipPath={`url(#${clipId})`}>
+                      {showLabel ? (
+                        <rect
+                          x={1}
+                          y={1}
+                          width={Math.max(0, width - 2)}
+                          height={labelSize + 16}
+                          rx={radius}
+                          ry={radius}
+                          fill="rgba(255,255,255,0.5)"
+                        />
+                      ) : null}
+                      {showLabel ? (
+                        <text
+                          x={padding}
+                          y={padding + labelSize - 2}
+                          fontSize={labelSize}
+                          fontWeight={700}
+                          fill="#0f172a"
+                        >
+                          {truncateLabel(stat.name, labelMaxChars)}
+                        </text>
+                      ) : null}
+                      {showMetrics ? (
+                        <text
+                          x={padding}
+                          y={padding + labelSize + 16}
+                          fontSize={10}
+                          fontWeight={600}
+                          fill="#475569"
+                        >
+                          {stat.volume.toLocaleString("es-PR")} menciones
+                        </text>
+                      ) : null}
+                      {showTone ? (
+                        <g>
+                          <rect
+                            x={padding}
+                            y={padding + labelSize + 24}
+                            width={86}
+                            height={18}
+                            rx={8}
+                            ry={8}
+                            fill={palette.accent}
+                            opacity={0.14}
+                          />
+                          <text
+                            x={padding + 6}
+                            y={padding + labelSize + 37}
+                            fontSize={9.5}
+                            fontWeight={700}
+                            fill={palette.accent}
+                          >
+                            {stat.volume
+                              ? (stat.positive - stat.negative) / stat.volume > 0.25
+                                ? "Positivo"
+                                : (stat.positive - stat.negative) / stat.volume < -0.2
+                                ? "Negativo"
+                                : "Neutral"
+                              : "Neutral"}
+                          </text>
+                        </g>
+                      ) : null}
+                      {showDrillHint ? (
+                        <text
+                          x={width - padding}
+                          y={padding + labelSize - 2}
+                          fontSize={9}
+                          fontWeight={700}
+                          fill="#64748b"
+                          textAnchor="end"
+                        >
+                          2x
+                        </text>
+                      ) : null}
+                    </g>
+                  </g>
+                );
+              })}
+            </svg>
+          ) : null}
+          {!tiles.length ? (
+            <div className="absolute inset-0 flex items-center justify-center text-sm text-slate-500">
+              No hay subniveles para mostrar en este nivel.
+            </div>
+          ) : null}
+          {tooltipStat && tooltipStyle ? (
+            <div
+              className="absolute z-10 pointer-events-none"
+              style={{ left: tooltipStyle.left, top: tooltipStyle.top }}
+            >
+              {renderTooltip(tooltipStat)}
+            </div>
+          ) : null}
+        </div>
       </div>
     </section>
   );
