@@ -1,6 +1,4 @@
 import {
-  ArrowTrendingUpIcon,
-  BoltIcon,
   ChatBubbleOvalLeftIcon,
   EllipsisVerticalIcon,
   EyeSlashIcon,
@@ -298,134 +296,29 @@ const PostFeed: FC<Props> = ({ posts }) => {
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[240px_minmax(0,1fr)]">
-        <aside className="space-y-3">
-          <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_12px_24px_rgba(15,23,42,0.06)]">
-            <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-              <span>Pulso IA</span>
-              <ArrowTrendingUpIcon className="h-4 w-4 text-prBlue" />
-            </div>
-            <div className="mt-3 flex items-end justify-between">
-              <div>
-                <p className="text-2xl font-bold text-ink">{velocityLabel}</p>
-                <p className="text-[11px] text-slate-500">vs. ventana anterior (15m)</p>
-              </div>
-              <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-right text-[11px] font-semibold text-slate-600">
-                <p>{feedIntel.recentCount} hilos</p>
-                <p className="text-[10px] text-slate-400">últimos 15m</p>
-              </div>
-            </div>
-            <div className="mt-3 flex items-center gap-2 text-[11px] text-slate-600">
-              <span className="rounded-full bg-prBlue/10 px-2 py-1 text-prBlue font-semibold">
-                {feedIntel.dominantSentiment}
-              </span>
-              <span>sentimiento dominante</span>
-            </div>
-          </div>
+      <div className="space-y-3 min-w-0">
+        <div
+          ref={scrollAreaRef}
+          className="space-y-3 overflow-y-auto max-h-[45vh] md:max-h-[560px] pr-1"
+        >
+          {items.map((post, idx) => {
+            const score = scorePost(post);
+            const tone = scoreTone(score);
+            const reason = reasonPost(post);
+            const velocity = feedIntel.clusterVelocity.get(post.cluster);
+            const delta = velocity ? Math.round(velocity.deltaPct) : 0;
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_12px_24px_rgba(15,23,42,0.06)]">
-            <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-              <span>Clusters calientes</span>
-              <BoltIcon className="h-4 w-4 text-amber-500" />
-            </div>
-            <div className="mt-3 space-y-2">
-              {feedIntel.topClusters.map((cluster) => {
-                const velocity = feedIntel.clusterVelocity.get(cluster.name);
-                const delta = velocity ? Math.round(velocity.deltaPct) : 0;
-                return (
-                  <div key={cluster.name} className="flex items-center justify-between text-[11px]">
-                    <span className="font-semibold text-slate-700">{cluster.name}</span>
-                    <span className="rounded-full bg-amber-50 px-2 py-1 text-amber-700 font-semibold">
-                      {delta >= 0 ? "+" : ""}
-                      {delta}%
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_12px_24px_rgba(15,23,42,0.06)]">
-            <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-              <span>Municipios activos</span>
-              <MapPinIcon className="h-4 w-4 text-prBlue" />
-            </div>
-            <div className="mt-3 space-y-2">
-              {feedIntel.topCities.map((city) => (
-                <div key={city.name} className="flex items-center justify-between text-[11px]">
-                  <span className="font-semibold text-slate-700">{city.name}</span>
-                  <span className="text-slate-500">{formatCompact(city.count)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_12px_24px_rgba(15,23,42,0.06)]">
-            <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-              <span>Acciones IA</span>
-              <SparklesIcon className="h-4 w-4 text-prBlue" />
-            </div>
-            <div className="mt-3 grid gap-2">
-              <button
-                type="button"
-                className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            return (
+              <motion.article
+                key={post.id}
+                data-post-id={post.id}
+                initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={reduceMotion ? { duration: 0 } : { delay: idx * 0.03 }}
+                layout
+                whileHover={reduceMotion ? undefined : { scale: 1.005 }}
+                className="relative border border-slate-200 rounded-xl p-3 bg-gradient-to-br from-white to-slate-50 shadow-[0_10px_24px_rgba(15,23,42,0.06)]"
               >
-                Auto-priorizar top 5
-                <FlagIcon className="h-4 w-4 text-slate-500" />
-              </button>
-              <button
-                type="button"
-                className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                Generar resumen IA
-                <SparklesIcon className="h-4 w-4 text-slate-500" />
-              </button>
-              <button
-                type="button"
-                className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                Crear alerta crítica
-                <BoltIcon className="h-4 w-4 text-slate-500" />
-              </button>
-            </div>
-          </div>
-        </aside>
-
-        <div className="space-y-3 min-w-0">
-          <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm">
-            <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-2 py-1">
-              <SparklesIcon className="h-4 w-4 text-prBlue" />
-              IA prioriza por impacto + riesgo
-            </span>
-            {feedIntel.topTopics.map((topic) => (
-              <span key={topic.name} className="rounded-full bg-prBlue/10 px-2 py-1 text-prBlue">
-                {topic.name}
-              </span>
-            ))}
-          </div>
-
-          <div
-            ref={scrollAreaRef}
-            className="space-y-3 overflow-y-auto max-h-[45vh] md:max-h-[560px] pr-1"
-          >
-            {items.map((post, idx) => {
-              const score = scorePost(post);
-              const tone = scoreTone(score);
-              const reason = reasonPost(post);
-              const velocity = feedIntel.clusterVelocity.get(post.cluster);
-              const delta = velocity ? Math.round(velocity.deltaPct) : 0;
-
-              return (
-                <motion.article
-                  key={post.id}
-                  data-post-id={post.id}
-                  initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={reduceMotion ? { duration: 0 } : { delay: idx * 0.03 }}
-                  layout
-                  whileHover={reduceMotion ? undefined : { scale: 1.005 }}
-                  className="relative border border-slate-200 rounded-xl p-3 bg-gradient-to-br from-white to-slate-50 shadow-[0_10px_24px_rgba(15,23,42,0.06)]"
-                >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <div className="h-10 w-10 rounded-full bg-gradient-to-br from-prBlue to-prRed text-white font-semibold flex items-center justify-center">
@@ -535,33 +428,32 @@ const PostFeed: FC<Props> = ({ posts }) => {
                     </span>
                   </div>
 
-                </motion.article>
-              );
-            })}
-          </div>
+              </motion.article>
+            );
+          })}
+        </div>
 
-          <div className="pt-3 flex flex-col sm:flex-row gap-2">
-            {canShowMore ? (
-              <button
-                type="button"
-                onClick={() =>
-                  setVisibleCount((count) => Math.min(posts.length, count + baseCount))
-                }
-                className="w-full rounded-xl border border-slate-200 bg-white py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
-              >
-                Mostrar más
-              </button>
-            ) : null}
-            {visibleCount > baseCount ? (
-              <button
-                type="button"
-                onClick={() => setVisibleCount(baseCount)}
-                className="w-full rounded-xl border border-slate-200 bg-white py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
-              >
-                Mostrar menos
-              </button>
-            ) : null}
-          </div>
+        <div className="pt-3 flex flex-col sm:flex-row gap-2">
+          {canShowMore ? (
+            <button
+              type="button"
+              onClick={() =>
+                setVisibleCount((count) => Math.min(posts.length, count + baseCount))
+              }
+              className="w-full rounded-xl border border-slate-200 bg-white py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+            >
+              Mostrar más
+            </button>
+          ) : null}
+          {visibleCount > baseCount ? (
+            <button
+              type="button"
+              onClick={() => setVisibleCount(baseCount)}
+              className="w-full rounded-xl border border-slate-200 bg-white py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+            >
+              Mostrar menos
+            </button>
+          ) : null}
         </div>
       </div>
       {canRenderMenu
