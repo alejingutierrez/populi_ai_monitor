@@ -59,20 +59,22 @@ const computeCircularLayout = (nodes: NetworkNode[]) => {
   )
 }
 
+type SentimentKey = 'positivo' | 'neutral' | 'negativo'
+
 const computeCommunityLayout = (nodes: NetworkNode[]) => {
-  const groups: Record<string, NetworkNode[]> = { positivo: [], neutral: [], negativo: [] }
+  const groups: Record<SentimentKey, NetworkNode[]> = { positivo: [], neutral: [], negativo: [] }
   nodes.forEach((node) => {
     groups[node.dominantSentiment].push(node)
   })
 
-  const centers = {
+  const centers: Record<SentimentKey, { x: number; y: number }> = {
     positivo: { x: 0.25, y: 0.5 },
     neutral: { x: 0.5, y: 0.5 },
     negativo: { x: 0.75, y: 0.5 },
   }
 
   const positions = new Map<string, { x: number; y: number }>()
-  ;(Object.keys(groups) as Array<keyof typeof groups>).forEach((key) => {
+  ;(Object.keys(groups) as SentimentKey[]).forEach((key) => {
     const group = groups[key]
     const radius = 0.16
     group.forEach((node, index) => {
