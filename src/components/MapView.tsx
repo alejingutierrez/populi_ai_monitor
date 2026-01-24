@@ -1,23 +1,21 @@
 import maplibregl from "maplibre-gl";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Sentiment, SocialPost } from "../types";
+import type { SocialPost } from "../types";
+import {
+  buildLocationInsights,
+  dominantSentiment,
+  type CityInsight,
+} from "../data/geoInsights";
 
 interface Props {
   posts: SocialPost[];
+  showControls?: boolean;
+  initialLayer?: "heatmap" | "clusters" | "sentiment";
+  activeCity?: CityInsight | null;
+  onCitySelect?: (insight: CityInsight) => void;
 }
 
-type CityInsight = {
-  id: string;
-  city: string;
-  lat: number;
-  lng: number;
-  total: number;
-  sentiments: Record<Sentiment, number>;
-  topTopics: { name: string; count: number }[];
-  lastDayCount: number;
-  prevDayCount: number;
-  timeWindow: { from?: Date; to?: Date };
-};
+type LayerKey = "heatmap" | "clusters" | "sentiment";
 
 const SOURCE_ID = "city-insights";
 const HEATMAP_LAYER_ID = "city-heatmap";
@@ -25,74 +23,6 @@ const CLUSTER_LAYER_ID = "city-clusters";
 const CLUSTER_COUNT_LAYER_ID = "city-cluster-count";
 const UNCLUSTERED_LAYER_ID = "city-unclustered";
 
-const dayKey = (date: Date) => date.toISOString().slice(0, 10);
-
-const dominantSentiment = (sentiments: Record<Sentiment, number>) => {
-  const entries = Object.entries(sentiments) as [Sentiment, number][];
-  return entries.sort((a, b) => b[1] - a[1])[0]?.[0] ?? "neutral";
-};
-
-const buildLocationInsights = (posts: SocialPost[]): CityInsight[] => {
-  if (!posts.length) return [];
-
-  const windowFrom = new Date(
-    Math.min(...posts.map((p) => new Date(p.timestamp).getTime()))
-  );
-  const windowTo = new Date(
-    Math.max(...posts.map((p) => new Date(p.timestamp).getTime()))
-  );
-
-  const buckets = new Map<string, SocialPost[]>();
-  posts.forEach((post) => {
-    const key = `${post.location.city}-${post.location.lat}-${post.location.lng}`;
-    buckets.set(key, [...(buckets.get(key) ?? []), post]);
-  });
-
-  return Array.from(buckets.entries())
-    .map(([key, bucket]): CityInsight => {
-      const sentiments: Record<Sentiment, number> = {
-        positivo: 0,
-        neutral: 0,
-        negativo: 0,
-      };
-      const topicCount = new Map<string, number>();
-
-      bucket.forEach((post) => {
-        sentiments[post.sentiment] += 1;
-        topicCount.set(post.topic, (topicCount.get(post.topic) ?? 0) + 1);
-      });
-
-      const topTopics = Array.from(topicCount.entries())
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 3)
-        .map(([name, count]) => ({ name, count }));
-
-      const dayCounts = new Map<string, number>();
-      bucket.forEach((post) => {
-        const key = dayKey(new Date(post.timestamp));
-        dayCounts.set(key, (dayCounts.get(key) ?? 0) + 1);
-      });
-      const dayKeys = Array.from(dayCounts.keys()).sort();
-      const lastDayKey = dayKeys.length ? dayKeys[dayKeys.length - 1] : undefined;
-      const prevDayKey = dayKeys.length > 1 ? dayKeys[dayKeys.length - 2] : undefined;
-
-      const loc = bucket[0].location;
-
-      return {
-        id: key,
-        city: loc.city,
-        lat: loc.lat,
-        lng: loc.lng,
-        total: bucket.length,
-        sentiments,
-        topTopics,
-        lastDayCount: lastDayKey ? dayCounts.get(lastDayKey) ?? 0 : bucket.length,
-        prevDayCount: prevDayKey ? dayCounts.get(prevDayKey) ?? 0 : 0,
-        timeWindow: { from: windowFrom, to: windowTo },
-      };
-    })
-    .sort((a, b) => b.total - a.total);
-};
 
 type GeoPointFeature = {
   type: "Feature";
@@ -263,12 +193,13 @@ type MapLayerEvent = maplibregl.MapMouseEvent & {
   features?: maplibregl.MapGeoJSONFeature[];
 };
 
-const MapView = ({ posts }: Props) => {
+const MapView = ({ posts, showControls = false, initialLayer = "heatmap", activeCity, onCitySelect }: Props) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const mapLoadedRef = useRef(false);
   const insightsRef = useRef<CityInsight[]>([]);
   const hoverTargetRef = useRef<string | null>(null);
+  const [activeLayer, setActiveLayer] = useState<LayerKey>(initialLayer);
   const [mapReady, setMapReady] = useState(false);
   const [activeTooltip, setActiveTooltip] = useState<{
     insight: CityInsight;
@@ -423,6 +354,18 @@ const MapView = ({ posts }: Props) => {
           },
         });
 
+        const applyVisibility = (layer: LayerKey) => {
+          const setLayer = (id: string, visible: boolean) => {
+            if (!localMap.getLayer(id)) return;
+            localMap.setLayoutProperty(id, "visibility", visible ? "visible" : "none");
+          };
+          setLayer(HEATMAP_LAYER_ID, layer === "heatmap");
+          setLayer(CLUSTER_LAYER_ID, layer === "clusters");
+          setLayer(CLUSTER_COUNT_LAYER_ID, layer === "clusters");
+          setLayer(UNCLUSTERED_LAYER_ID, layer === "sentiment");
+        };
+        applyVisibility(activeLayer);
+
         mapLoadedRef.current = true;
         setMapReady(true);
       };
@@ -450,6 +393,29 @@ const MapView = ({ posts }: Props) => {
     if (!source) return;
     source.setData(buildGeoJson(locationInsights));
   }, [locationInsights, mapReady]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady || !mapLoadedRef.current) return;
+    const setLayer = (id: string, visible: boolean) => {
+      if (!map.getLayer(id)) return;
+      map.setLayoutProperty(id, "visibility", visible ? "visible" : "none");
+    };
+    setLayer(HEATMAP_LAYER_ID, activeLayer === "heatmap");
+    setLayer(CLUSTER_LAYER_ID, activeLayer === "clusters");
+    setLayer(CLUSTER_COUNT_LAYER_ID, activeLayer === "clusters");
+    setLayer(UNCLUSTERED_LAYER_ID, activeLayer === "sentiment");
+  }, [activeLayer, mapReady]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady || !mapLoadedRef.current || !activeCity) return;
+    map.easeTo({
+      center: [activeCity.lng, activeCity.lat],
+      zoom: Math.max(9, map.getZoom()),
+      duration: 800,
+    });
+  }, [activeCity, mapReady]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -524,6 +490,7 @@ const MapView = ({ posts }: Props) => {
       anchoredInsightRef.current = insight;
       setActiveTooltip({ insight, screen: coords });
       attachMoveListener();
+      onCitySelect?.(insight);
     };
 
     const scheduleClose = () => {
@@ -625,7 +592,7 @@ const MapView = ({ posts }: Props) => {
       setActiveTooltip(null);
       anchoredInsightRef.current = null;
     };
-  }, [mapReady]);
+  }, [mapReady, onCitySelect]);
 
   return (
     <section className="card p-4 h-full flex flex-col min-h-[360px] min-w-0">
@@ -638,12 +605,64 @@ const MapView = ({ posts }: Props) => {
           {locationInsights.length} puntos
         </span>
       </div>
-      <div
-        ref={containerRef}
-        className="flex-1 rounded-xl border border-slate-200 map-shell"
-        style={{ minHeight: "360px" }}
-        aria-label="Mapa de calor social"
-      />
+      <div className="relative flex-1 min-h-[360px]">
+        <div
+          ref={containerRef}
+          className="h-full w-full rounded-xl border border-slate-200 map-shell"
+          style={{ minHeight: "360px" }}
+          aria-label="Mapa de calor social"
+        />
+        {showControls ? (
+          <div className="absolute left-3 top-3 flex flex-wrap gap-2 bg-white/90 backdrop-blur-sm border border-slate-200 rounded-xl p-2 text-[11px] font-semibold text-slate-600">
+            {[
+              { key: "heatmap", label: "Heatmap" },
+              { key: "clusters", label: "Clusters" },
+              { key: "sentiment", label: "Sentimiento" },
+            ].map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => setActiveLayer(item.key as LayerKey)}
+                className={`px-2.5 py-1 rounded-full border transition ${
+                  activeLayer === item.key
+                    ? "border-prBlue bg-prBlue/10 text-prBlue"
+                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
+        {showControls ? (
+          <div className="absolute bottom-3 left-3 rounded-xl border border-slate-200 bg-white/90 backdrop-blur-sm px-3 py-2 text-[11px] text-slate-600 space-y-2">
+            <div className="font-semibold text-slate-500 uppercase tracking-[0.12em]">
+              Leyenda
+            </div>
+            {activeLayer === "sentiment" ? (
+              <div className="flex flex-wrap gap-2">
+                <span className="inline-flex items-center gap-1">
+                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                  Positivo
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="h-2.5 w-2.5 rounded-full bg-slate-400" />
+                  Neutral
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="h-2.5 w-2.5 rounded-full bg-rose-500" />
+                  Negativo
+                </span>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                <div className="h-2 w-32 rounded-full bg-gradient-to-r from-sky-200 via-sky-500 to-blue-900" />
+                <p className="text-[10px] text-slate-500">Baja → Alta intensidad</p>
+              </div>
+            )}
+          </div>
+        ) : null}
+      </div>
       {activeTooltip && (
         <div
           className="insight-flyout"

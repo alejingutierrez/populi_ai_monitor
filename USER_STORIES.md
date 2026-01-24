@@ -22,6 +22,8 @@ Mantén las historias organizadas por área. Añade una nueva historia por solic
 - US-2026-01-23-012 — Como operador, quiero simplificar Trend Radar para que sea legible y no esté saturado.
   - Criterios: menos bloques, métricas esenciales, mayor aire visual y cálculos ajustados.
   - Criterios: tarjetas KPI en grid 2x2 para evitar saturación.
+- US-2026-01-23-013 — Como analista, quiero una página Geo Tagging enfocada en mapas y geolocalización para entender cobertura territorial y hotspots.
+  - Criterios: layout dedicado con mapa principal, paneles de insights territoriales y resumen operativo; esquema visual en `GEO_TAGGING_VISUAL_SCHEMA.md`.
 - US-2026-01-23-005 — Como desarrollador, quiero corregir el tipado de navegación para evitar fallos de build en Vercel.
   - Criterios: tipos alineados entre Sidebar y App; build sin error de TS2322.
 

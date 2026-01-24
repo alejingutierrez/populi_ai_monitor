@@ -8,6 +8,7 @@ import type { ClusterStat } from "./components/TopicPanel";
 import ComingSoon from "./components/ComingSoon";
 import { localPosts } from "./data/localPosts";
 import FeedStreamPage from "./pages/FeedStreamPage";
+import GeoTaggingPage from "./pages/GeoTaggingPage";
 import OverviewPage from "./pages/OverviewPage";
 import type { SocialPost, TimelineDatum } from "./types";
 
@@ -451,6 +452,13 @@ function App() {
             timelineData={timelineData}
             clusterStats={clusterStats}
             filters={filters}
+          />
+        ) : activeNav === "Geo Tagging" ? (
+          <GeoTaggingPage
+            posts={posts}
+            filteredPosts={filteredPosts}
+            filters={filters}
+            search={search}
           />
         ) : (
           <ComingSoon title={activeNav} />
