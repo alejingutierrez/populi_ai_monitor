@@ -24,6 +24,9 @@ Mantén las historias organizadas por área. Añade una nueva historia por solic
   - Criterios: tarjetas KPI en grid 2x2 para evitar saturación.
 - US-2026-01-23-013 — Como analista, quiero una página Geo Tagging enfocada en mapas y geolocalización para entender cobertura territorial y hotspots.
   - Criterios: layout dedicado con mapa principal, paneles de insights territoriales y resumen operativo; esquema visual en `GEO_TAGGING_VISUAL_SCHEMA.md`.
+- US-2026-01-23-014 — Como analista, quiero una página Network Connections con grafos entre clusters, subclusters y microclusters para entender relaciones entre temas.
+  - Criterios: vista con grafos por nivel, filtros y panel de insights; esquema visual en `NETWORK_CONNECTIONS_VISUAL_SCHEMA.md`.
+  - Criterios: definir lógica de co-ocurrencia y métricas de centralidad para nodos/enlaces.
 - US-2026-01-23-005 — Como desarrollador, quiero corregir el tipado de navegación para evitar fallos de build en Vercel.
   - Criterios: tipos alineados entre Sidebar y App; build sin error de TS2322.
 

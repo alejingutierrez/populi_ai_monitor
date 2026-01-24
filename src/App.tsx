@@ -9,6 +9,7 @@ import ComingSoon from "./components/ComingSoon";
 import { localPosts } from "./data/localPosts";
 import FeedStreamPage from "./pages/FeedStreamPage";
 import GeoTaggingPage from "./pages/GeoTaggingPage";
+import NetworkConnectionsPage from "./pages/NetworkConnectionsPage";
 import OverviewPage from "./pages/OverviewPage";
 import type { SocialPost, TimelineDatum } from "./types";
 
@@ -460,6 +461,8 @@ function App() {
             filters={filters}
             search={search}
           />
+        ) : activeNav === "Network Connections" ? (
+          <NetworkConnectionsPage posts={posts} filters={filters} search={search} />
         ) : (
           <ComingSoon title={activeNav} />
         )}
