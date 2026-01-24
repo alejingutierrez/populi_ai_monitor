@@ -28,6 +28,10 @@ const sentimentColor = {
   negativo: '#dc2626',
 }
 
+const viewBox = { width: 1000, height: 700 }
+const viewMin = Math.min(viewBox.width, viewBox.height)
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
+
 const edgeColor = (sentimentIndex: number) => {
   if (sentimentIndex >= 65) return '#16a34a'
   if (sentimentIndex <= 40) return '#dc2626'
@@ -48,20 +52,23 @@ const rand = (seed: number) => {
   return x - Math.floor(x)
 }
 
-const computeCircularLayout = (nodes: NetworkNode[]) => {
-  const radius = 0.35
+const computeCircularLayout = (nodes: NetworkNode[], radii: Map<string, number>) => {
+  const radius = nodes.length > 16 ? 0.42 : 0.36
   const center = { x: 0.5, y: 0.5 }
+  const sorted = [...nodes].sort((a, b) => (radii.get(b.id) ?? 0) - (radii.get(a.id) ?? 0))
   return new Map(
-    nodes.map((node, index) => {
-      const angle = (index / Math.max(1, nodes.length)) * Math.PI * 2
-      return [node.id, { x: center.x + Math.cos(angle) * radius, y: center.y + Math.sin(angle) * radius }]
+    sorted.map((node, index) => {
+      const angle = (index / Math.max(1, sorted.length)) * Math.PI * 2
+      const nodeRadius = radii.get(node.id) ?? 0
+      const radial = Math.max(0.12, radius - nodeRadius)
+      return [node.id, { x: center.x + Math.cos(angle) * radial, y: center.y + Math.sin(angle) * radial }]
     })
   )
 }
 
 type SentimentKey = 'positivo' | 'neutral' | 'negativo'
 
-const computeCommunityLayout = (nodes: NetworkNode[]) => {
+const computeCommunityLayout = (nodes: NetworkNode[], radii: Map<string, number>) => {
   const groups: Record<SentimentKey, NetworkNode[]> = { positivo: [], neutral: [], negativo: [] }
   nodes.forEach((node) => {
     groups[node.dominantSentiment].push(node)
@@ -74,35 +81,53 @@ const computeCommunityLayout = (nodes: NetworkNode[]) => {
   }
 
   const positions = new Map<string, { x: number; y: number }>()
-  ;(Object.keys(groups) as SentimentKey[]).forEach((key) => {
-    const group = groups[key]
-    const radius = 0.16
-    group.forEach((node, index) => {
-      const angle = (index / Math.max(1, group.length)) * Math.PI * 2
+  const margin = 0.06
+  const placeSpiral = (group: NetworkNode[], center: { x: number; y: number }, offset: number) => {
+    const sorted = [...group].sort((a, b) => (radii.get(b.id) ?? 0) - (radii.get(a.id) ?? 0))
+    sorted.forEach((node, index) => {
+      const angle = offset + index * 0.82
+      const ring = 0.03 + Math.sqrt(index) * 0.045
+      const nodeRadius = radii.get(node.id) ?? 0
+      const radius = ring + nodeRadius
       positions.set(node.id, {
-        x: centers[key].x + Math.cos(angle) * radius,
-        y: centers[key].y + Math.sin(angle) * radius,
+        x: clamp(center.x + Math.cos(angle) * radius, margin, 1 - margin),
+        y: clamp(center.y + Math.sin(angle) * radius, margin, 1 - margin),
       })
     })
+  }
+  ;(Object.keys(groups) as SentimentKey[]).forEach((key) => {
+    const group = groups[key]
+    placeSpiral(group, centers[key], key === 'neutral' ? 0.3 : key === 'positivo' ? 0.1 : 0.5)
   })
 
   return positions
 }
 
-const computeForceLayout = (nodes: NetworkNode[], edges: NetworkEdge[]) => {
+const computeForceLayout = (nodes: NetworkNode[], edges: NetworkEdge[], radii: Map<string, number>) => {
   const positions = new Map<string, { x: number; y: number }>()
-  nodes.forEach((node) => {
-    const seed = seedFromString(node.id)
+  const velocities = new Map<string, { x: number; y: number }>()
+  const margin = 0.05
+
+  const sorted = [...nodes].sort((a, b) => (radii.get(b.id) ?? 0) - (radii.get(a.id) ?? 0))
+  sorted.forEach((node, index) => {
+    const angle = index * 0.7
+    const ring = 0.14 + Math.sqrt(index) * 0.045
     positions.set(node.id, {
-      x: 0.2 + rand(seed) * 0.6,
-      y: 0.2 + rand(seed + 13) * 0.6,
+      x: clamp(0.5 + Math.cos(angle) * ring, margin, 1 - margin),
+      y: clamp(0.5 + Math.sin(angle) * ring, margin, 1 - margin),
     })
+    velocities.set(node.id, { x: 0, y: 0 })
   })
 
-  const iterations = Math.min(80, 30 + nodes.length * 2)
-  const repulsion = 0.002
-  const attraction = 0.0008
-  const gravity = 0.0015
+  const maxWeight = Math.max(1, ...edges.map((edge) => edge.weight))
+  const baseDistance = 0.22
+  const minDistance = 0.08
+  const repulsion = nodes.length > 40 ? 0.0016 : 0.0022
+  const gravity = 0.0045
+  const damping = 0.84
+  const maxStep = 0.02
+
+  const iterations = Math.min(140, 50 + nodes.length * 3)
 
   for (let step = 0; step < iterations; step += 1) {
     const forces = new Map<string, { x: number; y: number }>()
@@ -110,6 +135,7 @@ const computeForceLayout = (nodes: NetworkNode[], edges: NetworkEdge[]) => {
       forces.set(node.id, { x: 0, y: 0 })
     })
 
+    const cooling = 1 - step / iterations
     for (let i = 0; i < nodes.length; i += 1) {
       for (let j = i + 1; j < nodes.length; j += 1) {
         const a = nodes[i]
@@ -118,10 +144,13 @@ const computeForceLayout = (nodes: NetworkNode[], edges: NetworkEdge[]) => {
         const posB = positions.get(b.id)!
         const dx = posA.x - posB.x
         const dy = posA.y - posB.y
-        const distSq = Math.max(0.0001, dx * dx + dy * dy)
-        const force = repulsion / distSq
-        const fx = force * dx
-        const fy = force * dy
+        const dist = Math.max(0.0001, Math.sqrt(dx * dx + dy * dy))
+        const distSq = Math.max(0.0001, dist * dist)
+        const minDist = (radii.get(a.id) ?? 0) + (radii.get(b.id) ?? 0) + 0.012
+        const overlap = Math.max(0, minDist - dist)
+        const force = (repulsion / distSq + overlap * 0.6) * cooling
+        const fx = (dx / dist) * force
+        const fy = (dy / dist) * force
         forces.get(a.id)!.x += fx
         forces.get(a.id)!.y += fy
         forces.get(b.id)!.x -= fx
@@ -136,7 +165,10 @@ const computeForceLayout = (nodes: NetworkNode[], edges: NetworkEdge[]) => {
       const dx = posB.x - posA.x
       const dy = posB.y - posA.y
       const dist = Math.max(0.001, Math.sqrt(dx * dx + dy * dy))
-      const force = attraction * edge.weight
+      const weightScale = edge.weight / maxWeight
+      const target = Math.max(minDistance, baseDistance - weightScale * 0.12)
+      const delta = dist - target
+      const force = delta * (0.05 + weightScale * 0.08) * cooling
       const fx = (dx / dist) * force
       const fy = (dy / dist) * force
       forces.get(edge.source)!.x += fx
@@ -148,10 +180,15 @@ const computeForceLayout = (nodes: NetworkNode[], edges: NetworkEdge[]) => {
     nodes.forEach((node) => {
       const pos = positions.get(node.id)!
       const force = forces.get(node.id)!
+      const velocity = velocities.get(node.id)!
       force.x += (0.5 - pos.x) * gravity
       force.y += (0.5 - pos.y) * gravity
-      const nextX = Math.min(0.95, Math.max(0.05, pos.x + force.x))
-      const nextY = Math.min(0.95, Math.max(0.05, pos.y + force.y))
+      velocity.x = (velocity.x + force.x) * damping
+      velocity.y = (velocity.y + force.y) * damping
+      velocity.x = clamp(velocity.x, -maxStep, maxStep)
+      velocity.y = clamp(velocity.y, -maxStep, maxStep)
+      const nextX = clamp(pos.x + velocity.x, margin, 1 - margin)
+      const nextY = clamp(pos.y + velocity.y, margin, 1 - margin)
       positions.set(node.id, { x: nextX, y: nextY })
     })
   }
@@ -176,23 +213,44 @@ const NetworkGraph: FC<Props> = ({
   onNodeSelect,
 }) => {
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
+  const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null)
   const activeNodeId = selectedNodeId ?? hoveredNodeId
+  const activeEdgeId = selectedEdgeId ?? hoveredEdgeId
   const filteredEdges = useMemo(
     () => edges.filter((edge) => edge.weight >= minWeight),
     [edges, minWeight]
   )
 
-  const positions = useMemo(() => {
-    if (!nodes.length) return new Map<string, { x: number; y: number }>()
-    if (layout === 'circular') return computeCircularLayout(nodes)
-    if (layout === 'community') return computeCommunityLayout(nodes)
-    return computeForceLayout(nodes, filteredEdges)
-  }, [nodes, layout, filteredEdges])
-
   const maxValue = useMemo(() => {
     if (!nodes.length) return 1
     return Math.max(...nodes.map((node) => (sizeBy === 'reach' ? node.reach : node.volume)))
   }, [nodes, sizeBy])
+
+  const nodeRadii = useMemo(() => {
+    const map = new Map<string, number>()
+    nodes.forEach((node) => {
+      const value = sizeBy === 'reach' ? node.reach : node.volume
+      const normalized = maxValue ? value / maxValue : 0
+      const radius = 8 + normalized * 16
+      map.set(node.id, radius)
+    })
+    return map
+  }, [nodes, sizeBy, maxValue])
+
+  const layoutRadii = useMemo(() => {
+    const map = new Map<string, number>()
+    nodeRadii.forEach((radius, id) => {
+      map.set(id, radius / viewMin)
+    })
+    return map
+  }, [nodeRadii])
+
+  const positions = useMemo(() => {
+    if (!nodes.length) return new Map<string, { x: number; y: number }>()
+    if (layout === 'circular') return computeCircularLayout(nodes, layoutRadii)
+    if (layout === 'community') return computeCommunityLayout(nodes, layoutRadii)
+    return computeForceLayout(nodes, filteredEdges, layoutRadii)
+  }, [nodes, layout, filteredEdges, layoutRadii])
 
   const maxEdge = useMemo(() => {
     if (!filteredEdges.length) return 1
@@ -212,7 +270,7 @@ const NetworkGraph: FC<Props> = ({
   const labelSet = useMemo(() => {
     const top = [...nodes]
       .sort((a, b) => b.volume - a.volume)
-      .slice(0, 6)
+      .slice(0, 8)
       .map((node) => node.id)
     const set = new Set(top)
     if (selectedNodeId) set.add(selectedNodeId)
@@ -293,37 +351,65 @@ const NetworkGraph: FC<Props> = ({
           onChange={(event) => onThresholdChange(Number(event.target.value))}
           className='w-32 accent-prBlue'
         />
-       </div>
+      </div>
 
-      <div className='mt-4 relative h-[420px] sm:h-[520px] rounded-2xl border border-slate-200 bg-slate-50 overflow-hidden'>
+      <div className='mt-4 relative h-[420px] sm:h-[520px] xl:h-[620px] rounded-2xl border border-slate-200 bg-slate-50 overflow-hidden'>
         {!nodes.length ? (
           <div className='h-full grid place-items-center text-sm text-slate-500'>
             Sin conexiones suficientes para mostrar el grafo.
           </div>
         ) : (
-          <svg viewBox='0 0 1000 700' className='w-full h-full'>
+          <svg viewBox={`0 0 ${viewBox.width} ${viewBox.height}`} className='w-full h-full'>
+            <defs>
+              <radialGradient id='graph-bg' cx='50%' cy='40%' r='70%'>
+                <stop offset='0%' stopColor='#f8fafc' />
+                <stop offset='100%' stopColor='#e2e8f0' />
+              </radialGradient>
+              <pattern id='graph-grid' width='48' height='48' patternUnits='userSpaceOnUse'>
+                <path d='M 48 0 L 0 0 0 48' fill='none' stroke='#e2e8f0' strokeWidth='1' />
+              </pattern>
+              <filter id='node-shadow' x='-50%' y='-50%' width='200%' height='200%'>
+                <feDropShadow dx='0' dy='2' stdDeviation='3' floodColor='#0f172a' floodOpacity='0.18' />
+              </filter>
+              <filter id='node-focus' x='-60%' y='-60%' width='220%' height='220%'>
+                <feDropShadow dx='0' dy='4' stdDeviation='6' floodColor='#0f172a' floodOpacity='0.35' />
+              </filter>
+            </defs>
+            <rect width='100%' height='100%' fill='url(#graph-bg)' />
+            <rect width='100%' height='100%' fill='url(#graph-grid)' opacity='0.35' />
             <g>
               {filteredEdges.map((edge) => {
                 const source = positions.get(edge.source)
                 const target = positions.get(edge.target)
                 if (!source || !target) return null
-                const isSelected = edge.id === selectedEdgeId
+                const isSelected = edge.id === activeEdgeId
                 const isConnected = activeNodeId
                   ? edge.source === activeNodeId || edge.target === activeNodeId
                   : true
-                const strokeOpacity = isSelected ? 0.9 : isConnected ? 0.45 : 0.15
-                const strokeWidth =
-                  (edge.weight / maxEdge) * 4 + (isSelected ? 1.5 : 0.5)
+                const strokeOpacity = isSelected ? 0.95 : isConnected ? 0.45 : 0.12
+                const strokeWidth = (edge.weight / maxEdge) * 3.8 + (isSelected ? 1.8 : 0.6)
+                const sx = source.x * viewBox.width
+                const sy = source.y * viewBox.height
+                const tx = target.x * viewBox.width
+                const ty = target.y * viewBox.height
+                const dx = tx - sx
+                const dy = ty - sy
+                const dist = Math.max(1, Math.sqrt(dx * dx + dy * dy))
+                const curvature = (rand(seedFromString(edge.id)) - 0.5) * 0.18
+                const cx = (sx + tx) / 2 - (dy / dist) * dist * curvature
+                const cy = (sy + ty) / 2 + (dx / dist) * dist * curvature
+                const path = `M ${sx} ${sy} Q ${cx} ${cy} ${tx} ${ty}`
                 return (
-                  <line
+                  <path
                     key={edge.id}
-                    x1={source.x * 1000}
-                    y1={source.y * 700}
-                    x2={target.x * 1000}
-                    y2={target.y * 700}
+                    d={path}
                     stroke={isSelected ? '#0f172a' : edgeColor(edge.sentimentIndex)}
                     strokeOpacity={strokeOpacity}
                     strokeWidth={strokeWidth}
+                    strokeLinecap='round'
+                    fill='none'
+                    onMouseEnter={() => setHoveredEdgeId(edge.id)}
+                    onMouseLeave={() => setHoveredEdgeId(null)}
                   />
                 )
               })}
@@ -332,32 +418,42 @@ const NetworkGraph: FC<Props> = ({
               {nodes.map((node) => {
                 const pos = positions.get(node.id)
                 if (!pos) return null
-                const value = sizeBy === 'reach' ? node.reach : node.volume
-                const radius = 6 + (value / maxValue) * 14
+                const radius = nodeRadii.get(node.id) ?? 10
                 const isSelected = node.id === selectedNodeId
                 const isDimmed = activeNodeId && !highlightSet.has(node.id)
                 return (
                   <g key={node.id}>
+                    {isSelected ? (
+                      <circle
+                        cx={pos.x * viewBox.width}
+                        cy={pos.y * viewBox.height}
+                        r={radius + 6}
+                        fill={sentimentColor[node.dominantSentiment]}
+                        fillOpacity={0.18}
+                      />
+                    ) : null}
                     <circle
-                      cx={pos.x * 1000}
-                      cy={pos.y * 700}
+                      cx={pos.x * viewBox.width}
+                      cy={pos.y * viewBox.height}
                       r={isSelected ? radius + 2 : radius}
                       fill={sentimentColor[node.dominantSentiment]}
-                      fillOpacity={isDimmed ? 0.35 : 0.85}
+                      fillOpacity={isDimmed ? 0.35 : 0.9}
                       stroke={isSelected ? '#0f172a' : '#ffffff'}
                       strokeWidth={isSelected ? 3 : 1.5}
+                      filter={isSelected ? 'url(#node-focus)' : 'url(#node-shadow)'}
+                      className='cursor-pointer'
                       onMouseEnter={() => setHoveredNodeId(node.id)}
                       onMouseLeave={() => setHoveredNodeId(null)}
                       onClick={() => onNodeSelect(isSelected ? null : node.id)}
                     />
                     {labelSet.has(node.id) ? (
                       <text
-                        x={pos.x * 1000}
-                        y={pos.y * 700 - radius - 6}
+                        x={pos.x * viewBox.width}
+                        y={pos.y * viewBox.height - radius - 6}
                         textAnchor='middle'
                         fontSize='12'
                         fill='#0f172a'
-                        style={{ fontWeight: 600 }}
+                        style={{ fontWeight: 600, paintOrder: 'stroke', stroke: '#f8fafc', strokeWidth: 4 }}
                       >
                         {node.label}
                       </text>

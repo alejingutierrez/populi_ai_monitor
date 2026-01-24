@@ -18,3 +18,4 @@ Estados sugeridos: Planned, In progress, Blocked, Done.
 | US-2026-01-23-012 | Done | 2026-01-23 | KPI cards en grid 2x2; layout responsive refinado y logs Vercel revisados. |
 | US-2026-01-23-013 | Done | 2026-01-23 | Geo Tagging implementado con mapa interactivo, paneles y drilldown; fix de tipado MapView y deploy Ready verificado. |
 | US-2026-01-23-014 | Done | 2026-01-24 | Vista Network Connections implementada; fix de tipado en layout comunitario y logs Vercel verificados. |
+| US-2026-01-24-015 | Done | 2026-01-24 | Grafo refactorizado con layout de fuerza mejorado, colisiones y render con curvas/halos; listo para revisión visual. |

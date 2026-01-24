@@ -27,6 +27,8 @@ Mantén las historias organizadas por área. Añade una nueva historia por solic
 - US-2026-01-23-014 — Como analista, quiero una página Network Connections con grafos entre clusters, subclusters y microclusters para entender relaciones entre temas.
   - Criterios: vista con grafos por nivel, filtros y panel de insights; esquema visual en `NETWORK_CONNECTIONS_VISUAL_SCHEMA.md`.
   - Criterios: definir lógica de co-ocurrencia y métricas de centralidad para nodos/enlaces.
+- US-2026-01-24-015 — Como analista, quiero refactorizar el grafo de Network Connections para que sea más profesional y legible sin usar librerías externas.
+  - Criterios: layout de fuerza mejorado (colisiones y estabilidad), rendering con curvas/halos, mejor legibilidad y responsividad.
 - US-2026-01-23-005 — Como desarrollador, quiero corregir el tipado de navegación para evitar fallos de build en Vercel.
   - Criterios: tipos alineados entre Sidebar y App; build sin error de TS2322.
 
