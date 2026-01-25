@@ -19,3 +19,6 @@ Estados sugeridos: Planned, In progress, Blocked, Done.
 | US-2026-01-23-013 | Done | 2026-01-23 | Geo Tagging implementado con mapa interactivo, paneles y drilldown; fix de tipado MapView y deploy Ready verificado. |
 | US-2026-01-23-014 | Done | 2026-01-24 | Vista Network Connections implementada; fix de tipado en layout comunitario y logs Vercel verificados. |
 | US-2026-01-24-015 | Done | 2026-01-24 | Grafo refactorizado con layout de fuerza mejorado, colisiones y render con curvas/halos; listo para revisión visual. |
+| US-2026-01-25-016 | Done | 2026-01-25 | Planeación de Alerts completada con esquema visual (`ALERTS_VISUAL_SCHEMA.md`) y validación Neon. |
+| US-2026-01-25-017 | Done | 2026-01-25 | Alerts implementado en frontend (Pulse/Stream/Intel/Timeline) y navegación conectada. |
+| US-2026-01-25-018 | Done | 2026-01-25 | Endpoints Alerts en API/mock + acciones stub listas. |

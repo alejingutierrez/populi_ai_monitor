@@ -8,10 +8,12 @@ import type { ClusterStat } from "./components/TopicPanel";
 import ComingSoon from "./components/ComingSoon";
 import { localPosts } from "./data/localPosts";
 import FeedStreamPage from "./pages/FeedStreamPage";
+import AlertsPage from "./pages/AlertsPage";
 import GeoTaggingPage from "./pages/GeoTaggingPage";
 import NetworkConnectionsPage from "./pages/NetworkConnectionsPage";
 import OverviewPage from "./pages/OverviewPage";
 import type { SocialPost, TimelineDatum } from "./types";
+import type { Alert } from "./data/alerts";
 
 const defaultFilters: Filters = {
   sentiment: "todos",
@@ -130,6 +132,32 @@ function App() {
   const [insightOpen, setInsightOpen] = useState(false);
   const [apiBase] = useState(resolveApiBase());
   const [activeNav, setActiveNav] = useState<NavLabel>("Overview");
+
+  const handleApplyAlertScope = (alert: Alert) => {
+    setFilters((prev) => {
+      const next = { ...prev };
+      if (alert.scopeType === "overall") {
+        next.cluster = "todos";
+        next.subcluster = "todos";
+        next.platform = "todos";
+      }
+      if (alert.scopeType === "cluster") {
+        next.cluster = alert.scopeLabel;
+        next.subcluster = "todos";
+      }
+      if (alert.scopeType === "subcluster") {
+        next.subcluster = alert.scopeLabel;
+      }
+      if (alert.scopeType === "platform") {
+        next.platform = alert.scopeLabel as Filters["platform"];
+      }
+      return next;
+    });
+
+    if (alert.scopeType === "city" || alert.scopeType === "microcluster") {
+      setSearch(alert.scopeLabel);
+    }
+  };
 
   const pageMeta = {
     Overview: {
@@ -463,6 +491,14 @@ function App() {
           />
         ) : activeNav === "Network Connections" ? (
           <NetworkConnectionsPage posts={posts} filters={filters} search={search} />
+        ) : activeNav === "Alerts" ? (
+          <AlertsPage
+            posts={posts}
+            filters={filters}
+            search={search}
+            apiBase={apiBase}
+            onApplyAlertScope={handleApplyAlertScope}
+          />
         ) : (
           <ComingSoon title={activeNav} />
         )}

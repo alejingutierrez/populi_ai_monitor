@@ -29,11 +29,16 @@ Mantén las historias organizadas por área. Añade una nueva historia por solic
   - Criterios: definir lógica de co-ocurrencia y métricas de centralidad para nodos/enlaces.
 - US-2026-01-24-015 — Como analista, quiero refactorizar el grafo de Network Connections para que sea más profesional y legible sin usar librerías externas.
   - Criterios: layout de fuerza mejorado (colisiones y estabilidad), rendering con curvas/halos, mejor legibilidad y responsividad.
+- US-2026-01-25-016 — Como analista, quiero definir la sección Alerts (visión de producto + plan técnico) para alinear el backend y frontend antes de construirla.
+  - Criterios: propuesta de layout y módulos UI; esquema visual en `ALERTS_VISUAL_SCHEMA.md`; modelo de datos y reglas de alertas; endpoints/APIs sugeridos; integración con filtros globales y acciones sobre posts.
+- US-2026-01-25-017 — Como operador, quiero la sección Alerts implementada con vista, módulos y acciones para gestionar alertas críticas.
+  - Criterios: nueva vista Alerts navegable; módulos Pulse/Stream/Intel/Timeline; acciones rápidas (ack/snooze/escalar/resolver); integración con filtros globales.
 - US-2026-01-23-005 — Como desarrollador, quiero corregir el tipado de navegación para evitar fallos de build en Vercel.
   - Criterios: tipos alineados entre Sidebar y App; build sin error de TS2322.
 
 ## Backend/API
-- _Sin historias activas._
+- US-2026-01-25-018 — Como desarrollador, quiero endpoints de Alerts con cálculo de reglas para abastecer el frontend.
+  - Criterios: `/api/alerts` (GET) con filtros; `/api/alerts/[id]` (GET); `/api/alerts/[id]/actions` (POST) stub; mock-api equivalente.
 
 ## Data/DB
 - _Sin historias activas._
