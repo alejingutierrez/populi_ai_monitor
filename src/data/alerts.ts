@@ -73,8 +73,6 @@ export type AlertThresholds = {
   viralDeltaPct: number
 }
 
-const severityOrder: AlertSeverity[] = ['critical', 'high', 'medium', 'low']
-
 export const defaultAlertThresholds: AlertThresholds = {
   minVolume: 40,
   volumeSpikePct: 30,
@@ -462,4 +460,3 @@ export const buildAlertRuleStats = (
 
   return catalog
 }
-
