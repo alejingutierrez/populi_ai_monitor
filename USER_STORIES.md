@@ -35,13 +35,61 @@ Mantén las historias organizadas por área. Añade una nueva historia por solic
   - Criterios: nueva vista Alerts navegable; módulos Pulse/Stream/Intel/Timeline; acciones rápidas (ack/snooze/escalar/resolver); integración con filtros globales.
 - US-2026-01-23-005 — Como desarrollador, quiero corregir el tipado de navegación para evitar fallos de build en Vercel.
   - Criterios: tipos alineados entre Sidebar y App; build sin error de TS2322.
+- US-2026-02-03-023 — Como analista, quiero un paquete de 40 mejoras inteligentes para la página de Alerts (front/back + datos) para priorizar la siguiente iteración.
+  - Criterios: 40 mejoras concretas con referencias a componentes/servicios; incluye ajustes de modelo de datos, reglas y UX.
+  - Criterios: mejoras agrupadas en paquetes y distribuidas en US-2026-02-03-024 a US-2026-02-03-027.
+- US-2026-02-03-027 — Como operador, quiero un paquete de UX de triage e inteligencia en Alerts para acelerar decisiones y ejecutar acciones en lote.
+  - Incluye: (M34) corregir delta de “En investigación” con `prevAlerts` en `src/pages/AlertsPage.tsx`.
+  - Incluye: (M35) multiselección + acciones bulk (ack/snooze/resolver) y atajos de teclado en `src/components/AlertsStream.tsx`.
+  - Incluye: (M36) tabs por estado con conteos y vistas guardadas para triage rápido.
+  - Incluye: (M37) mostrar edad/SLA por alerta y resaltar breaches.
+  - Incluye: (M38) mini sparklines de volumen/negatividad por alerta.
+  - Incluye: (M39) sección “Por qué disparó” (reglas, valores, umbrales, confidence) en `src/components/AlertIntel.tsx`.
+  - Incluye: (M40) evidencia expandible con chips de sentimiento, link a Feed Stream y CTA de aplicar filtros.
 
 ## Backend/API
 - US-2026-01-25-018 — Como desarrollador, quiero endpoints de Alerts con cálculo de reglas para abastecer el frontend.
   - Criterios: `/api/alerts` (GET) con filtros; `/api/alerts/[id]` (GET); `/api/alerts/[id]/actions` (POST) stub; mock-api equivalente.
+- US-2026-02-03-025 — Como analista, quiero un motor de alertas más inteligente para detectar señales complejas y priorizar riesgos reales.
+  - Incluye: (M11) baseline rolling con z-score para spikes.
+  - Incluye: (M12) `minVolume` por scope basado en histórico local (mediana).
+  - Incluye: (M13) impacto basado en mediana/percentiles para reducir outliers.
+  - Incluye: (M14) señal de “sentiment shift” (delta) además de nivel absoluto.
+  - Incluye: (M15) señal de “topic novelty” vs baseline.
+  - Incluye: (M16) señal “cross-platform spike”.
+  - Incluye: (M17) señal de coordinación por similitud de contenido/autores.
+  - Incluye: (M18) señal de expansión geográfica.
+  - Incluye: (M19) severidad por score compuesto (volumen + negatividad + riesgo + impacto).
+  - Incluye: (M20) deduplicación jerárquica parent/child entre scopes.
+  - Incluye: (M23) ranking de evidencia con negatividad + engagement.
+  - Incluye: (M24) evidencia diversificada (1 por autor).
+  - Incluye: (M25) `explanations` con regla/valor/umbral por alerta.
+- US-2026-02-03-026 — Como operador, quiero un paquete de API de Alerts con filtros avanzados, payloads enriquecidos y acciones persistentes.
+  - Incluye: (M26) `GET /api/alerts` con `severity`, `status`, `sort`, `limit`, `cursor`.
+  - Incluye: (M27) payload con `pulseStats`, `timeline`, `rules` precomputados.
+  - Incluye: (M28) `window`, `prevWindow`, `baseline` en respuesta para deltas consistentes.
+  - Incluye: (M29) `GET /api/alerts/:id` con `history` y `relatedAlerts`.
+  - Incluye: (M30) `POST /api/alerts/:id/actions` persistente (`actor`, `note`, `snoozeUntil`) y retorno actualizado.
+  - Incluye: (M07) `baselineStats` en payload para evitar recomputos en `AlertsPage`.
+- US-2026-02-02-021 — Como analista, quiero definir la estrategia de ingesta diaria y backfill de menciones de Brandwatch para dimensionar volumen y límites.
+  - Criterios: guía de factibilidad con límites, paginación/cursor, y plan de ejecución para 30k/día y 500k histórico, con estimaciones de tiempo por rate limit.
 
 ## Data/DB
-- _Sin historias activas._
+- US-2026-02-03-024 — Como analista, quiero un paquete de datos/lifecycle de Alerts para trazabilidad, scoring y persistencia temporal.
+  - Incluye: (M01) campos `firstSeenAt`, `lastStatusAt`, `ackAt`, `resolvedAt`, `snoozeUntil`.
+  - Incluye: (M02) `occurrences` y `activeWindowCount` para persistencia real.
+  - Incluye: (M03) `confidence` por tamaño de muestra y consistencia de señales.
+  - Incluye: (M04) `priority` separado de `severity`.
+  - Incluye: (M05) `owner`/`team`/`assignee`.
+  - Incluye: (M06) `ruleIds` y `ruleValues` (explainability).
+  - Incluye: (M08) `uniqueAuthors` y `newAuthorsPct`.
+  - Incluye: (M09) `geoSpread` (número de municipios).
+  - Incluye: (M10) `topEntities`/`keywords`.
+  - Incluye: (M21) IDs estables por hash `scopeType+scopeId+rule+bucket`.
+  - Incluye: (M22) separación `alert` vs `alert_instance`.
+  - Incluye: (M31) tabla `alert_actions` para auditoría.
+  - Incluye: (M32) tabla `alert_metrics` time-series.
+  - Incluye: (M33) tabla `alert_rules` con thresholds y overrides.
 
 ## Infra/Deploy
 - _Sin historias activas._
@@ -51,3 +99,9 @@ Mantén las historias organizadas por área. Añade una nueva historia por solic
   - Criterios: AGENTS.md actualizado; README.md actualizado; `USER_STORIES.md` y `STATUS.md` creados.
 - US-2026-01-23-004 — Como mantenedor, quiero que AGENTS.md exija revisar siempre los logs de Vercel para evitar deploys fallidos sin seguimiento.
   - Criterios: instrucción explícita en AGENTS.md.
+- US-2026-01-25-019 — Como mantenedor, quiero estandarizar AGENTS.md con la intención del proyecto y mapa de componentes frontend para facilitar el onboarding del equipo.
+  - Criterios: AGENTS.md incluye intención del producto, arquitectura frontend, mapa de páginas/componentes, flujos de datos y estilos/tokens base.
+- US-2026-02-02-020 — Como analista, quiero consolidar la documentación de la API de Brandwatch Consumer Insights en `CONSUMER_API.md` para tener una referencia única y completa.
+  - Criterios: documento único con endpoints, parámetros, filtros, restricciones y tutoriales principales en español.
+- US-2026-02-03-022 — Como mantenedor, quiero habilitar `collab` y suprimir el warning de features inestables en la config de Codex para mantener el entorno limpio.
+  - Criterios: `collab = true` en `/Users/agutie04/.codex/config.toml`; `suppress_unstable_features_warning = true` configurado.

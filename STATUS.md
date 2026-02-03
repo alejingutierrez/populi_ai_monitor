@@ -22,3 +22,12 @@ Estados sugeridos: Planned, In progress, Blocked, Done.
 | US-2026-01-25-016 | Done | 2026-01-25 | Planeación de Alerts completada con esquema visual (`ALERTS_VISUAL_SCHEMA.md`) y validación Neon. |
 | US-2026-01-25-017 | Done | 2026-01-25 | Alerts implementado en frontend (Pulse/Stream/Intel/Timeline) y navegación conectada. |
 | US-2026-01-25-018 | Done | 2026-01-25 | Endpoints Alerts en API/mock + acciones stub listas. |
+| US-2026-01-25-019 | Done | 2026-01-25 | AGENTS.md estandarizado con mapa de componentes y arquitectura frontend. |
+| US-2026-02-02-020 | Done | 2026-02-02 | Documentación consolidada en `CONSUMER_API.md`. |
+| US-2026-02-02-021 | Done | 2026-02-02 | Estrategia de ingesta/backfill con límites y uso de cursor; tiempos estimados según rate limit. |
+| US-2026-02-03-022 | Done | 2026-02-03 | `collab` habilitado y warning suprimido en config de Codex. |
+| US-2026-02-03-023 | Done | 2026-02-03 | Paquetes de mejoras definidos y distribuidos en historias nuevas. |
+| US-2026-02-03-024 | Done | 2026-02-03 | Schema de Alerts + tablas persistentes, metrics base y lifecycle; alert engines actualizados. |
+| US-2026-02-03-025 | Planned | 2026-02-03 | Paquete motor inteligente de alertas y scoring compuesto. |
+| US-2026-02-03-026 | Planned | 2026-02-03 | Paquete API de Alerts con filtros avanzados y acciones persistentes. |
+| US-2026-02-03-027 | Planned | 2026-02-03 | Paquete UX de triage e insight en Alerts. |

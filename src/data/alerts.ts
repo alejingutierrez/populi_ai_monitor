@@ -20,17 +20,38 @@ export type AlertSignal = {
   deltaPct?: number
 }
 
+export type AlertRuleValue = {
+  value: number
+  threshold: number
+  deltaPct?: number
+  deltaThreshold?: number
+}
+
 export type Alert = {
   id: string
+  stableId?: string
+  instanceId?: string
   title: string
   summary: string
   severity: AlertSeverity
   status: AlertStatus
+  priority?: number
+  owner?: string
+  team?: string
+  assignee?: string
   scopeType: AlertScopeType
   scopeId: string
   scopeLabel: string
   createdAt: string
+  firstSeenAt?: string
   lastSeenAt: string
+  lastStatusAt?: string
+  ackAt?: string | null
+  resolvedAt?: string | null
+  snoozeUntil?: string | null
+  occurrences?: number
+  activeWindowCount?: number
+  confidence?: number
   metrics: {
     volumeCurrent: number
     volumePrev: number
@@ -44,7 +65,14 @@ export type Alert = {
     impactRatio: number
   }
   signals: AlertSignal[]
+  ruleIds?: AlertSignalType[]
+  ruleValues?: Record<AlertSignalType, AlertRuleValue>
   topTopics: { name: string; count: number }[]
+  topEntities?: { name: string; count: number }[]
+  keywords?: { term: string; count: number }[]
+  uniqueAuthors?: number
+  newAuthorsPct?: number
+  geoSpread?: number
   evidence: SocialPost[]
 }
 
@@ -107,6 +135,78 @@ const buildTopTopics = (posts: SocialPost[], limit = 3) => {
     .map(([name, count]) => ({ name, count }))
 }
 
+const buildTopEntities = (posts: SocialPost[], limit = 4) => {
+  const entityCount = new Map<string, number>()
+  posts.forEach((post) => {
+    const key = (post.handle || post.author || '').trim()
+    if (!key) return
+    entityCount.set(key, (entityCount.get(key) ?? 0) + 1)
+  })
+  return Array.from(entityCount.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([name, count]) => ({ name, count }))
+}
+
+const keywordStopwords = new Set([
+  'que',
+  'para',
+  'como',
+  'porque',
+  'cuando',
+  'donde',
+  'este',
+  'esta',
+  'estos',
+  'estas',
+  'unos',
+  'unas',
+  'sobre',
+  'desde',
+  'hasta',
+  'entre',
+  'todo',
+  'toda',
+  'todas',
+  'todos',
+  'pero',
+  'por',
+  'con',
+  'sin',
+  'del',
+  'las',
+  'los',
+  'una',
+  'uno',
+  'the',
+  'and',
+  'for',
+  'with',
+  'this',
+  'that',
+])
+
+const extractTokens = (text: string) =>
+  text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length > 3 && !keywordStopwords.has(token))
+
+const buildKeywords = (posts: SocialPost[], limit = 6) => {
+  const keywordCount = new Map<string, number>()
+  posts.forEach((post) => {
+    extractTokens(post.content).forEach((token) => {
+      keywordCount.set(token, (keywordCount.get(token) ?? 0) + 1)
+    })
+  })
+  return Array.from(keywordCount.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([term, count]) => ({ term, count }))
+}
+
 const calcImpactScore = (posts: SocialPost[]) => {
   if (!posts.length) return 0
   const reach = posts.reduce((acc, post) => acc + post.reach, 0)
@@ -114,7 +214,7 @@ const calcImpactScore = (posts: SocialPost[]) => {
   return (reach / posts.length) * 0.6 + (engagement / posts.length) * 0.4
 }
 
-const buildStats = (posts: SocialPost[]) => {
+const buildStats = (posts: SocialPost[], baselinePosts: SocialPost[] = []) => {
   const total = posts.length
   const reach = posts.reduce((acc, post) => acc + post.reach, 0)
   const engagement = posts.reduce((acc, post) => acc + post.engagement, 0)
@@ -131,6 +231,24 @@ const buildStats = (posts: SocialPost[]) => {
     (min, post) => Math.min(min, new Date(post.timestamp).getTime()),
     Number.POSITIVE_INFINITY
   )
+  const authorKeys = new Set(
+    posts
+      .map((post) => (post.handle || post.author || '').trim().toLowerCase())
+      .filter((value) => value)
+  )
+  const baselineAuthors = new Set(
+    baselinePosts
+      .map((post) => (post.handle || post.author || '').trim().toLowerCase())
+      .filter((value) => value)
+  )
+  const newAuthors = Array.from(authorKeys).filter(
+    (author) => !baselineAuthors.has(author)
+  ).length
+  const uniqueAuthors = authorKeys.size
+  const newAuthorsPct = uniqueAuthors ? (newAuthors / uniqueAuthors) * 100 : 0
+  const geoSpread = new Set(
+    posts.map((post) => post.location.city).filter((value) => value)
+  ).size
   return {
     total,
     reach,
@@ -142,6 +260,11 @@ const buildStats = (posts: SocialPost[]) => {
     latestTs,
     earliestTs: Number.isFinite(earliestTs) ? earliestTs : 0,
     topTopics: buildTopTopics(posts, 3),
+    topEntities: buildTopEntities(posts, 4),
+    keywords: buildKeywords(posts, 6),
+    uniqueAuthors,
+    newAuthorsPct,
+    geoSpread,
   }
 }
 
@@ -151,6 +274,41 @@ const severityWeight = (severity: AlertSeverity) => {
   if (severity === 'medium') return 2
   return 1
 }
+
+const calcPriority = (severity: AlertSeverity, riskScore: number) => {
+  const base = severityWeight(severity) * 20
+  const riskBoost = Math.min(40, riskScore * 0.6)
+  return Math.round(Math.min(100, base + riskBoost))
+}
+
+const calcConfidence = (
+  stats: ReturnType<typeof buildStats>,
+  prevStats: ReturnType<typeof buildStats>,
+  signals: AlertSignal[],
+  thresholds: AlertThresholds
+) => {
+  const volumeScore = Math.min(1, stats.total / Math.max(1, thresholds.minVolume * 2))
+  const signalScore = Math.min(1, signals.length / 3)
+  const delta = Math.abs(stats.total - prevStats.total)
+  const stabilityScore = stats.total
+    ? 1 - Math.min(1, delta / Math.max(stats.total, prevStats.total || 1))
+    : 0
+  const raw = volumeScore * 0.45 + signalScore * 0.35 + stabilityScore * 0.2
+  return Math.round(raw * 100)
+}
+
+const hashString = (value: string) => {
+  let hash = 2166136261
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i)
+    hash = Math.imul(hash, 16777619)
+  }
+  return (hash >>> 0).toString(36)
+}
+
+const buildStableId = (value: string) => `al_${hashString(value)}`
+
+const buildInstanceId = (value: string) => `ai_${hashString(value)}`
 
 const resolveSignalSeverity = (signal: AlertSignal, impactRatio: number) => {
   if (signal.type === 'volume') {
@@ -232,6 +390,7 @@ const buildSignals = (
 ) => {
   const deltaPct = pctChange(stats.total, prevStats.total)
   const signals: AlertSignal[] = []
+  const ruleValues: Partial<Record<AlertSignalType, AlertRuleValue>> = {}
 
   if (stats.total >= thresholds.minVolume && deltaPct >= thresholds.volumeSpikePct) {
     signals.push({
@@ -240,6 +399,11 @@ const buildSignals = (
       value: deltaPct,
       deltaPct,
     })
+    ruleValues.volume = {
+      value: deltaPct,
+      threshold: thresholds.volumeSpikePct,
+      deltaPct,
+    }
   }
 
   if (stats.total >= thresholds.minVolume && stats.negativeShare >= thresholds.negativityPct) {
@@ -248,6 +412,10 @@ const buildSignals = (
       label: 'Negatividad alta',
       value: stats.negativeShare,
     })
+    ruleValues.negativity = {
+      value: stats.negativeShare,
+      threshold: thresholds.negativityPct,
+    }
   }
 
   if (stats.total >= thresholds.minVolume && stats.riskScore >= thresholds.riskScore) {
@@ -256,6 +424,10 @@ const buildSignals = (
       label: 'Riesgo reputacional',
       value: stats.riskScore,
     })
+    ruleValues.risk = {
+      value: stats.riskScore,
+      threshold: thresholds.riskScore,
+    }
   }
 
   if (
@@ -269,9 +441,15 @@ const buildSignals = (
       value: impactRatio,
       deltaPct,
     })
+    ruleValues.viral = {
+      value: impactRatio,
+      threshold: thresholds.viralImpactRatio,
+      deltaPct,
+      deltaThreshold: thresholds.viralDeltaPct,
+    }
   }
 
-  return { signals, deltaPct }
+  return { signals, deltaPct, ruleValues }
 }
 
 export const buildAlerts = (
@@ -292,7 +470,7 @@ export const buildAlerts = (
 
   const alerts: Array<Alert & { score: number }> = []
 
-  const overallStats = buildStats(currentPosts)
+  const overallStats = buildStats(currentPosts, prevPosts)
   const overallPrev = buildStats(prevPosts)
   const overallImpactRatio = baselineImpact ? overallStats.impactScore / baselineImpact : 0
   const overallSignals = buildSignals(overallStats, overallPrev, overallImpactRatio, config)
@@ -307,17 +485,37 @@ export const buildAlerts = (
         overallStats.riskScore,
         (overallImpactRatio - 1) * 100
       )
+    const nowIso = new Date().toISOString()
+    const stableId = buildStableId('overall:overall')
+    const instanceBucket = dayKey(new Date(overallStats.latestTs || Date.now()))
+    const instanceId = buildInstanceId(
+      `overall:overall:${primary.type}:${instanceBucket}`
+    )
+    const confidence = calcConfidence(overallStats, overallPrev, overallSignals.signals, config)
+    const priority = calcPriority(severity, overallStats.riskScore)
+
     alerts.push({
       id: 'overall',
+      stableId,
+      instanceId,
       title: `Panorama general · ${primary.label}`,
       summary: buildSummary(overallStats, overallSignals.deltaPct),
       severity,
       status: 'open',
+      priority,
       scopeType: 'overall',
       scopeId: 'overall',
       scopeLabel: 'Panorama general',
-      createdAt: new Date().toISOString(),
+      createdAt: nowIso,
+      firstSeenAt: new Date(overallStats.earliestTs || Date.now()).toISOString(),
       lastSeenAt: new Date(overallStats.latestTs || Date.now()).toISOString(),
+      lastStatusAt: nowIso,
+      ackAt: null,
+      resolvedAt: null,
+      snoozeUntil: null,
+      occurrences: 1,
+      activeWindowCount: 1,
+      confidence,
       metrics: {
         volumeCurrent: overallStats.total,
         volumePrev: overallPrev.total,
@@ -331,7 +529,14 @@ export const buildAlerts = (
         impactRatio: overallImpactRatio,
       },
       signals: overallSignals.signals,
+      ruleIds: overallSignals.signals.map((signal) => signal.type),
+      ruleValues: overallSignals.ruleValues as Record<AlertSignalType, AlertRuleValue>,
       topTopics: overallStats.topTopics,
+      topEntities: overallStats.topEntities,
+      keywords: overallStats.keywords,
+      uniqueAuthors: overallStats.uniqueAuthors,
+      newAuthorsPct: overallStats.newAuthorsPct,
+      geoSpread: overallStats.geoSpread,
       evidence: buildEvidence(currentPosts),
       score,
     })
@@ -343,10 +548,15 @@ export const buildAlerts = (
 
     groups.forEach((groupPosts, scopeId) => {
       const prevGroupPosts = prevGroups.get(scopeId) ?? []
-      const stats = buildStats(groupPosts)
+      const stats = buildStats(groupPosts, prevGroupPosts)
       const prevStats = buildStats(prevGroupPosts)
       const impactRatio = baselineImpact ? stats.impactScore / baselineImpact : 0
-      const { signals, deltaPct } = buildSignals(stats, prevStats, impactRatio, config)
+      const { signals, deltaPct, ruleValues } = buildSignals(
+        stats,
+        prevStats,
+        impactRatio,
+        config
+      )
       if (!signals.length) return
 
       const primary = pickPrimarySignal(signals, impactRatio)
@@ -355,17 +565,37 @@ export const buildAlerts = (
         severityWeight(severity) * 100 +
         Math.max(deltaPct, stats.negativeShare, stats.riskScore, (impactRatio - 1) * 100)
 
+      const nowIso = new Date().toISOString()
+      const stableId = buildStableId(`${scope.scopeType}:${scopeId}`)
+      const instanceBucket = dayKey(new Date(stats.latestTs || Date.now()))
+      const instanceId = buildInstanceId(
+        `${scope.scopeType}:${scopeId}:${primary.type}:${instanceBucket}`
+      )
+      const confidence = calcConfidence(stats, prevStats, signals, config)
+      const priority = calcPriority(severity, stats.riskScore)
+
       alerts.push({
         id: `${scope.scopeType}:${scopeId}`,
+        stableId,
+        instanceId,
         title: `${scopeId} · ${primary.label}`,
         summary: buildSummary(stats, deltaPct),
         severity,
         status: 'open',
+        priority,
         scopeType: scope.scopeType,
         scopeId,
         scopeLabel: scopeId,
-        createdAt: new Date(stats.earliestTs || Date.now()).toISOString(),
+        createdAt: nowIso,
+        firstSeenAt: new Date(stats.earliestTs || Date.now()).toISOString(),
         lastSeenAt: new Date(stats.latestTs || Date.now()).toISOString(),
+        lastStatusAt: nowIso,
+        ackAt: null,
+        resolvedAt: null,
+        snoozeUntil: null,
+        occurrences: 1,
+        activeWindowCount: 1,
+        confidence,
         metrics: {
           volumeCurrent: stats.total,
           volumePrev: prevStats.total,
@@ -379,7 +609,14 @@ export const buildAlerts = (
           impactRatio,
         },
         signals,
+        ruleIds: signals.map((signal) => signal.type),
+        ruleValues: ruleValues as Record<AlertSignalType, AlertRuleValue>,
         topTopics: stats.topTopics,
+        topEntities: stats.topEntities,
+        keywords: stats.keywords,
+        uniqueAuthors: stats.uniqueAuthors,
+        newAuthorsPct: stats.newAuthorsPct,
+        geoSpread: stats.geoSpread,
         evidence: buildEvidence(groupPosts),
         score,
       })
