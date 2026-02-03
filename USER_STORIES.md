@@ -47,6 +47,10 @@ Mantén las historias organizadas por área. Añade una nueva historia por solic
   - Incluye: (M39) sección “Por qué disparó” (reglas, valores, umbrales, confidence) en `src/components/AlertIntel.tsx`.
   - Incluye: (M40) evidencia expandible con chips de sentimiento, link a Feed Stream y CTA de aplicar filtros.
   - Progreso: layout fluido con splitter + presets, filtros colapsables y vistas guardadas, bulk actions con atajos, SLA restante/vencida y sparklines, Intel con tabs (resumen/explicación/evidencia/distribución/reglas), evidencia con contexto y CTA de insight.
+- US-2026-02-03-032 — Como operador, quiero consistencia total de ancho entre Alerts y el resto de páginas, y un rediseño funcional del timeline de alertas.
+  - Incluye: (M41) eliminar restricciones de ancho únicas en Alerts para igualar el layout con Overview/Geo.
+  - Incluye: (M42) presets de layout con ratio equilibrado por defecto.
+  - Incluye: (M43) rediseño completo del módulo `AlertTimeline` con resumen operativo y reglas activas funcionales.
 
 ## Backend/API
 - US-2026-01-25-018 — Como desarrollador, quiero endpoints de Alerts con cálculo de reglas para abastecer el frontend.

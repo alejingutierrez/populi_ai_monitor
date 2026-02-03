@@ -107,8 +107,8 @@ const AlertsPage: FC<Props> = ({
   )
   const [layoutPreset, setLayoutPreset] = useState<
     'triage' | 'investigacion' | 'lectura' | 'custom'
-  >('triage')
-  const [splitRatio, setSplitRatio] = useState(0.35)
+  >('investigacion')
+  const [splitRatio, setSplitRatio] = useState(0.5)
   const [isResizing, setIsResizing] = useState(false)
   const [isWide, setIsWide] = useState(false)
   const layoutRef = useRef<HTMLDivElement | null>(null)
@@ -143,9 +143,9 @@ const AlertsPage: FC<Props> = ({
 
   const applyPreset = (preset: 'triage' | 'investigacion' | 'lectura') => {
     const ratios = {
-      triage: 0.38,
-      investigacion: 0.3,
-      lectura: 0.45,
+      triage: 0.46,
+      investigacion: 0.5,
+      lectura: 0.54,
     }
     setLayoutPreset(preset)
     setSplitRatio(ratios[preset])
@@ -465,81 +465,79 @@ const AlertsPage: FC<Props> = ({
   )}%`
 
   return (
-    <main className='p-4 md:p-6 overflow-y-auto'>
-      <div className='mx-auto w-full max-w-[1600px] space-y-6'>
-        <AlertsPulse stats={pulseStats} />
+    <main className='p-4 md:p-6 space-y-6 overflow-y-auto'>
+      <AlertsPulse stats={pulseStats} />
 
-        <div className='rounded-2xl border border-slate-200 bg-white px-4 py-2 text-xs text-slate-600'>
-          Viendo: <span className='font-semibold text-slate-700'>{displayRangeLabel}</span> ·
-          Comparado con{' '}
-          <span className='font-semibold text-slate-700'>{prevRangeLabel}</span>
-        </div>
+      <div className='rounded-2xl border border-slate-200 bg-white px-4 py-2 text-xs text-slate-600'>
+        Viendo: <span className='font-semibold text-slate-700'>{displayRangeLabel}</span> ·
+        Comparado con{' '}
+        <span className='font-semibold text-slate-700'>{prevRangeLabel}</span>
+      </div>
 
-        <div className='flex flex-wrap items-center gap-2'>
-          <span className='text-[11px] uppercase tracking-[0.16em] text-slate-400 font-semibold'>
-            Layout
-          </span>
-          {([
-            { key: 'triage', label: 'Triage' },
-            { key: 'investigacion', label: 'Investigación' },
-            { key: 'lectura', label: 'Lectura' },
-          ] as const).map((preset) => (
-            <button
-              key={preset.key}
-              type='button'
-              onClick={() => applyPreset(preset.key)}
-              className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
-                layoutPreset === preset.key
-                  ? 'border-prBlue bg-prBlue/10 text-prBlue'
-                  : 'border-slate-200 bg-white text-slate-600'
-              }`}
-            >
-              {preset.label}
-            </button>
-          ))}
-          {layoutPreset === 'custom' ? (
-            <span className='rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700'>
-              Personalizado
-            </span>
-          ) : null}
-        </div>
-
-        <div
-          ref={layoutRef}
-          className='grid gap-4 xl:gap-0'
-          style={isWide ? { gridTemplateColumns } : undefined}
-        >
-          <AlertsStream
-            alerts={alerts}
-            selectedAlertId={selectedAlertId}
-            onSelectAlert={setSelectedAlertId}
-            onAction={handleAction}
-            onBulkAction={handleBulkAction}
-          />
-          <div
-            role='separator'
-            aria-orientation='vertical'
-            className={`hidden xl:flex items-center justify-center ${
-              isResizing ? 'bg-prBlue/10' : 'bg-transparent'
+      <div className='flex flex-wrap items-center gap-2'>
+        <span className='text-[11px] uppercase tracking-[0.16em] text-slate-400 font-semibold'>
+          Layout
+        </span>
+        {([
+          { key: 'triage', label: 'Triage' },
+          { key: 'investigacion', label: 'Investigación' },
+          { key: 'lectura', label: 'Lectura' },
+        ] as const).map((preset) => (
+          <button
+            key={preset.key}
+            type='button'
+            onClick={() => applyPreset(preset.key)}
+            className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
+              layoutPreset === preset.key
+                ? 'border-prBlue bg-prBlue/10 text-prBlue'
+                : 'border-slate-200 bg-white text-slate-600'
             }`}
           >
-            <button
-              type='button'
-              onPointerDown={() => setIsResizing(true)}
-              className='h-24 w-2 rounded-full bg-slate-200 hover:bg-prBlue/40'
-              title='Arrastra para ajustar'
-            />
-          </div>
-          <AlertIntel
-            alert={selectedAlert}
-            onApplyScope={onApplyAlertScope}
-            onOpenFeedStream={onOpenFeedStream}
-            onRequestInsight={onRequestInsight}
+            {preset.label}
+          </button>
+        ))}
+        {layoutPreset === 'custom' ? (
+          <span className='rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700'>
+            Personalizado
+          </span>
+        ) : null}
+      </div>
+
+      <div
+        ref={layoutRef}
+        className='grid gap-4 xl:gap-0'
+        style={isWide ? { gridTemplateColumns } : undefined}
+      >
+        <AlertsStream
+          alerts={alerts}
+          selectedAlertId={selectedAlertId}
+          onSelectAlert={setSelectedAlertId}
+          onAction={handleAction}
+          onBulkAction={handleBulkAction}
+        />
+        <div
+          role='separator'
+          aria-orientation='vertical'
+          className={`hidden xl:flex items-center justify-center ${
+            isResizing ? 'bg-prBlue/10' : 'bg-transparent'
+          }`}
+        >
+          <button
+            type='button'
+            onPointerDown={() => setIsResizing(true)}
+            className='h-24 w-2 rounded-full bg-slate-200 hover:bg-prBlue/40'
+            title='Arrastra para ajustar'
           />
         </div>
-
-        <AlertTimeline timeline={timeline} rules={rules} showRules={false} />
+        <AlertIntel
+          alert={selectedAlert}
+          onApplyScope={onApplyAlertScope}
+          onOpenFeedStream={onOpenFeedStream}
+          onRequestInsight={onRequestInsight}
+        />
       </div>
+
+      <AlertTimeline timeline={timeline} rules={rules} showRules />
     </main>
   )
 }
