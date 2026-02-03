@@ -93,21 +93,8 @@ const formatRuleValue = (rule: AlertRuleValue) => {
 
 const AlertIntel: FC<Props> = ({ alert, onApplyScope, onOpenFeedStream }) => {
   const [expandedEvidence, setExpandedEvidence] = useState(false)
-
-  if (!alert) {
-    return (
-      <section className='card p-4 min-w-0'>
-        <div className='card-header'>
-          <p className='h-section'>Alert Intel</p>
-        </div>
-        <div className='rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500'>
-          Selecciona una alerta para ver el detalle operativo.
-        </div>
-      </section>
-    )
-  }
-
   const ruleRows = useMemo(() => {
+    if (!alert) return []
     if (alert.ruleValues) {
       return Object.entries(alert.ruleValues).map(([key, value]) => {
         const typedKey = key as AlertSignalType
@@ -131,7 +118,23 @@ const AlertIntel: FC<Props> = ({ alert, onApplyScope, onOpenFeedStream }) => {
     })
   }, [alert])
 
-  const evidenceItems = expandedEvidence ? alert.evidence.slice(0, 10) : alert.evidence.slice(0, 4)
+  const evidenceItems = useMemo(() => {
+    if (!alert) return []
+    return expandedEvidence ? alert.evidence.slice(0, 10) : alert.evidence.slice(0, 4)
+  }, [alert, expandedEvidence])
+
+  if (!alert) {
+    return (
+      <section className='card p-4 min-w-0'>
+        <div className='card-header'>
+          <p className='h-section'>Alert Intel</p>
+        </div>
+        <div className='rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500'>
+          Selecciona una alerta para ver el detalle operativo.
+        </div>
+      </section>
+    )
+  }
 
   return (
     <section className='card p-4 min-w-0'>
