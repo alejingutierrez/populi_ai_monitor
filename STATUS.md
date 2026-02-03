@@ -30,7 +30,7 @@ Estados sugeridos: Planned, In progress, Blocked, Done.
 | US-2026-02-03-024 | Done | 2026-02-03 | Schema de Alerts + tablas persistentes, metrics base y lifecycle; alert engines actualizados. |
 | US-2026-02-03-025 | Done | 2026-02-03 | Motor inteligente con nuevas señales, scoring compuesto, dedupe jerárquico y evidencia enriquecida. |
 | US-2026-02-03-026 | Done | 2026-02-03 | API/Mock de Alerts con filtros, payloads enriquecidos, acciones persistentes y `AlertsPage` conectado. |
-| US-2026-02-03-027 | In progress | 2026-02-03 | UX triage en progreso: layout con splitter/presets, filtros colapsables, SLA restante/vencida, Intel con tabs y evidencia enriquecida. |
+| US-2026-02-03-027 | Done | 2026-02-03 | UX triage completado y deploy Ready verificado en Vercel (logs revisados). |
 | US-2026-02-03-028 | Done | 2026-02-03 | Webhook GitHub -> Vercel API activo; `VERCEL_TOKEN` y `GITHUB_WEBHOOK_SECRET` configurados; SSO protection desactivado para permitir el hook; auto-deploy verificado. |
 | US-2026-02-03-029 | Done | 2026-02-03 | Notas de troubleshooting de auto-deploy en Vercel agregadas a `AGENTS.md`. |
 | US-2026-02-03-030 | Done | 2026-02-03 | Hook de GitHub se controla con `ENABLE_GITHUB_DEPLOY_HOOK` para evitar doble deploy; AGENTS actualizado. |
