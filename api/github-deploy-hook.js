@@ -58,7 +58,13 @@ export default async function handler(req, res) {
   const secret = process.env.GITHUB_WEBHOOK_SECRET;
   if (secret) {
     const signature = req.headers["x-hub-signature-256"];
-    if (!isSignatureValid(rawBody, signature, secret)) {
+    const fallbackBody =
+      rawBody.length > 0
+        ? rawBody
+        : Buffer.from(
+            typeof req.body === "string" ? req.body : JSON.stringify(req.body || {}),
+          );
+    if (!isSignatureValid(fallbackBody, signature, secret)) {
       res.status(401).json({ error: "Invalid signature" });
       return;
     }
