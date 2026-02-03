@@ -34,6 +34,12 @@ const FilterBar: FC<Props> = ({ filters, clusters, subclusters, onChange }) => {
 
   const update = <K extends keyof Filters>(key: K, value: Filters[K]) =>
     onChange({ ...filters, [key]: value });
+  const updateTimeframe = (value: Filters["timeframe"]) =>
+    onChange({ ...filters, timeframe: value, dateFrom: undefined, dateTo: undefined });
+  const updateDate = (key: "dateFrom" | "dateTo", value?: string) =>
+    onChange({ ...filters, [key]: value, timeframe: "todo" });
+
+  const isCustomRange = Boolean(filters.dateFrom || filters.dateTo);
 
   const sentimentOptions: { value: Filters["sentiment"]; label: string }[] = [
     { value: "todos", label: "Todos" },
@@ -106,13 +112,20 @@ const FilterBar: FC<Props> = ({ filters, clusters, subclusters, onChange }) => {
         </div>
 
         <div className="filter-block filter-block-wide min-w-[180px]">
-          <p className="muted text-slate-500">Horizonte</p>
+          <div className="flex items-center gap-2">
+            <p className="muted text-slate-500">Rango rápido</p>
+            {isCustomRange ? (
+              <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                Personalizado activo
+              </span>
+            ) : null}
+          </div>
           <div className="flex flex-nowrap gap-1.5">
             {["24h", "72h", "7d", "1m", "todo"].map((value) => (
               <button
                 key={value}
                 type="button"
-                onClick={() => update("timeframe", value as Filters["timeframe"])}
+                onClick={() => updateTimeframe(value as Filters["timeframe"])}
                 title={value === "todo" ? "Todo el histórico" : `Últimos ${value}`}
                 aria-pressed={filters.timeframe === value}
                 className={`h-10 px-2 rounded-lg text-[11px] font-semibold border transition flex items-center justify-center whitespace-nowrap ${
@@ -132,7 +145,7 @@ const FilterBar: FC<Props> = ({ filters, clusters, subclusters, onChange }) => {
           <input
             type="date"
             value={filters.dateFrom ?? ""}
-            onChange={(e) => update("dateFrom", e.target.value || undefined)}
+            onChange={(e) => updateDate("dateFrom", e.target.value || undefined)}
             aria-label="Desde"
             className="filter-control pr-3"
             placeholder="2026-01-01"
@@ -143,7 +156,7 @@ const FilterBar: FC<Props> = ({ filters, clusters, subclusters, onChange }) => {
           <input
             type="date"
             value={filters.dateTo ?? ""}
-            onChange={(e) => update("dateTo", e.target.value || undefined)}
+            onChange={(e) => updateDate("dateTo", e.target.value || undefined)}
             aria-label="Hasta"
             className="filter-control pr-3"
             placeholder="2026-01-20"

@@ -11,11 +11,19 @@ interface Props {
   alerts: Alert[]
   selectedAlertId?: string | null
   onSelectAlert?: (alertId: string) => void
-  onAction?: (alertId: string, action: AlertStatus) => void
-  onBulkAction?: (alertIds: string[], action: AlertStatus) => void
+  onAction?: (alertId: string, action: AlertStatus, options?: ActionOptions) => void
+  onBulkAction?: (
+    alertIds: string[],
+    action: AlertStatus,
+    options?: ActionOptions
+  ) => void
 }
 
 type SortKey = 'severity' | 'recency' | 'delta' | 'risk' | 'impact' | 'sla'
+
+type ActionOptions = {
+  snoozeUntil?: string
+}
 
 const severityTone: Record<AlertSeverity, string> = {
   critical: 'border-rose-200 bg-rose-50 text-rose-700',
@@ -30,6 +38,21 @@ const statusTone: Record<AlertStatus, string> = {
   snoozed: 'border-slate-200 bg-slate-100 text-slate-600',
   resolved: 'border-emerald-200 bg-emerald-50 text-emerald-700',
   escalated: 'border-rose-200 bg-rose-50 text-rose-700',
+}
+
+const severityLabels: Record<AlertSeverity, string> = {
+  critical: 'Crítica',
+  high: 'Alta',
+  medium: 'Media',
+  low: 'Baja',
+}
+
+const statusLabels: Record<AlertStatus, string> = {
+  open: 'Nueva',
+  ack: 'En investigación',
+  snoozed: 'Pospuesta',
+  resolved: 'Resuelta',
+  escalated: 'Escalada',
 }
 
 const severityWeight = (severity: AlertSeverity) => {
@@ -68,6 +91,14 @@ const calcAgeHours = (alert: Alert) => {
   const createdAt = reference ? new Date(reference).getTime() : Date.now()
   const diff = Math.max(0, Date.now() - createdAt)
   return diff / (1000 * 60 * 60)
+}
+
+const formatDuration = (hours: number) => {
+  if (!Number.isFinite(hours)) return '—'
+  if (hours < 1) {
+    return `${Math.max(1, Math.round(hours * 60))}m`
+  }
+  return `${hours.toFixed(1)}h`
 }
 
 const buildSparkline = (posts: Alert['evidence'], buckets = 8) => {
@@ -133,6 +164,8 @@ const AlertsStream: FC<Props> = ({
   const [sortBy, setSortBy] = useState<SortKey>('severity')
   const [activeView, setActiveView] = useState<string>('all')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [snoozeHours, setSnoozeHours] = useState(2)
 
   const counts = useMemo(() => {
     const base = {
@@ -162,6 +195,11 @@ const AlertsStream: FC<Props> = ({
     })
     return base
   }, [alerts])
+
+  const triageCount = useMemo(
+    () => alerts.filter((alert) => alert.status === 'open' && alert.severity === 'critical').length,
+    [alerts]
+  )
 
   const views = [
     {
@@ -245,11 +283,19 @@ const AlertsStream: FC<Props> = ({
 
   const statusOptions: Array<{ key: AlertStatus | 'all'; label: string }> = [
     { key: 'all', label: 'Todas' },
-    { key: 'open', label: 'Abiertas' },
-    { key: 'ack', label: 'Investigación' },
+    { key: 'open', label: 'Nuevas' },
+    { key: 'ack', label: 'En investigación' },
     { key: 'escalated', label: 'Escaladas' },
-    { key: 'snoozed', label: 'Snoozed' },
+    { key: 'snoozed', label: 'Pospuestas' },
     { key: 'resolved', label: 'Resueltas' },
+  ]
+
+  const flowSteps: Array<{ key: string; label: string; count: number }> = [
+    { key: 'open', label: 'Nueva', count: statusCounts.open },
+    { key: 'triage', label: 'Triage', count: triageCount },
+    { key: 'ack', label: 'En investigación', count: statusCounts.ack },
+    { key: 'escalated', label: 'Escalada', count: statusCounts.escalated },
+    { key: 'resolved', label: 'Resuelta', count: statusCounts.resolved },
   ]
 
   const applyView = (viewKey: string) => {
@@ -297,16 +343,19 @@ const AlertsStream: FC<Props> = ({
   const runBulkAction = (action: AlertStatus) => {
     const ids = Array.from(selectedIds)
     if (!ids.length) return
+    const options: ActionOptions | undefined =
+      action === 'snoozed'
+        ? { snoozeUntil: new Date(Date.now() + snoozeHours * 60 * 60 * 1000).toISOString() }
+        : undefined
     if (onBulkAction) {
-      onBulkAction(ids, action)
+      onBulkAction(ids, action, options)
     } else {
-      ids.forEach((id) => onAction?.(id, action))
+      ids.forEach((id) => onAction?.(id, action, options))
     }
     clearSelection()
   }
 
   useEffect(() => {
-    if (!selectedIds.size) return
     const handler = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null
       if (
@@ -319,6 +368,19 @@ const AlertsStream: FC<Props> = ({
         return
       }
       const key = event.key.toLowerCase()
+      if (key === 'j' || key === 'k') {
+        event.preventDefault()
+        const ids = sorted.map((alert) => alert.id)
+        const currentIndex = selectedAlertId ? ids.indexOf(selectedAlertId) : -1
+        if (!ids.length) return
+        const nextIndex =
+          key === 'j'
+            ? Math.min(ids.length - 1, Math.max(0, currentIndex + 1))
+            : Math.max(0, currentIndex <= 0 ? 0 : currentIndex - 1)
+        const nextId = ids[nextIndex]
+        if (nextId) onSelectAlert?.(nextId)
+        return
+      }
       if (key === 'a') {
         event.preventDefault()
         runBulkAction('ack')
@@ -342,7 +404,7 @@ const AlertsStream: FC<Props> = ({
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [selectedIds, onBulkAction, onAction])
+  }, [selectedIds, onBulkAction, onAction, sorted, selectedAlertId, onSelectAlert, snoozeHours])
 
   useEffect(() => {
     if (!selectedIds.size) return
@@ -380,10 +442,35 @@ const AlertsStream: FC<Props> = ({
               ))}
             </select>
           </div>
+          <button
+            type='button'
+            onClick={() => setFiltersOpen((prev) => !prev)}
+            className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
+              filtersOpen
+                ? 'border-prBlue bg-prBlue/10 text-prBlue'
+                : 'border-slate-200 bg-white text-slate-600'
+            }`}
+          >
+            Filtros
+          </button>
           <div className='rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-semibold text-slate-500'>
-            Atajos: A Ack · S Snooze · R Resolver · E Escalar · X Limpiar
+            Atajos: J/K mover · A Reconocer · S Posponer · R Resolver · E Escalar · X Limpiar
           </div>
         </div>
+      </div>
+
+      <div className='mt-3 flex flex-wrap items-center gap-2'>
+        <span className='text-[10px] uppercase tracking-[0.16em] text-slate-400 font-semibold'>
+          Flujo
+        </span>
+        {flowSteps.map((step) => (
+          <span
+            key={step.label}
+            className='rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600'
+          >
+            {step.label} · {step.count}
+          </span>
+        ))}
       </div>
 
       <div className='mt-3 flex flex-wrap items-center gap-2'>
@@ -428,24 +515,38 @@ const AlertsStream: FC<Props> = ({
         ))}
       </div>
 
-      <div className='flex flex-wrap items-center gap-2 mb-3'>
-        {(['all', 'critical', 'high', 'medium', 'low'] as const).map((level) => (
-          <button
-            key={level}
-            type='button'
-            onClick={() => handleSeverityChange(level)}
-            className={`rounded-full px-2.5 py-1 text-[11px] font-semibold border ${
-              severityFilter === level
-                ? 'border-prBlue bg-prBlue/10 text-prBlue'
-                : level === 'all'
-                  ? 'border-slate-200 bg-white text-slate-600'
-                  : severityTone[level as AlertSeverity]
-            }`}
-          >
-            {level === 'all' ? 'Todas' : level} · {counts[level as keyof typeof counts]}
-          </button>
-        ))}
-      </div>
+      {filtersOpen ? (
+        <div className='flex flex-wrap items-center gap-2 mb-3'>
+          {(['all', 'critical', 'high', 'medium', 'low'] as const).map((level) => (
+            <button
+              key={level}
+              type='button'
+              onClick={() => handleSeverityChange(level)}
+              className={`rounded-full px-2.5 py-1 text-[11px] font-semibold border ${
+                severityFilter === level
+                  ? 'border-prBlue bg-prBlue/10 text-prBlue'
+                  : level === 'all'
+                    ? 'border-slate-200 bg-white text-slate-600'
+                    : severityTone[level as AlertSeverity]
+              }`}
+            >
+              {level === 'all' ? 'Todas' : severityLabels[level]} ·{' '}
+              {counts[level as keyof typeof counts]}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className='mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-500'>
+          <span className='rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 font-semibold text-slate-600'>
+            Filtros activos
+          </span>
+          {severityFilter !== 'all' ? (
+            <span className='rounded-full border border-slate-200 bg-white px-2.5 py-1 font-semibold text-slate-600'>
+              Severidad: {severityLabels[severityFilter]}
+            </span>
+          ) : null}
+        </div>
+      )}
 
       {selectedIds.size ? (
         <div className='mb-3 flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-semibold text-slate-600'>
@@ -455,14 +556,30 @@ const AlertsStream: FC<Props> = ({
             onClick={() => runBulkAction('ack')}
             className='rounded-full border border-slate-200 bg-white px-2.5 py-1 hover:border-prBlue'
           >
-            Ack
+            Reconocer
           </button>
+          <div className='flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2.5 py-1'>
+            <span className='text-[10px] uppercase tracking-[0.14em] text-slate-400'>
+              Posponer
+            </span>
+            <select
+              value={snoozeHours}
+              onChange={(event) => setSnoozeHours(Number(event.target.value))}
+              className='bg-transparent text-[11px] font-semibold text-slate-600 focus:outline-none'
+            >
+              {[2, 4, 6, 12, 24].map((hours) => (
+                <option key={hours} value={hours}>
+                  {hours}h
+                </option>
+              ))}
+            </select>
+          </div>
           <button
             type='button'
             onClick={() => runBulkAction('snoozed')}
             className='rounded-full border border-slate-200 bg-white px-2.5 py-1 hover:border-prBlue'
           >
-            Snooze
+            Posponer
           </button>
           <button
             type='button'
@@ -470,6 +587,13 @@ const AlertsStream: FC<Props> = ({
             className='rounded-full border border-slate-200 bg-white px-2.5 py-1 hover:border-prBlue'
           >
             Resolver
+          </button>
+          <button
+            type='button'
+            onClick={() => runBulkAction('escalated')}
+            className='rounded-full border border-slate-200 bg-white px-2.5 py-1 hover:border-prBlue'
+          >
+            Escalar
           </button>
           <button
             type='button'
@@ -492,6 +616,11 @@ const AlertsStream: FC<Props> = ({
         {sorted.map((alert) => {
           const ageHours = calcAgeHours(alert)
           const slaTarget = slaTargets[alert.severity]
+          const remainingHours = slaTarget - ageHours
+          const slaLabel =
+            remainingHours >= 0
+              ? `SLA restante ${formatDuration(remainingHours)}`
+              : `Vencida hace ${formatDuration(Math.abs(remainingHours))}`
           const slaBreach =
             ageHours > slaTarget &&
             (alert.status === 'open' || alert.status === 'ack' || alert.status === 'escalated')
@@ -510,7 +639,7 @@ const AlertsStream: FC<Props> = ({
                   onSelectAlert?.(alert.id)
                 }
               }}
-              className={`w-full text-left rounded-2xl border px-4 py-3 shadow-sm transition ${
+              className={`group w-full text-left rounded-2xl border px-4 py-3 shadow-sm transition ${
                 selectedAlertId === alert.id
                   ? 'border-prBlue bg-prBlue/5'
                   : slaBreach
@@ -533,17 +662,17 @@ const AlertsStream: FC<Props> = ({
                 >
                   <CheckCircleIcon className='h-3.5 w-3.5' />
                 </button>
-                <div className='flex-1 space-y-1'>
-                  <div className='flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-500'>
+                <div className='flex-1 space-y-2'>
+                  <div className='flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600'>
                     <span
                       className={`rounded-full border px-2 py-0.5 ${severityTone[alert.severity]}`}
                     >
-                      {alert.severity}
+                      {severityLabels[alert.severity]}
                     </span>
                     <span
                       className={`rounded-full border px-2 py-0.5 ${statusTone[alert.status]}`}
                     >
-                      {alert.status}
+                      {statusLabels[alert.status]}
                     </span>
                     <span className='rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5'>
                       {alert.scopeType}
@@ -551,6 +680,19 @@ const AlertsStream: FC<Props> = ({
                   </div>
                   <p className='text-sm font-semibold text-ink'>{alert.title}</p>
                   <p className='text-xs text-slate-500'>{alert.summary}</p>
+                  <div className='flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600'>
+                    {alert.signals.slice(0, 2).map((signal) => (
+                      <span
+                        key={`${alert.id}-signal-${signal.type}`}
+                        className='rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5'
+                      >
+                        {signal.label}
+                      </span>
+                    ))}
+                    <span className='text-[11px] text-slate-500'>
+                      Contexto: {alert.topTopics[0]?.name ?? 'Sin tema'} · {alert.scopeLabel}
+                    </span>
+                  </div>
                 </div>
                 <div className='flex flex-col items-end gap-2 text-[10px] font-semibold text-slate-600'>
                   <span className='inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1'>
@@ -564,7 +706,7 @@ const AlertsStream: FC<Props> = ({
                         : 'border-slate-200 bg-slate-50 text-slate-600'
                     }`}
                   >
-                    SLA {ageHours.toFixed(1)}h / {slaTarget}h
+                    {slaLabel}
                   </span>
                 </div>
               </div>
@@ -588,10 +730,20 @@ const AlertsStream: FC<Props> = ({
                   <span className='uppercase tracking-[0.12em] text-[9px]'>Neg</span>
                   <Sparkline values={sparkline.negativity} tone='#e11d48' />
                 </div>
+                <span className='text-[10px] text-slate-400'>
+                  Azul: volumen · Rojo: negatividad
+                </span>
               </div>
               <div className='mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500'>
-                <span>Última detección: {formatTime(alert.lastSeenAt)}</span>
-                <div className='flex flex-wrap items-center gap-1'>
+                <span>
+                  Última detección: {formatTime(alert.lastSeenAt)} · Edad{' '}
+                  {formatDuration(ageHours)}
+                </span>
+                <div
+                  className={`flex flex-wrap items-center gap-1 transition ${
+                    isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                  }`}
+                >
                   <button
                     type='button'
                     onClick={(event) => {
@@ -601,29 +753,7 @@ const AlertsStream: FC<Props> = ({
                     className='inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 hover:border-prBlue'
                   >
                     <CheckCircleIcon className='h-3.5 w-3.5' />
-                    Ack
-                  </button>
-                  <button
-                    type='button'
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      onAction?.(alert.id, 'snoozed')
-                    }}
-                    className='inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 hover:border-prBlue'
-                  >
-                    <ClockIcon className='h-3.5 w-3.5' />
-                    Snooze
-                  </button>
-                  <button
-                    type='button'
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      onAction?.(alert.id, 'escalated')
-                    }}
-                    className='inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 hover:border-prBlue'
-                  >
-                    <ArrowUpRightIcon className='h-3.5 w-3.5' />
-                    Escalar
+                    Investigar
                   </button>
                   <button
                     type='button'
@@ -636,6 +766,35 @@ const AlertsStream: FC<Props> = ({
                     <CheckCircleIcon className='h-3.5 w-3.5' />
                     Resolver
                   </button>
+                  <details className='relative'>
+                    <summary className='list-none cursor-pointer rounded-full border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600 hover:border-prBlue'>
+                      Más
+                    </summary>
+                    <div className='absolute right-0 z-10 mt-2 w-36 rounded-xl border border-slate-200 bg-white p-2 shadow-lg'>
+                      <button
+                        type='button'
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          onAction?.(alert.id, 'snoozed')
+                        }}
+                        className='flex w-full items-center gap-2 rounded-lg px-2 py-1 text-[10px] font-semibold text-slate-600 hover:bg-slate-50'
+                      >
+                        <ClockIcon className='h-3.5 w-3.5' />
+                        Posponer
+                      </button>
+                      <button
+                        type='button'
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          onAction?.(alert.id, 'escalated')
+                        }}
+                        className='flex w-full items-center gap-2 rounded-lg px-2 py-1 text-[10px] font-semibold text-slate-600 hover:bg-slate-50'
+                      >
+                        <ArrowUpRightIcon className='h-3.5 w-3.5' />
+                        Escalar
+                      </button>
+                    </div>
+                  </details>
                 </div>
               </div>
             </div>

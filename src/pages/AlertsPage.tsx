@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FC } from 'react'
+import { useEffect, useMemo, useRef, useState, type FC } from 'react'
 import AlertIntel from '../components/AlertIntel'
 import AlertTimeline from '../components/AlertTimeline'
 import AlertsPulse from '../components/AlertsPulse'
@@ -24,6 +24,11 @@ interface Props {
   apiBase?: string
   onApplyAlertScope?: (alert: Alert) => void
   onOpenFeedStream?: (alert: Alert) => void
+  onRequestInsight?: (alert: Alert) => void
+}
+
+type ActionOptions = {
+  snoozeUntil?: string
 }
 
 type AlertsPulseStats = {
@@ -91,6 +96,7 @@ const AlertsPage: FC<Props> = ({
   apiBase,
   onApplyAlertScope,
   onOpenFeedStream,
+  onRequestInsight,
 }) => {
   const [selectedAlertId, setSelectedAlertId] = useState<string | null>(null)
   const [statusOverrides, setStatusOverrides] = useState<Record<string, AlertStatus>>(
@@ -99,6 +105,51 @@ const AlertsPage: FC<Props> = ({
   const [remotePayload, setRemotePayload] = useState<RemoteAlertsPayload | null>(
     null
   )
+  const [layoutPreset, setLayoutPreset] = useState<
+    'triage' | 'investigacion' | 'lectura' | 'custom'
+  >('triage')
+  const [splitRatio, setSplitRatio] = useState(0.35)
+  const [isResizing, setIsResizing] = useState(false)
+  const [isWide, setIsWide] = useState(false)
+  const layoutRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const query = window.matchMedia('(min-width: 1280px)')
+    const sync = () => setIsWide(query.matches)
+    sync()
+    query.addEventListener('change', sync)
+    return () => query.removeEventListener('change', sync)
+  }, [])
+
+  useEffect(() => {
+    if (!isResizing) return
+    const handleMove = (event: PointerEvent) => {
+      if (!layoutRef.current) return
+      const rect = layoutRef.current.getBoundingClientRect()
+      const ratio = (event.clientX - rect.left) / rect.width
+      const nextRatio = Math.min(0.6, Math.max(0.25, ratio))
+      setSplitRatio(nextRatio)
+      setLayoutPreset('custom')
+    }
+    const handleUp = () => setIsResizing(false)
+    window.addEventListener('pointermove', handleMove)
+    window.addEventListener('pointerup', handleUp)
+    return () => {
+      window.removeEventListener('pointermove', handleMove)
+      window.removeEventListener('pointerup', handleUp)
+    }
+  }, [isResizing])
+
+  const applyPreset = (preset: 'triage' | 'investigacion' | 'lectura') => {
+    const ratios = {
+      triage: 0.38,
+      investigacion: 0.3,
+      lectura: 0.45,
+    }
+    setLayoutPreset(preset)
+    setSplitRatio(ratios[preset])
+  }
 
   const {
     currentPosts,
@@ -107,6 +158,7 @@ const AlertsPage: FC<Props> = ({
     rangeLabel,
     windowStart,
     windowEnd,
+    prevWindowStart,
     prevWindowEnd,
   } = useMemo(() => {
     if (!posts.length) {
@@ -117,6 +169,7 @@ const AlertsPage: FC<Props> = ({
         rangeLabel: 'Sin datos',
         windowStart: new Date(),
         windowEnd: new Date(),
+        prevWindowStart: new Date(),
         prevWindowEnd: new Date(),
       }
     }
@@ -146,6 +199,7 @@ const AlertsPage: FC<Props> = ({
         rangeLabel: 'Sin datos',
         windowStart: new Date(),
         windowEnd: new Date(),
+        prevWindowStart: new Date(),
         prevWindowEnd: new Date(),
       }
     }
@@ -189,6 +243,7 @@ const AlertsPage: FC<Props> = ({
       rangeLabel: formatRange(start, end),
       windowStart: start,
       windowEnd: end,
+      prevWindowStart: prevStart,
       prevWindowEnd: prevEnd,
     }
   }, [
@@ -316,6 +371,26 @@ const AlertsPage: FC<Props> = ({
     }
   }, [alerts, prevAlerts, rangeLabel, windowEnd, prevWindowEnd, remotePayload])
 
+  const displayRangeLabel = useMemo(() => {
+    if (remotePayload?.window) {
+      return formatRange(
+        new Date(remotePayload.window.start),
+        new Date(remotePayload.window.end)
+      )
+    }
+    return rangeLabel
+  }, [remotePayload, rangeLabel])
+
+  const prevRangeLabel = useMemo(() => {
+    if (remotePayload?.prevWindow) {
+      return formatRange(
+        new Date(remotePayload.prevWindow.start),
+        new Date(remotePayload.prevWindow.end)
+      )
+    }
+    return formatRange(prevWindowStart, prevWindowEnd)
+  }, [remotePayload, prevWindowStart, prevWindowEnd])
+
   const timeline = useMemo(
     () =>
       remotePayload?.timeline ??
@@ -353,7 +428,11 @@ const AlertsPage: FC<Props> = ({
     keywords: alert.keywords,
   })
 
-  const handleAction = (alertId: string, action: AlertStatus) => {
+  const handleAction = (
+    alertId: string,
+    action: AlertStatus,
+    options?: ActionOptions
+  ) => {
     setStatusOverrides((prev) => ({ ...prev, [alertId]: action }))
     if (!apiBase) return
     const alert = alerts.find((item) => item.id === alertId)
@@ -362,7 +441,9 @@ const AlertsPage: FC<Props> = ({
       payload.alert = buildActionSnapshot(alert)
     }
     if (action === 'snoozed') {
-      payload.snoozeUntil = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString()
+      payload.snoozeUntil =
+        options?.snoozeUntil ??
+        new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString()
     }
     fetch(`${apiBase}/alerts/${encodeURIComponent(alertId)}/actions`, {
       method: 'POST',
@@ -371,30 +452,94 @@ const AlertsPage: FC<Props> = ({
     }).catch(() => undefined)
   }
 
-  const handleBulkAction = (alertIds: string[], action: AlertStatus) => {
-    alertIds.forEach((id) => handleAction(id, action))
+  const handleBulkAction = (
+    alertIds: string[],
+    action: AlertStatus,
+    options?: ActionOptions
+  ) => {
+    alertIds.forEach((id) => handleAction(id, action, options))
   }
 
+  const gridTemplateColumns = `${Math.round(splitRatio * 100)}% 12px ${Math.round(
+    (1 - splitRatio) * 100
+  )}%`
+
   return (
-    <main className='p-4 md:p-6 space-y-6 overflow-y-auto'>
-      <AlertsPulse stats={pulseStats} />
+    <main className='p-4 md:p-6 overflow-y-auto'>
+      <div className='mx-auto w-full max-w-[1600px] space-y-6'>
+        <AlertsPulse stats={pulseStats} />
 
-      <div className='grid gap-4 xl:grid-cols-[1.6fr_1fr]'>
-        <AlertsStream
-          alerts={alerts}
-          selectedAlertId={selectedAlertId}
-          onSelectAlert={setSelectedAlertId}
-          onAction={handleAction}
-          onBulkAction={handleBulkAction}
-        />
-        <AlertIntel
-          alert={selectedAlert}
-          onApplyScope={onApplyAlertScope}
-          onOpenFeedStream={onOpenFeedStream}
-        />
+        <div className='rounded-2xl border border-slate-200 bg-white px-4 py-2 text-xs text-slate-600'>
+          Viendo: <span className='font-semibold text-slate-700'>{displayRangeLabel}</span> ·
+          Comparado con{' '}
+          <span className='font-semibold text-slate-700'>{prevRangeLabel}</span>
+        </div>
+
+        <div className='flex flex-wrap items-center gap-2'>
+          <span className='text-[11px] uppercase tracking-[0.16em] text-slate-400 font-semibold'>
+            Layout
+          </span>
+          {([
+            { key: 'triage', label: 'Triage' },
+            { key: 'investigacion', label: 'Investigación' },
+            { key: 'lectura', label: 'Lectura' },
+          ] as const).map((preset) => (
+            <button
+              key={preset.key}
+              type='button'
+              onClick={() => applyPreset(preset.key)}
+              className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
+                layoutPreset === preset.key
+                  ? 'border-prBlue bg-prBlue/10 text-prBlue'
+                  : 'border-slate-200 bg-white text-slate-600'
+              }`}
+            >
+              {preset.label}
+            </button>
+          ))}
+          {layoutPreset === 'custom' ? (
+            <span className='rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700'>
+              Personalizado
+            </span>
+          ) : null}
+        </div>
+
+        <div
+          ref={layoutRef}
+          className='grid gap-4 xl:gap-0'
+          style={isWide ? { gridTemplateColumns } : undefined}
+        >
+          <AlertsStream
+            alerts={alerts}
+            selectedAlertId={selectedAlertId}
+            onSelectAlert={setSelectedAlertId}
+            onAction={handleAction}
+            onBulkAction={handleBulkAction}
+          />
+          <div
+            role='separator'
+            aria-orientation='vertical'
+            className={`hidden xl:flex items-center justify-center ${
+              isResizing ? 'bg-prBlue/10' : 'bg-transparent'
+            }`}
+          >
+            <button
+              type='button'
+              onPointerDown={() => setIsResizing(true)}
+              className='h-24 w-2 rounded-full bg-slate-200 hover:bg-prBlue/40'
+              title='Arrastra para ajustar'
+            />
+          </div>
+          <AlertIntel
+            alert={selectedAlert}
+            onApplyScope={onApplyAlertScope}
+            onOpenFeedStream={onOpenFeedStream}
+            onRequestInsight={onRequestInsight}
+          />
+        </div>
+
+        <AlertTimeline timeline={timeline} rules={rules} showRules={false} />
       </div>
-
-      <AlertTimeline timeline={timeline} rules={rules} />
     </main>
   )
 }

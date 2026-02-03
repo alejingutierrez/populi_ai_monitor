@@ -504,6 +504,7 @@ function App() {
             apiBase={apiBase}
             onApplyAlertScope={handleApplyAlertScope}
             onOpenFeedStream={handleOpenFeedStream}
+            onRequestInsight={() => setInsightOpen(true)}
           />
         ) : (
           <ComingSoon title={activeNav} />
