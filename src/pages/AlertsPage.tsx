@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type FC } from 'react'
 import AlertIntel from '../components/AlertIntel'
+import AlertScopePropagation from '../components/AlertScopePropagation'
+import AlertSentimentShift from '../components/AlertSentimentShift'
+import AlertSignalsPanel from '../components/AlertSignalsPanel'
+import AlertsLifecyclePanel from '../components/AlertsLifecyclePanel'
 import AlertsPulse from '../components/AlertsPulse'
 import AlertsStream from '../components/AlertsStream'
 import type { Filters } from '../components/FilterBar'
@@ -516,6 +520,13 @@ const AlertsPage: FC<Props> = ({
           onOpenFeedStream={onOpenFeedStream}
           onRequestInsight={onRequestInsight}
         />
+      </div>
+
+      <div className='grid gap-4 xl:grid-cols-2'>
+        <AlertsLifecyclePanel alerts={alerts} />
+        <AlertSentimentShift alerts={alerts} prevAlerts={prevAlerts} />
+        <AlertSignalsPanel alert={selectedAlert} />
+        <AlertScopePropagation alerts={alerts} />
       </div>
 
     </main>

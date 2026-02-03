@@ -53,6 +53,9 @@ Mantén las historias organizadas por área. Añade una nueva historia por solic
   - Incluye: (M43) rediseño completo del módulo `AlertTimeline` con resumen operativo y reglas activas funcionales.
 - US-2026-02-03-033 — Como operador, quiero remover el módulo Timeline de la sección Alerts para simplificar la vista principal.
   - Incluye: (M44) eliminar el render de `AlertTimeline` en `src/pages/AlertsPage.tsx` y limpiar dependencias.
+- US-2026-02-03-034 — Como analista, quiero 10 nuevos componentes de análisis para Alerts basados en la BD y la lógica del motor.
+  - Incluye: (M45) propuesta de componentes con propósito, datos requeridos y ubicación sugerida en UI.
+  - Progreso: implementados Lifecycle+SLA, Radar de señales, Propagación por scope y Shift de sentimiento/riesgo en Alerts.
 
 ## Backend/API
 - US-2026-01-25-018 — Como desarrollador, quiero endpoints de Alerts con cálculo de reglas para abastecer el frontend.

@@ -37,3 +37,4 @@ Estados sugeridos: Planned, In progress, Blocked, Done.
 | US-2026-02-03-031 | Done | 2026-02-03 | `CONSUMER_API.md` trackeado en git. |
 | US-2026-02-03-032 | Done | 2026-02-03 | Ajuste de ancho consistente en Alerts y rediseño de AlertTimeline; deploy Ready verificado. |
 | US-2026-02-03-033 | Done | 2026-02-03 | AlertTimeline removido de Alerts y deploy Ready verificado. |
+| US-2026-02-03-034 | Done | 2026-02-03 | Implementados 4 componentes analíticos (Lifecycle+SLA, Señales, Propagación por scope, Shift de sentimiento/riesgo). |
