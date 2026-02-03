@@ -31,3 +31,4 @@ Estados sugeridos: Planned, In progress, Blocked, Done.
 | US-2026-02-03-025 | Planned | 2026-02-03 | Paquete motor inteligente de alertas y scoring compuesto. |
 | US-2026-02-03-026 | Planned | 2026-02-03 | Paquete API de Alerts con filtros avanzados y acciones persistentes. |
 | US-2026-02-03-027 | Planned | 2026-02-03 | Paquete UX de triage e insight en Alerts. |
+| US-2026-02-03-028 | Done | 2026-02-03 | Git reconectado en Vercel; auto-deploy restaurado y logs verificados. |

@@ -92,7 +92,8 @@ Mantén las historias organizadas por área. Añade una nueva historia por solic
   - Incluye: (M33) tabla `alert_rules` con thresholds y overrides.
 
 ## Infra/Deploy
-- _Sin historias activas._
+- US-2026-02-03-028 — Como mantenedor, quiero diagnosticar y corregir el auto-deploy de Vercel tras `git push` para garantizar despliegues automáticos.
+  - Criterios: identificar causa raíz; restaurar integración Git->Vercel o documentar workaround; logs de Vercel revisados.
 
 ## Docs/Proceso
 - US-2026-01-23-001 — Como mantenedor, quiero ampliar la guía de contribución y el README con el flujo de historias/estado, verificación de deploy en Vercel y contexto de Neon, para asegurar consistencia del proyecto.
