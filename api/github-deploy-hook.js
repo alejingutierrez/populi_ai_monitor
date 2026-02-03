@@ -14,10 +14,14 @@ const readRawBody = (req) =>
     req.on("error", reject);
   });
 
+const normalizeSignature = (signature) =>
+  Array.isArray(signature) ? signature[0] : signature;
+
 const isSignatureValid = (rawBody, signature, secret) => {
-  if (!signature || !secret) return false;
+  const normalized = normalizeSignature(signature);
+  if (!normalized || !secret) return false;
   const expected = `sha256=${crypto.createHmac("sha256", secret).update(rawBody).digest("hex")}`;
-  const sigBuffer = Buffer.from(signature);
+  const sigBuffer = Buffer.from(normalized);
   const expectedBuffer = Buffer.from(expected);
   if (sigBuffer.length !== expectedBuffer.length) return false;
   return crypto.timingSafeEqual(sigBuffer, expectedBuffer);
