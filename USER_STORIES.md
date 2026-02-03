@@ -107,3 +107,5 @@ Mantén las historias organizadas por área. Añade una nueva historia por solic
   - Criterios: documento único con endpoints, parámetros, filtros, restricciones y tutoriales principales en español.
 - US-2026-02-03-022 — Como mantenedor, quiero habilitar `collab` y suprimir el warning de features inestables en la config de Codex para mantener el entorno limpio.
   - Criterios: `collab = true` en `/Users/agutie04/.codex/config.toml`; `suppress_unstable_features_warning = true` configurado.
+- US-2026-02-03-029 — Como mantenedor, quiero documentar en `AGENTS.md` el diagnóstico y checklist de auto-deploy en Vercel para evitar loops futuros.
+  - Criterios: sección con pasos de verificación (build logs, Git link, webhook, SSO, alias de producción).
