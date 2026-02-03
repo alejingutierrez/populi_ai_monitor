@@ -23,6 +23,7 @@ interface Props {
   search: string
   apiBase?: string
   onApplyAlertScope?: (alert: Alert) => void
+  onOpenFeedStream?: (alert: Alert) => void
 }
 
 type AlertsPulseStats = {
@@ -89,6 +90,7 @@ const AlertsPage: FC<Props> = ({
   search,
   apiBase,
   onApplyAlertScope,
+  onOpenFeedStream,
 }) => {
   const [selectedAlertId, setSelectedAlertId] = useState<string | null>(null)
   const [statusOverrides, setStatusOverrides] = useState<Record<string, AlertStatus>>(
@@ -294,7 +296,9 @@ const AlertsPage: FC<Props> = ({
 
     const prevOpen = prevAlerts.length
     const prevCritical = prevAlerts.filter((alert) => alert.severity === 'critical').length
-    const prevInvestigating = 0
+    const prevInvestigating = prevAlerts.filter(
+      (alert) => alert.status === 'ack' || alert.status === 'escalated'
+    ).length
     const prevSla = calcSlaHours(prevAlerts, prevWindowEnd.getTime())
 
     return {
@@ -367,6 +371,10 @@ const AlertsPage: FC<Props> = ({
     }).catch(() => undefined)
   }
 
+  const handleBulkAction = (alertIds: string[], action: AlertStatus) => {
+    alertIds.forEach((id) => handleAction(id, action))
+  }
+
   return (
     <main className='p-4 md:p-6 space-y-6 overflow-y-auto'>
       <AlertsPulse stats={pulseStats} />
@@ -377,8 +385,13 @@ const AlertsPage: FC<Props> = ({
           selectedAlertId={selectedAlertId}
           onSelectAlert={setSelectedAlertId}
           onAction={handleAction}
+          onBulkAction={handleBulkAction}
         />
-        <AlertIntel alert={selectedAlert} onApplyScope={onApplyAlertScope} />
+        <AlertIntel
+          alert={selectedAlert}
+          onApplyScope={onApplyAlertScope}
+          onOpenFeedStream={onOpenFeedStream}
+        />
       </div>
 
       <AlertTimeline timeline={timeline} rules={rules} />

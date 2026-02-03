@@ -46,6 +46,7 @@ Mantén las historias organizadas por área. Añade una nueva historia por solic
   - Incluye: (M38) mini sparklines de volumen/negatividad por alerta.
   - Incluye: (M39) sección “Por qué disparó” (reglas, valores, umbrales, confidence) en `src/components/AlertIntel.tsx`.
   - Incluye: (M40) evidencia expandible con chips de sentimiento, link a Feed Stream y CTA de aplicar filtros.
+  - Progreso: tabs de triage, bulk + atajos, SLA/sparklines en stream y panel Intel con reglas/evidencia/CTA.
 
 ## Backend/API
 - US-2026-01-25-018 — Como desarrollador, quiero endpoints de Alerts con cálculo de reglas para abastecer el frontend.

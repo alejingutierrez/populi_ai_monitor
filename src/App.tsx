@@ -159,6 +159,11 @@ function App() {
     }
   };
 
+  const handleOpenFeedStream = (alert: Alert) => {
+    handleApplyAlertScope(alert);
+    setActiveNav("Feed Stream");
+  };
+
   const pageMeta = {
     Overview: {
       eyebrow: "Dashboard IA",
@@ -498,6 +503,7 @@ function App() {
             search={search}
             apiBase={apiBase}
             onApplyAlertScope={handleApplyAlertScope}
+            onOpenFeedStream={handleOpenFeedStream}
           />
         ) : (
           <ComingSoon title={activeNav} />
