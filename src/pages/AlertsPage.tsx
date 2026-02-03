@@ -11,7 +11,9 @@ import {
   defaultAlertThresholds,
   formatRange,
   type Alert,
+  type AlertRuleStat,
   type AlertStatus,
+  type AlertTimelinePoint,
 } from '../data/alerts'
 import type { SocialPost } from '../types'
 
@@ -21,6 +23,40 @@ interface Props {
   search: string
   apiBase?: string
   onApplyAlertScope?: (alert: Alert) => void
+}
+
+type AlertsPulseStats = {
+  openCount: number
+  criticalCount: number
+  investigatingCount: number
+  slaHours: number
+  rangeLabel: string
+  deltas: {
+    openPct: number
+    criticalPct: number
+    investigatingPct: number
+    slaPct: number
+  }
+}
+
+type BaselineStats = {
+  openCount: number
+  criticalCount: number
+  investigatingCount: number
+  slaHours: number
+}
+
+type RemoteAlertsPayload = {
+  alerts: Alert[]
+  pulseStats?: AlertsPulseStats
+  baselineStats?: BaselineStats
+  timeline?: AlertTimelinePoint[]
+  rules?: AlertRuleStat[]
+  window?: { start: string; end: string }
+  prevWindow?: { start: string; end: string }
+  baseline?: { start: string; end: string }
+  total?: number
+  nextCursor?: string | null
 }
 
 const timeframeHours: Record<Filters['timeframe'], number> = {
@@ -58,7 +94,9 @@ const AlertsPage: FC<Props> = ({
   const [statusOverrides, setStatusOverrides] = useState<Record<string, AlertStatus>>(
     {}
   )
-  const [remoteAlerts, setRemoteAlerts] = useState<Alert[] | null>(null)
+  const [remotePayload, setRemotePayload] = useState<RemoteAlertsPayload | null>(
+    null
+  )
 
   const {
     currentPosts,
@@ -175,7 +213,7 @@ const AlertsPage: FC<Props> = ({
 
   useEffect(() => {
     if (!apiBase) {
-      setRemoteAlerts(null)
+      setRemotePayload(null)
       return
     }
     const controller = new AbortController()
@@ -197,12 +235,12 @@ const AlertsPage: FC<Props> = ({
         if (!res.ok) throw new Error('No alerts API')
         const data = await res.json()
         if (Array.isArray(data.alerts)) {
-          setRemoteAlerts(data.alerts)
+          setRemotePayload(data)
         } else {
-          setRemoteAlerts(null)
+          setRemotePayload(null)
         }
       } catch {
-        setRemoteAlerts(null)
+        setRemotePayload(null)
       }
     }
 
@@ -221,12 +259,12 @@ const AlertsPage: FC<Props> = ({
   ])
 
   const alerts = useMemo(() => {
-    const base = remoteAlerts ?? localAlerts
+    const base = remotePayload?.alerts ?? localAlerts
     return base.map((alert) => ({
       ...alert,
       status: statusOverrides[alert.id] ?? alert.status,
     }))
-  }, [localAlerts, remoteAlerts, statusOverrides])
+  }, [localAlerts, remotePayload, statusOverrides])
 
   useEffect(() => {
     if (!alerts.length) {
@@ -244,6 +282,9 @@ const AlertsPage: FC<Props> = ({
   )
 
   const pulseStats = useMemo(() => {
+    if (remotePayload?.pulseStats) {
+      return remotePayload.pulseStats
+    }
     const openAlerts = alerts.filter((alert) => alert.status === 'open')
     const criticalAlerts = alerts.filter((alert) => alert.severity === 'critical')
     const investigatingAlerts = alerts.filter(
@@ -269,24 +310,60 @@ const AlertsPage: FC<Props> = ({
         slaPct: pctChange(slaHours, prevSla),
       },
     }
-  }, [alerts, prevAlerts, rangeLabel, windowEnd, prevWindowEnd])
+  }, [alerts, prevAlerts, rangeLabel, windowEnd, prevWindowEnd, remotePayload])
 
   const timeline = useMemo(
-    () => buildAlertTimeline(alerts, windowStart, windowEnd),
-    [alerts, windowStart, windowEnd]
+    () =>
+      remotePayload?.timeline ??
+      buildAlertTimeline(alerts, windowStart, windowEnd),
+    [alerts, windowStart, windowEnd, remotePayload]
   )
   const rules = useMemo(
-    () => buildAlertRuleStats(alerts, defaultAlertThresholds),
-    [alerts]
+    () => remotePayload?.rules ?? buildAlertRuleStats(alerts, defaultAlertThresholds),
+    [alerts, remotePayload]
   )
+
+  const buildActionSnapshot = (alert: Alert) => ({
+    id: alert.id,
+    scopeType: alert.scopeType,
+    scopeId: alert.scopeId,
+    scopeLabel: alert.scopeLabel,
+    title: alert.title,
+    summary: alert.summary,
+    severity: alert.severity,
+    priority: alert.priority,
+    owner: alert.owner,
+    team: alert.team,
+    assignee: alert.assignee,
+    firstSeenAt: alert.firstSeenAt,
+    lastSeenAt: alert.lastSeenAt,
+    occurrences: alert.occurrences,
+    activeWindowCount: alert.activeWindowCount,
+    confidence: alert.confidence,
+    ruleIds: alert.ruleIds,
+    ruleValues: alert.ruleValues,
+    uniqueAuthors: alert.uniqueAuthors,
+    newAuthorsPct: alert.newAuthorsPct,
+    geoSpread: alert.geoSpread,
+    topEntities: alert.topEntities,
+    keywords: alert.keywords,
+  })
 
   const handleAction = (alertId: string, action: AlertStatus) => {
     setStatusOverrides((prev) => ({ ...prev, [alertId]: action }))
     if (!apiBase) return
+    const alert = alerts.find((item) => item.id === alertId)
+    const payload: Record<string, unknown> = { action }
+    if (alert) {
+      payload.alert = buildActionSnapshot(alert)
+    }
+    if (action === 'snoozed') {
+      payload.snoozeUntil = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString()
+    }
     fetch(`${apiBase}/alerts/${encodeURIComponent(alertId)}/actions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action }),
+      body: JSON.stringify(payload),
     }).catch(() => undefined)
   }
 

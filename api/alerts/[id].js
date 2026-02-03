@@ -1,5 +1,22 @@
 import { query } from '../db.js'
-import { buildAlerts } from '../alertEngine.js'
+import {
+  buildAlerts,
+  buildAlertRuleStats,
+  defaultAlertThresholds,
+} from '../alertEngine.js'
+import {
+  buildAlertTimeline,
+  buildBaselineStats,
+  buildPulseStats,
+  buildWindow,
+  filterPosts,
+  formatRange,
+  mapRows,
+  parseCount,
+  parseList,
+  parseSingle,
+  severityWeight,
+} from '../alerts/shared.js'
 
 const allowCors = (res) => {
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -8,113 +25,61 @@ const allowCors = (res) => {
   res.setHeader('Cache-Control', 'no-store')
 }
 
-const parseSingle = (value) => {
-  if (Array.isArray(value)) return value[0]
-  return value
+const mergePersistedState = async (alerts) => {
+  if (!alerts.length) return alerts
+  try {
+    const ids = alerts.map((alert) => alert.id)
+    const sql = `
+      select
+        id,
+        status,
+        ack_at as "ackAt",
+        resolved_at as "resolvedAt",
+        snooze_until as "snoozeUntil",
+        last_status_at as "lastStatusAt",
+        owner,
+        team,
+        assignee,
+        priority,
+        severity
+      from alerts
+      where id = any($1)
+    `
+    const result = await query(sql, [ids])
+    const map = new Map(result.rows.map((row) => [row.id, row]))
+    return alerts.map((alert) => {
+      const persisted = map.get(alert.id)
+      if (!persisted) return alert
+      return {
+        ...alert,
+        status: persisted.status ?? alert.status,
+        ackAt: persisted.ackAt ?? alert.ackAt,
+        resolvedAt: persisted.resolvedAt ?? alert.resolvedAt,
+        snoozeUntil: persisted.snoozeUntil ?? alert.snoozeUntil,
+        lastStatusAt: persisted.lastStatusAt ?? alert.lastStatusAt,
+        owner: persisted.owner ?? alert.owner,
+        team: persisted.team ?? alert.team,
+        assignee: persisted.assignee ?? alert.assignee,
+        priority: Number.isFinite(persisted.priority) ? persisted.priority : alert.priority,
+        severity: persisted.severity ?? alert.severity,
+      }
+    })
+  } catch (error) {
+    console.warn('Alert state merge failed:', error)
+    return alerts
+  }
 }
 
-const parseCount = (value) => {
-  const parsed = Number.parseInt(parseSingle(value) ?? '7000', 10)
-  if (!Number.isFinite(parsed) || parsed <= 0) return 7000
-  return Math.min(parsed, 10000)
-}
-
-const timeframeHours = {
-  '24h': 24,
-  '72h': 72,
-  '7d': 24 * 7,
-  '1m': 24 * 30,
-  todo: 0,
-}
-
-const mapRows = (rows) =>
-  rows.map((row) => ({
-    id: row.id,
-    author: row.author,
-    handle: row.handle,
-    platform: row.platform,
-    content: row.content,
-    sentiment: row.sentiment,
-    topic: row.topic,
-    timestamp: row.timestamp,
-    reach: row.reach,
-    engagement: row.engagement,
-    mediaType: row.mediaType,
-    cluster: row.cluster,
-    subcluster: row.subcluster,
-    microcluster: row.microcluster,
-    location: {
-      city: row.city,
-      lat: Number(row.lat),
-      lng: Number(row.lng),
-    },
-  }))
-
-const filterPosts = (posts, filters, search) =>
-  posts.filter((post) => {
-    if (filters.sentiment && filters.sentiment !== 'todos' && post.sentiment !== filters.sentiment) {
-      return false
-    }
-    if (filters.platform && filters.platform !== 'todos' && post.platform !== filters.platform) {
-      return false
-    }
-    if (filters.cluster && filters.cluster !== 'todos' && post.cluster !== filters.cluster) {
-      return false
-    }
-    if (filters.subcluster && filters.subcluster !== 'todos' && post.subcluster !== filters.subcluster) {
-      return false
-    }
-    if (search) {
-      const q = search.toLowerCase()
-      const haystack = `${post.content} ${post.author} ${post.handle} ${post.location.city} ${post.topic} ${post.cluster} ${post.subcluster} ${post.microcluster}`.toLowerCase()
-      if (!haystack.includes(q)) return false
-    }
-    return true
-  })
-
-const buildWindow = (posts, filters) => {
-  if (!posts.length) {
-    const now = new Date()
-    return {
-      currentPosts: [],
-      prevPosts: [],
-      windowStart: now,
-      windowEnd: now,
-    }
+const sortRelated = (alerts, sortKey) => {
+  if (!sortKey || sortKey === 'score') return alerts
+  const sorted = [...alerts]
+  if (sortKey === 'severity') {
+    return sorted.sort((a, b) => severityWeight(b.severity) - severityWeight(a.severity))
   }
-
-  const timestamps = posts.map((post) => new Date(post.timestamp).getTime())
-  const maxTs = Math.max(...timestamps)
-  const minTs = Math.min(...timestamps)
-
-  let start = new Date(minTs)
-  let end = new Date(maxTs)
-
-  if (filters.dateFrom || filters.dateTo) {
-    start = filters.dateFrom ? new Date(filters.dateFrom) : new Date(minTs)
-    end = filters.dateTo
-      ? new Date(new Date(filters.dateTo).setHours(23, 59, 59, 999))
-      : new Date(maxTs)
-  } else if (filters.timeframe && filters.timeframe !== 'todo') {
-    end = new Date(maxTs)
-    start = new Date(end.getTime() - timeframeHours[filters.timeframe] * 60 * 60 * 1000)
+  if (sortKey === 'recent') {
+    return sorted.sort((a, b) => new Date(b.lastSeenAt) - new Date(a.lastSeenAt))
   }
-
-  const windowMs = Math.max(1, end.getTime() - start.getTime())
-  const prevStart = new Date(start.getTime() - windowMs)
-  const prevEnd = new Date(start.getTime())
-
-  const inRange = (post, rangeStart, rangeEnd) => {
-    const ts = new Date(post.timestamp).getTime()
-    return ts >= rangeStart.getTime() && ts <= rangeEnd.getTime()
-  }
-
-  return {
-    currentPosts: posts.filter((post) => inRange(post, start, end)),
-    prevPosts: posts.filter((post) => inRange(post, prevStart, prevEnd)),
-    windowStart: start,
-    windowEnd: end,
-  }
+  return alerts
 }
 
 export default async function handler(req, res) {
@@ -137,6 +102,9 @@ export default async function handler(req, res) {
   }
 
   const count = parseCount(req.query?.count)
+  const sort = parseSingle(req.query?.sort) ?? 'score'
+  const severityFilter = parseList(req.query?.severity)
+  const statusFilter = parseList(req.query?.status)
   const sql = `
     select
       p.id,
@@ -182,18 +150,93 @@ export default async function handler(req, res) {
     const search = parseSingle(req.query?.search) ?? ''
 
     const matching = filterPosts(posts, filters, search)
-    const { currentPosts, prevPosts, windowStart, windowEnd } = buildWindow(matching, filters)
-    const alerts = buildAlerts(currentPosts, prevPosts)
-    const alert = alerts.find((item) => item.id === id)
+    const {
+      currentPosts,
+      prevPosts,
+      prevPrevPosts,
+      windowStart,
+      windowEnd,
+      prevWindowStart,
+      prevWindowEnd,
+      baselineStart,
+      baselineEnd,
+    } = buildWindow(matching, filters)
+    let alerts = buildAlerts(currentPosts, prevPosts)
+    const prevAlerts = buildAlerts(prevPosts, prevPrevPosts)
+
+    alerts = await mergePersistedState(alerts)
+
+    const applyFilters = (list) =>
+      list.filter((item) => {
+        if (severityFilter.length && !severityFilter.includes(item.severity)) return false
+        if (statusFilter.length && !statusFilter.includes(item.status)) return false
+        return true
+      })
+
+    const filteredAlerts = applyFilters(alerts)
+    const filteredPrevAlerts = applyFilters(prevAlerts)
+    const alert = filteredAlerts.find((item) => item.id === id)
 
     if (!alert) {
       res.status(404).json({ error: 'Alert not found' })
       return
     }
 
+    const relatedAlerts = sortRelated(
+      filteredAlerts.filter((item) => {
+        if (item.id === alert.id) return false
+        if (item.scopeType === alert.scopeType) return true
+        if (item.parentScopeId && item.parentScopeId === alert.scopeId) return true
+        if (alert.parentScopeId && item.scopeId === alert.parentScopeId) return true
+        return false
+      }),
+      sort
+    ).slice(0, 6)
+
+    const rangeLabel = formatRange(windowStart, windowEnd)
+    const pulseStats = buildPulseStats(
+      filteredAlerts,
+      filteredPrevAlerts,
+      rangeLabel,
+      windowEnd,
+      prevWindowEnd
+    )
+    const baselineStats = buildBaselineStats(filteredPrevAlerts, prevWindowEnd)
+    const timeline = buildAlertTimeline(filteredAlerts, windowStart, windowEnd)
+    const rules = buildAlertRuleStats(filteredAlerts, defaultAlertThresholds)
+
+    const history = []
+    const prevMatch = filteredPrevAlerts.find((item) => item.id === id)
+    if (prevMatch) {
+      history.push({
+        windowStart: prevWindowStart.toISOString(),
+        windowEnd: prevWindowEnd.toISOString(),
+        severity: prevMatch.severity,
+        status: prevMatch.status,
+        metrics: prevMatch.metrics,
+        signals: prevMatch.signals,
+      })
+    }
+    history.push({
+      windowStart: windowStart.toISOString(),
+      windowEnd: windowEnd.toISOString(),
+      severity: alert.severity,
+      status: alert.status,
+      metrics: alert.metrics,
+      signals: alert.signals,
+    })
+
     res.status(200).json({
       alert,
+      history,
+      relatedAlerts,
+      pulseStats,
+      baselineStats,
+      timeline,
+      rules,
       window: { start: windowStart.toISOString(), end: windowEnd.toISOString() },
+      prevWindow: { start: prevWindowStart.toISOString(), end: prevWindowEnd.toISOString() },
+      baseline: { start: baselineStart.toISOString(), end: baselineEnd.toISOString() },
     })
   } catch (error) {
     console.error('DB error:', error)

@@ -71,6 +71,7 @@ Mantén las historias organizadas por área. Añade una nueva historia por solic
   - Incluye: (M29) `GET /api/alerts/:id` con `history` y `relatedAlerts`.
   - Incluye: (M30) `POST /api/alerts/:id/actions` persistente (`actor`, `note`, `snoozeUntil`) y retorno actualizado.
   - Incluye: (M07) `baselineStats` en payload para evitar recomputos en `AlertsPage`.
+  - Progreso: API y mock con filtros/metrics avanzados, acciones persistentes con snapshot y `AlertsPage` consumiendo métricas remotas.
 - US-2026-02-02-021 — Como analista, quiero definir la estrategia de ingesta diaria y backfill de menciones de Brandwatch para dimensionar volumen y límites.
   - Criterios: guía de factibilidad con límites, paginación/cursor, y plan de ejecución para 30k/día y 500k histórico, con estimaciones de tiempo por rate limit.
 

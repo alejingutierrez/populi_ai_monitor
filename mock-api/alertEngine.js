@@ -800,4 +800,72 @@ export const buildAlerts = (currentPosts, prevPosts, thresholds = {}) => {
     .map(({ score, parentScopeId, parentScopeType, primarySignal, ...alert }) => alert)
 }
 
-export { defaultAlertThresholds }
+const buildAlertRuleStats = (alerts, thresholds) => {
+  const catalog = [
+    {
+      id: 'volume',
+      label: 'Spike de volumen',
+      threshold: `≥ ${thresholds.volumeSpikePct}% o z≥${thresholds.volumeZScore}`,
+      activeCount: 0,
+    },
+    {
+      id: 'sentiment_shift',
+      label: 'Cambio de negatividad',
+      threshold: `≥ ${thresholds.sentimentShiftPct}%`,
+      activeCount: 0,
+    },
+    {
+      id: 'negativity',
+      label: 'Negatividad alta',
+      threshold: `≥ ${thresholds.negativityPct}%`,
+      activeCount: 0,
+    },
+    {
+      id: 'risk',
+      label: 'Riesgo reputacional',
+      threshold: `≥ ${thresholds.riskScore} pts`,
+      activeCount: 0,
+    },
+    {
+      id: 'viral',
+      label: 'Viralidad',
+      threshold: `≥ ${thresholds.viralImpactRatio}x + ${thresholds.viralDeltaPct}%`,
+      activeCount: 0,
+    },
+    {
+      id: 'topic_novelty',
+      label: 'Temas nuevos',
+      threshold: `≥ ${thresholds.topicNoveltyPct}%`,
+      activeCount: 0,
+    },
+    {
+      id: 'cross_platform',
+      label: 'Spike multi-plataforma',
+      threshold: `≥ ${thresholds.crossPlatformMinPlatforms} plataformas`,
+      activeCount: 0,
+    },
+    {
+      id: 'coordination',
+      label: 'Coordinación',
+      threshold: `≥ ${thresholds.coordinationRatio}%`,
+      activeCount: 0,
+    },
+    {
+      id: 'geo_expansion',
+      label: 'Expansión geográfica',
+      threshold: `≥ ${thresholds.geoSpreadDeltaPct}%`,
+      activeCount: 0,
+    },
+  ]
+
+  alerts.forEach((alert) => {
+    alert.signals.forEach((signal) => {
+      const rule = catalog.find((item) => item.id === signal.type)
+      if (rule) rule.activeCount += 1
+    })
+  })
+
+  return catalog
+}
+
+export { defaultAlertThresholds, buildAlertRuleStats }
