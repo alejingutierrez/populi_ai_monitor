@@ -31,4 +31,4 @@ Estados sugeridos: Planned, In progress, Blocked, Done.
 | US-2026-02-03-025 | Done | 2026-02-03 | Motor inteligente con nuevas señales, scoring compuesto, dedupe jerárquico y evidencia enriquecida. |
 | US-2026-02-03-026 | Planned | 2026-02-03 | Paquete API de Alerts con filtros avanzados y acciones persistentes. |
 | US-2026-02-03-027 | Planned | 2026-02-03 | Paquete UX de triage e insight en Alerts. |
-| US-2026-02-03-028 | Done | 2026-02-03 | Git reconectado en Vercel; verificación de auto-deploy en curso. |
+| US-2026-02-03-028 | Done | 2026-02-03 | Git reconectado; webhook siguió sin disparar. Se agregó fallback con GitHub Actions para deploy automático. |
