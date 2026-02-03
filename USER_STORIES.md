@@ -51,6 +51,8 @@ Mantén las historias organizadas por área. Añade una nueva historia por solic
   - Incluye: (M41) eliminar restricciones de ancho únicas en Alerts para igualar el layout con Overview/Geo.
   - Incluye: (M42) presets de layout con ratio equilibrado por defecto.
   - Incluye: (M43) rediseño completo del módulo `AlertTimeline` con resumen operativo y reglas activas funcionales.
+- US-2026-02-03-033 — Como operador, quiero remover el módulo Timeline de la sección Alerts para simplificar la vista principal.
+  - Incluye: (M44) eliminar el render de `AlertTimeline` en `src/pages/AlertsPage.tsx` y limpiar dependencias.
 
 ## Backend/API
 - US-2026-01-25-018 — Como desarrollador, quiero endpoints de Alerts con cálculo de reglas para abastecer el frontend.

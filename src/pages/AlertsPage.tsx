@@ -1,19 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type FC } from 'react'
 import AlertIntel from '../components/AlertIntel'
-import AlertTimeline from '../components/AlertTimeline'
 import AlertsPulse from '../components/AlertsPulse'
 import AlertsStream from '../components/AlertsStream'
 import type { Filters } from '../components/FilterBar'
 import {
-  buildAlertRuleStats,
   buildAlerts,
-  buildAlertTimeline,
-  defaultAlertThresholds,
   formatRange,
   type Alert,
-  type AlertRuleStat,
   type AlertStatus,
-  type AlertTimelinePoint,
 } from '../data/alerts'
 import type { SocialPost } from '../types'
 
@@ -56,8 +50,6 @@ type RemoteAlertsPayload = {
   alerts: Alert[]
   pulseStats?: AlertsPulseStats
   baselineStats?: BaselineStats
-  timeline?: AlertTimelinePoint[]
-  rules?: AlertRuleStat[]
   window?: { start: string; end: string }
   prevWindow?: { start: string; end: string }
   baseline?: { start: string; end: string }
@@ -391,17 +383,6 @@ const AlertsPage: FC<Props> = ({
     return formatRange(prevWindowStart, prevWindowEnd)
   }, [remotePayload, prevWindowStart, prevWindowEnd])
 
-  const timeline = useMemo(
-    () =>
-      remotePayload?.timeline ??
-      buildAlertTimeline(alerts, windowStart, windowEnd),
-    [alerts, windowStart, windowEnd, remotePayload]
-  )
-  const rules = useMemo(
-    () => remotePayload?.rules ?? buildAlertRuleStats(alerts, defaultAlertThresholds),
-    [alerts, remotePayload]
-  )
-
   const buildActionSnapshot = (alert: Alert) => ({
     id: alert.id,
     scopeType: alert.scopeType,
@@ -537,7 +518,6 @@ const AlertsPage: FC<Props> = ({
         />
       </div>
 
-      <AlertTimeline timeline={timeline} rules={rules} showRules />
     </main>
   )
 }
