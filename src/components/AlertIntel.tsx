@@ -79,9 +79,15 @@ const ruleCatalog: Record<AlertSignalType, { label: string; threshold: string }>
 }
 
 const formatRuleValue = (rule: AlertRuleValue) => {
-  if (Number.isFinite(rule.deltaPct)) return `${rule.deltaPct.toFixed(1)}%`
-  if (Number.isFinite(rule.zScore)) return `z ${rule.zScore.toFixed(1)}`
-  if (Number.isFinite(rule.value)) return rule.value.toFixed(1)
+  if (typeof rule.deltaPct === 'number' && Number.isFinite(rule.deltaPct)) {
+    return `${rule.deltaPct.toFixed(1)}%`
+  }
+  if (typeof rule.zScore === 'number' && Number.isFinite(rule.zScore)) {
+    return `z ${rule.zScore.toFixed(1)}`
+  }
+  if (typeof rule.value === 'number' && Number.isFinite(rule.value)) {
+    return rule.value.toFixed(1)
+  }
   return '—'
 }
 
