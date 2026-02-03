@@ -33,3 +33,5 @@ Estados sugeridos: Planned, In progress, Blocked, Done.
 | US-2026-02-03-027 | Planned | 2026-02-03 | Paquete UX de triage e insight en Alerts. |
 | US-2026-02-03-028 | Done | 2026-02-03 | Webhook GitHub -> Vercel API activo; `VERCEL_TOKEN` y `GITHUB_WEBHOOK_SECRET` configurados; SSO protection desactivado para permitir el hook; auto-deploy verificado. |
 | US-2026-02-03-029 | Done | 2026-02-03 | Notas de troubleshooting de auto-deploy en Vercel agregadas a `AGENTS.md`. |
+| US-2026-02-03-030 | Done | 2026-02-03 | Hook de GitHub se controla con `ENABLE_GITHUB_DEPLOY_HOOK` para evitar doble deploy; AGENTS actualizado. |
+| US-2026-02-03-031 | Done | 2026-02-03 | `CONSUMER_API.md` trackeado en git. |

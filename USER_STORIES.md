@@ -96,6 +96,8 @@ Mantén las historias organizadas por área. Añade una nueva historia por solic
 - US-2026-02-03-028 — Como mantenedor, quiero diagnosticar y corregir el auto-deploy de Vercel tras `git push` para garantizar despliegues automáticos.
   - Criterios: identificar causa raíz; restaurar integración Git->Vercel o documentar workaround; logs de Vercel revisados.
   - Criterios: si el webhook Git falla, activar fallback con webhook GitHub -> `api/github-deploy-hook` (Vercel API) usando `VERCEL_TOKEN` y `GITHUB_WEBHOOK_SECRET`.
+- US-2026-02-03-030 — Como mantenedor, quiero evitar deploys duplicados cuando están activos Git integration y el webhook.
+  - Criterios: el webhook solo dispara si `ENABLE_GITHUB_DEPLOY_HOOK=true`; AGENTS documenta el ajuste para evitar dobles despliegues.
 
 ## Docs/Proceso
 - US-2026-01-23-001 — Como mantenedor, quiero ampliar la guía de contribución y el README con el flujo de historias/estado, verificación de deploy en Vercel y contexto de Neon, para asegurar consistencia del proyecto.
@@ -110,3 +112,5 @@ Mantén las historias organizadas por área. Añade una nueva historia por solic
   - Criterios: `collab = true` en `/Users/agutie04/.codex/config.toml`; `suppress_unstable_features_warning = true` configurado.
 - US-2026-02-03-029 — Como mantenedor, quiero documentar en `AGENTS.md` el diagnóstico y checklist de auto-deploy en Vercel para evitar loops futuros.
   - Criterios: sección con pasos de verificación (build logs, Git link, webhook, SSO, alias de producción).
+- US-2026-02-03-031 — Como mantenedor, quiero que `CONSUMER_API.md` esté versionado y disponible en git.
+  - Criterios: archivo trackeado y en el repo principal.

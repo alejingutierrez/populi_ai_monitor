@@ -82,6 +82,7 @@ No dedicated test runner. Validate with `npm run lint` and `npm run build`. If y
 - If a `git push` does not create a deployment, confirm the commit SHA appears in Vercel deployments and the project is still linked to Git.
 - A failing build will show as `ERROR` in Vercel; check logs for TypeScript/build errors first.
 - If using a GitHub webhook to `api/github-deploy-hook`, ensure production alias points to a deployment that includes the endpoint (otherwise webhook pings return `404`). Promote the latest good deployment before testing.
+- Avoid duplicate deployments: if Git integration is healthy, keep `ENABLE_GITHUB_DEPLOY_HOOK` unset/`false` (or remove the webhook) to prevent double deploys from Git + webhook.
 - Vercel SSO protection can block webhooks with `401`. Disable SSO protection or add a bypass before validating the hook.
 - If a webhook secret is used, update both the GitHub hook secret and the Vercel env value at the same time to avoid signature mismatches.
 - Validate webhook delivery in GitHub hook deliveries; expect `200/202` for `ping` and `push` after fixing routing and protection.

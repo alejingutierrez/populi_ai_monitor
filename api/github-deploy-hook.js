@@ -47,6 +47,11 @@ export default async function handler(req, res) {
     return;
   }
 
+  if (process.env.ENABLE_GITHUB_DEPLOY_HOOK !== "true") {
+    res.status(202).json({ ok: true, ignored: true, reason: "disabled" });
+    return;
+  }
+
   const rawBody = await readRawBody(req);
   const event = req.headers["x-github-event"];
 
