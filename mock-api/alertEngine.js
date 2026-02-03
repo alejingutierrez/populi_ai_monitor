@@ -1,10 +1,17 @@
 const defaultAlertThresholds = {
   minVolume: 40,
   volumeSpikePct: 30,
+  volumeZScore: 2,
   negativityPct: 35,
   riskScore: 45,
   viralImpactRatio: 1.3,
   viralDeltaPct: 20,
+  sentimentShiftPct: 10,
+  topicNoveltyPct: 60,
+  crossPlatformDeltaPct: 25,
+  crossPlatformMinPlatforms: 2,
+  coordinationRatio: 18,
+  geoSpreadDeltaPct: 25,
 }
 
 const scopeSpecs = [
@@ -122,11 +129,48 @@ const buildKeywords = (posts, limit = 6) => {
     .map(([term, count]) => ({ term, count }))
 }
 
+const calcMedian = (values) => {
+  if (!values.length) return 0
+  const sorted = [...values].sort((a, b) => a - b)
+  const mid = Math.floor(sorted.length / 2)
+  if (sorted.length % 2 === 0) {
+    return (sorted[mid - 1] + sorted[mid]) / 2
+  }
+  return sorted[mid]
+}
+
+const calcMeanStd = (values) => {
+  if (!values.length) return { mean: 0, std: 0 }
+  const mean = values.reduce((acc, value) => acc + value, 0) / values.length
+  const variance =
+    values.reduce((acc, value) => acc + Math.pow(value - mean, 2), 0) /
+    Math.max(1, values.length - 1)
+  return { mean, std: Math.sqrt(variance) }
+}
+
+const buildDailyCounts = (posts) => {
+  const buckets = new Map()
+  posts.forEach((post) => {
+    const key = dayKey(new Date(post.timestamp))
+    buckets.set(key, (buckets.get(key) ?? 0) + 1)
+  })
+  return Array.from(buckets.values())
+}
+
+const resolveMinVolume = (baseMin, baselineDaily, currentTotal) => {
+  const median = calcMedian(baselineDaily)
+  const dynamicFromTotal = Math.round(currentTotal * 0.01)
+  const dynamicFromMedian = median ? Math.round(median * 1.2) : 0
+  return Math.max(baseMin, dynamicFromTotal, dynamicFromMedian, 3)
+}
+
 const calcImpactScore = (posts) => {
   if (!posts.length) return 0
-  const reach = posts.reduce((acc, post) => acc + post.reach, 0)
-  const engagement = posts.reduce((acc, post) => acc + post.engagement, 0)
-  return (reach / posts.length) * 0.6 + (engagement / posts.length) * 0.4
+  const reachValues = posts.map((post) => post.reach).filter((value) => value > 0)
+  const engagementValues = posts.map((post) => post.engagement).filter((value) => value > 0)
+  const medianReach = calcMedian(reachValues)
+  const medianEngagement = calcMedian(engagementValues)
+  return medianReach * 0.6 + medianEngagement * 0.4
 }
 
 const buildStats = (posts, baselinePosts = []) => {
@@ -197,6 +241,29 @@ const calcPriority = (severity, riskScore) => {
   return Math.round(Math.min(100, base + riskBoost))
 }
 
+const calcCompositeScore = (stats, prevStats, impactRatio, volumeZScore) => {
+  const deltaPct = Math.abs(pctChange(stats.total, prevStats.total))
+  const volumeScore = Math.min(100, deltaPct)
+  const riskScore = Math.min(100, stats.riskScore)
+  const negativeScore = Math.min(100, stats.negativeShare)
+  const impactScore = Math.min(100, Math.max(0, (impactRatio - 1) * 100))
+  const zScore = Math.min(100, Math.max(0, volumeZScore * 20))
+  return (
+    volumeScore * 0.25 +
+    riskScore * 0.25 +
+    negativeScore * 0.2 +
+    impactScore * 0.2 +
+    zScore * 0.1
+  )
+}
+
+const resolveCompositeSeverity = (score) => {
+  if (score >= 85) return 'critical'
+  if (score >= 70) return 'high'
+  if (score >= 55) return 'medium'
+  return 'low'
+}
+
 const calcConfidence = (stats, prevStats, signals, thresholds) => {
   const volumeScore = Math.min(1, stats.total / Math.max(1, thresholds.minVolume * 2))
   const signalScore = Math.min(1, signals.length / 3)
@@ -223,6 +290,36 @@ const buildInstanceId = (value) => `ai_${hashString(value)}`
 
 const resolveSignalSeverity = (signal, impactRatio) => {
   if (signal.type === 'volume') {
+    if (signal.value >= 60) return 'critical'
+    if (signal.value >= 45) return 'high'
+    if (signal.value >= 30) return 'medium'
+    return 'low'
+  }
+  if (signal.type === 'sentiment_shift') {
+    if (signal.value >= 25) return 'critical'
+    if (signal.value >= 18) return 'high'
+    if (signal.value >= 10) return 'medium'
+    return 'low'
+  }
+  if (signal.type === 'topic_novelty') {
+    if (signal.value >= 80) return 'critical'
+    if (signal.value >= 65) return 'high'
+    if (signal.value >= 50) return 'medium'
+    return 'low'
+  }
+  if (signal.type === 'cross_platform') {
+    if (signal.value >= 4) return 'critical'
+    if (signal.value >= 3) return 'high'
+    if (signal.value >= 2) return 'medium'
+    return 'low'
+  }
+  if (signal.type === 'coordination') {
+    if (signal.value >= 35) return 'critical'
+    if (signal.value >= 25) return 'high'
+    if (signal.value >= 18) return 'medium'
+    return 'low'
+  }
+  if (signal.type === 'geo_expansion') {
     if (signal.value >= 60) return 'critical'
     if (signal.value >= 45) return 'high'
     if (signal.value >= 30) return 'medium'
@@ -260,13 +357,26 @@ const buildSummary = (stats, deltaPct) =>
 
 const buildEvidence = (posts) => {
   const scored = posts
-    .map((post) => ({
-      post,
-      score: post.reach * 0.6 + post.engagement * 0.4,
-    }))
+    .map((post) => {
+      const sentimentBoost =
+        post.sentiment === 'negativo' ? 1.2 : post.sentiment === 'neutral' ? 1 : 0.9
+      return {
+        post,
+        score: (post.reach * 0.6 + post.engagement * 0.4) * sentimentBoost,
+      }
+    })
     .sort((a, b) => b.score - a.score)
-    .slice(0, 5)
-  return scored.map((item) => item.post)
+
+  const picked = []
+  const seenAuthors = new Set()
+  for (const item of scored) {
+    const authorKey = (item.post.handle || item.post.author || '').toLowerCase()
+    if (authorKey && seenAuthors.has(authorKey)) continue
+    if (authorKey) seenAuthors.add(authorKey)
+    picked.push(item.post)
+    if (picked.length >= 5) break
+  }
+  return picked
 }
 
 const groupBy = (posts, getKey) => {
@@ -279,22 +389,44 @@ const groupBy = (posts, getKey) => {
   return groups
 }
 
-const buildSignals = (stats, prevStats, impactRatio, thresholds) => {
+const buildSignals = (stats, prevStats, impactRatio, thresholds, context = {}) => {
   const deltaPct = pctChange(stats.total, prevStats.total)
   const signals = []
   const ruleValues = {}
+  const baselineDaily = context.baselineDaily ?? []
+  const { mean: baselineMean, std: baselineStd } = calcMeanStd(baselineDaily)
+  const volumeZScore = baselineStd > 0 ? (stats.total - baselineMean) / baselineStd : 0
 
-  if (stats.total >= thresholds.minVolume && deltaPct >= thresholds.volumeSpikePct) {
+  if (
+    stats.total >= thresholds.minVolume &&
+    (deltaPct >= thresholds.volumeSpikePct || volumeZScore >= thresholds.volumeZScore)
+  ) {
     signals.push({
       type: 'volume',
       label: 'Volumen en alza',
-      value: deltaPct,
+      value: Math.max(deltaPct, volumeZScore * 10),
       deltaPct,
     })
     ruleValues.volume = {
       value: deltaPct,
       threshold: thresholds.volumeSpikePct,
       deltaPct,
+      zScore: volumeZScore,
+      zThreshold: thresholds.volumeZScore,
+      minVolume: thresholds.minVolume,
+    }
+  }
+
+  const sentimentShift = stats.negativeShare - prevStats.negativeShare
+  if (stats.total >= thresholds.minVolume && sentimentShift >= thresholds.sentimentShiftPct) {
+    signals.push({
+      type: 'sentiment_shift',
+      label: 'Cambio de negatividad',
+      value: sentimentShift,
+    })
+    ruleValues.sentiment_shift = {
+      value: sentimentShift,
+      threshold: thresholds.sentimentShiftPct,
     }
   }
 
@@ -341,19 +473,111 @@ const buildSignals = (stats, prevStats, impactRatio, thresholds) => {
     }
   }
 
-  return { signals, deltaPct, ruleValues }
+  const baselineTopics = prevStats.topTopics.map((topic) => topic.name)
+  const currentTopics = stats.topTopics.map((topic) => topic.name)
+  const noveltyCount = currentTopics.filter((topic) => !baselineTopics.includes(topic))
+  const noveltyPct = currentTopics.length
+    ? (noveltyCount.length / currentTopics.length) * 100
+    : 0
+  if (stats.total >= thresholds.minVolume && noveltyPct >= thresholds.topicNoveltyPct) {
+    signals.push({
+      type: 'topic_novelty',
+      label: 'Temas nuevos emergentes',
+      value: noveltyPct,
+    })
+    ruleValues.topic_novelty = {
+      value: noveltyPct,
+      threshold: thresholds.topicNoveltyPct,
+    }
+  }
+
+  if (context.currentPosts?.length) {
+    const platformCounts = new Map()
+    const prevPlatformCounts = new Map()
+    context.currentPosts.forEach((post) => {
+      platformCounts.set(post.platform, (platformCounts.get(post.platform) ?? 0) + 1)
+    })
+    context.prevPosts.forEach((post) => {
+      prevPlatformCounts.set(post.platform, (prevPlatformCounts.get(post.platform) ?? 0) + 1)
+    })
+    const minPlatformVolume = Math.max(3, Math.round(thresholds.minVolume * 0.25))
+    let platformsAbove = 0
+    platformCounts.forEach((count, platform) => {
+      const prevCount = prevPlatformCounts.get(platform) ?? 0
+      const platformDelta = pctChange(count, prevCount)
+      if (count >= minPlatformVolume && platformDelta >= thresholds.crossPlatformDeltaPct) {
+        platformsAbove += 1
+      }
+    })
+    if (platformsAbove >= thresholds.crossPlatformMinPlatforms) {
+      signals.push({
+        type: 'cross_platform',
+        label: 'Spike multi-plataforma',
+        value: platformsAbove,
+      })
+      ruleValues.cross_platform = {
+        value: platformsAbove,
+        threshold: thresholds.crossPlatformMinPlatforms,
+      }
+    }
+
+    const contentMap = new Map()
+    context.currentPosts.forEach((post) => {
+      const contentKey = post.content.toLowerCase().replace(/https?:\\/\\/\\S+/g, '').slice(0, 160)
+      const authorKey = (post.handle || post.author || '').toLowerCase()
+      if (!contentKey || !authorKey) return
+      const entry = contentMap.get(contentKey) ?? { authors: new Set(), count: 0 }
+      entry.authors.add(authorKey)
+      entry.count += 1
+      contentMap.set(contentKey, entry)
+    })
+    let coordinatedPosts = 0
+    contentMap.forEach((entry) => {
+      if (entry.authors.size >= 2) {
+        coordinatedPosts += entry.count
+      }
+    })
+    const coordinationRatio = stats.total
+      ? Math.min(100, (coordinatedPosts / stats.total) * 100)
+      : 0
+    if (coordinationRatio >= thresholds.coordinationRatio) {
+      signals.push({
+        type: 'coordination',
+        label: 'Coordinación detectada',
+        value: coordinationRatio,
+      })
+      ruleValues.coordination = {
+        value: coordinationRatio,
+        threshold: thresholds.coordinationRatio,
+      }
+    }
+  }
+
+  const geoSpreadDeltaPct = pctChange(stats.geoSpread ?? 0, prevStats.geoSpread ?? 0)
+  if (stats.total >= thresholds.minVolume && geoSpreadDeltaPct >= thresholds.geoSpreadDeltaPct) {
+    signals.push({
+      type: 'geo_expansion',
+      label: 'Expansión geográfica',
+      value: geoSpreadDeltaPct,
+    })
+    ruleValues.geo_expansion = {
+      value: geoSpreadDeltaPct,
+      threshold: thresholds.geoSpreadDeltaPct,
+    }
+  }
+
+  return { signals, deltaPct, ruleValues, volumeZScore }
 }
 
 export const buildAlerts = (currentPosts, prevPosts, thresholds = {}) => {
   const baselineImpact = calcImpactScore(currentPosts)
-  const dynamicMinVolume = Math.max(
-    thresholds.minVolume ?? defaultAlertThresholds.minVolume,
-    Math.round(currentPosts.length * 0.01)
-  )
   const config = {
     ...defaultAlertThresholds,
     ...thresholds,
-    minVolume: dynamicMinVolume,
+    minVolume: Math.max(
+      thresholds.minVolume ?? defaultAlertThresholds.minVolume,
+      Math.round(currentPosts.length * 0.01)
+    ),
   }
 
   const alerts = []
@@ -361,25 +585,38 @@ export const buildAlerts = (currentPosts, prevPosts, thresholds = {}) => {
   const overallStats = buildStats(currentPosts, prevPosts)
   const overallPrev = buildStats(prevPosts)
   const overallImpactRatio = baselineImpact ? overallStats.impactScore / baselineImpact : 0
-  const overallSignals = buildSignals(overallStats, overallPrev, overallImpactRatio, config)
+  const overallBaselineDaily = buildDailyCounts(prevPosts)
+  const overallConfig = {
+    ...config,
+    minVolume: resolveMinVolume(config.minVolume, overallBaselineDaily, overallStats.total),
+  }
+  const overallSignals = buildSignals(overallStats, overallPrev, overallImpactRatio, overallConfig, {
+    currentPosts,
+    prevPosts,
+    baselineDaily: overallBaselineDaily,
+  })
   if (overallSignals.signals.length) {
     const primary = pickPrimarySignal(overallSignals.signals, overallImpactRatio)
-    const severity = resolveSignalSeverity(primary, overallImpactRatio)
-    const score =
-      severityWeight(severity) * 100 +
-      Math.max(
-        overallSignals.deltaPct,
-        overallStats.negativeShare,
-        overallStats.riskScore,
-        (overallImpactRatio - 1) * 100
-      )
+    const compositeScore = calcCompositeScore(
+      overallStats,
+      overallPrev,
+      overallImpactRatio,
+      overallSignals.volumeZScore ?? 0
+    )
+    const severity = resolveCompositeSeverity(compositeScore)
+    const score = compositeScore + Math.min(20, overallSignals.signals.length * 5)
     const nowIso = new Date().toISOString()
     const stableId = buildStableId('overall:overall')
     const instanceBucket = dayKey(new Date(overallStats.latestTs || Date.now()))
     const instanceId = buildInstanceId(
       `overall:overall:${primary.type}:${instanceBucket}`
     )
-    const confidence = calcConfidence(overallStats, overallPrev, overallSignals.signals, config)
+    const confidence = calcConfidence(
+      overallStats,
+      overallPrev,
+      overallSignals.signals,
+      overallConfig
+    )
     const priority = calcPriority(severity, overallStats.riskScore)
 
     alerts.push({
@@ -426,6 +663,7 @@ export const buildAlerts = (currentPosts, prevPosts, thresholds = {}) => {
       newAuthorsPct: overallStats.newAuthorsPct,
       geoSpread: overallStats.geoSpread,
       evidence: buildEvidence(currentPosts),
+      primarySignal: primary.type,
       score,
     })
   }
@@ -439,19 +677,33 @@ export const buildAlerts = (currentPosts, prevPosts, thresholds = {}) => {
       const stats = buildStats(groupPosts, prevGroupPosts)
       const prevStats = buildStats(prevGroupPosts)
       const impactRatio = baselineImpact ? stats.impactScore / baselineImpact : 0
-      const { signals, deltaPct, ruleValues } = buildSignals(
+      const baselineDaily = buildDailyCounts(prevGroupPosts)
+      const localConfig = {
+        ...config,
+        minVolume: resolveMinVolume(config.minVolume, baselineDaily, stats.total),
+      }
+      const { signals, deltaPct, ruleValues, volumeZScore } = buildSignals(
         stats,
         prevStats,
         impactRatio,
-        config
+        localConfig,
+        {
+          currentPosts: groupPosts,
+          prevPosts: prevGroupPosts,
+          baselineDaily,
+        }
       )
       if (!signals.length) return
 
       const primary = pickPrimarySignal(signals, impactRatio)
-      const severity = resolveSignalSeverity(primary, impactRatio)
-      const score =
-        severityWeight(severity) * 100 +
-        Math.max(deltaPct, stats.negativeShare, stats.riskScore, (impactRatio - 1) * 100)
+      const compositeScore = calcCompositeScore(
+        stats,
+        prevStats,
+        impactRatio,
+        volumeZScore ?? 0
+      )
+      const severity = resolveCompositeSeverity(compositeScore)
+      const score = compositeScore + Math.min(20, signals.length * 5)
 
       const nowIso = new Date().toISOString()
       const stableId = buildStableId(`${scope.scopeType}:${scopeId}`)
@@ -459,8 +711,21 @@ export const buildAlerts = (currentPosts, prevPosts, thresholds = {}) => {
       const instanceId = buildInstanceId(
         `${scope.scopeType}:${scopeId}:${primary.type}:${instanceBucket}`
       )
-      const confidence = calcConfidence(stats, prevStats, signals, config)
+      const confidence = calcConfidence(stats, prevStats, signals, localConfig)
       const priority = calcPriority(severity, stats.riskScore)
+
+      const parentScopeId =
+        scope.scopeType === 'subcluster'
+          ? groupPosts[0]?.cluster
+          : scope.scopeType === 'microcluster'
+            ? groupPosts[0]?.subcluster
+            : undefined
+      const parentScopeType =
+        scope.scopeType === 'subcluster'
+          ? 'cluster'
+          : scope.scopeType === 'microcluster'
+            ? 'subcluster'
+            : undefined
 
       alerts.push({
         id: `${scope.scopeType}:${scopeId}`,
@@ -506,15 +771,32 @@ export const buildAlerts = (currentPosts, prevPosts, thresholds = {}) => {
         newAuthorsPct: stats.newAuthorsPct,
         geoSpread: stats.geoSpread,
         evidence: buildEvidence(groupPosts),
+        parentScopeId,
+        parentScopeType,
+        primarySignal: primary.type,
         score,
       })
     })
   })
 
-  return alerts
+  const parentLookup = new Map()
+  alerts.forEach((alert) => {
+    parentLookup.set(`${alert.scopeType}:${alert.scopeId}`, alert)
+  })
+  const deduped = alerts.filter((alert) => {
+    if (!alert.parentScopeId || !alert.parentScopeType) return true
+    const parent = parentLookup.get(`${alert.parentScopeType}:${alert.parentScopeId}`)
+    if (!parent) return true
+    if (parent.primarySignal && parent.primarySignal === alert.primarySignal) {
+      return parent.score < alert.score * 0.85
+    }
+    return true
+  })
+
+  return deduped
     .sort((a, b) => b.score - a.score)
     .slice(0, 32)
-    .map(({ score, ...alert }) => alert)
+    .map(({ score, parentScopeId, parentScopeType, primarySignal, ...alert }) => alert)
 }
 
 export { defaultAlertThresholds }

@@ -28,7 +28,7 @@ Estados sugeridos: Planned, In progress, Blocked, Done.
 | US-2026-02-03-022 | Done | 2026-02-03 | `collab` habilitado y warning suprimido en config de Codex. |
 | US-2026-02-03-023 | Done | 2026-02-03 | Paquetes de mejoras definidos y distribuidos en historias nuevas. |
 | US-2026-02-03-024 | Done | 2026-02-03 | Schema de Alerts + tablas persistentes, metrics base y lifecycle; alert engines actualizados. |
-| US-2026-02-03-025 | Planned | 2026-02-03 | Paquete motor inteligente de alertas y scoring compuesto. |
+| US-2026-02-03-025 | Done | 2026-02-03 | Motor inteligente con nuevas señales, scoring compuesto, dedupe jerárquico y evidencia enriquecida. |
 | US-2026-02-03-026 | Planned | 2026-02-03 | Paquete API de Alerts con filtros avanzados y acciones persistentes. |
 | US-2026-02-03-027 | Planned | 2026-02-03 | Paquete UX de triage e insight en Alerts. |
 | US-2026-02-03-028 | Done | 2026-02-03 | Git reconectado en Vercel; auto-deploy restaurado y logs verificados. |
