@@ -36,4 +36,4 @@ Estados sugeridos: Planned, In progress, Blocked, Done.
 | US-2026-02-03-030 | Done | 2026-02-03 | Hook de GitHub se controla con `ENABLE_GITHUB_DEPLOY_HOOK` para evitar doble deploy; AGENTS actualizado. |
 | US-2026-02-03-031 | Done | 2026-02-03 | `CONSUMER_API.md` trackeado en git. |
 | US-2026-02-03-032 | Done | 2026-02-03 | Ajuste de ancho consistente en Alerts y rediseño de AlertTimeline; deploy Ready verificado. |
-| US-2026-02-03-033 | In progress | 2026-02-03 | Remover AlertTimeline de la vista Alerts. |
+| US-2026-02-03-033 | Done | 2026-02-03 | AlertTimeline removido de Alerts y deploy Ready verificado. |
