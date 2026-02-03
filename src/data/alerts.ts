@@ -666,8 +666,9 @@ const buildSignals = (
     }
 
     const contentMap = new Map<string, { authors: Set<string>; count: number }>()
+    const urlPattern = /https?:\/\/\S+/g
     context.currentPosts.forEach((post) => {
-      const contentKey = post.content.toLowerCase().replace(/https?:\\/\\/\\S+/g, '').slice(0, 160)
+      const contentKey = post.content.toLowerCase().replace(urlPattern, '').slice(0, 160)
       const authorKey = (post.handle || post.author || '').toLowerCase()
       if (!contentKey || !authorKey) return
       const entry = contentMap.get(contentKey) ?? { authors: new Set<string>(), count: 0 }
