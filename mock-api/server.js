@@ -16,6 +16,13 @@ app.use(express.json());
 
 app.get("/health", (_req, res) => res.json({ status: "ok" }));
 
+const normalizeSentiment = (value) => {
+  const raw = String(value ?? "").toLowerCase();
+  if (raw === "positive" || raw === "positivo") return "positivo";
+  if (raw === "negative" || raw === "negativo") return "negativo";
+  return "neutral";
+};
+
 app.get("/posts", async (req, res) => {
   const count = Math.min(Number.parseInt(req.query?.count ?? "7000", 10) || 7000, 10000);
   if (!process.env.DATABASE_URL && !process.env.POSTGRES_URL && !process.env.POSTGRES_PRISMA_URL) {
@@ -30,7 +37,7 @@ app.get("/posts", async (req, res) => {
         p.id,
         p.author,
         p.handle,
-        coalesce(pl.display_name, p.platform_id) as platform,
+        coalesce(pl.display_name, p.platform_id, p.content_source_name, p.content_source) as platform,
         p.content,
         p.sentiment,
         coalesce(t.display_name, p.topic_id) as topic,
@@ -41,9 +48,12 @@ app.get("/posts", async (req, res) => {
         coalesce(c.display_name, p.cluster_id) as cluster,
         coalesce(sc.display_name, p.subcluster_id) as subcluster,
         coalesce(mc.display_name, p.microcluster_id) as microcluster,
-        l.city,
-        l.lat,
-        l.lng
+        coalesce(l.city, p.city, p.location_name) as city,
+        coalesce(l.lat, p.latitude) as lat,
+        coalesce(l.lng, p.longitude) as lng,
+        p.url,
+        p.domain,
+        p.language
       from posts p
       left join platforms pl on pl.id = p.platform_id
       left join topics t on t.id = p.topic_id
@@ -57,24 +67,27 @@ app.get("/posts", async (req, res) => {
     const result = await query(sql, [count]);
     const posts = result.rows.map((row) => ({
       id: row.id,
-      author: row.author,
-      handle: row.handle,
-      platform: row.platform,
-      content: row.content,
-      sentiment: row.sentiment,
-      topic: row.topic,
+      author: row.author ?? "Sin autor",
+      handle: row.handle ?? "",
+      platform: row.platform ?? "Sin plataforma",
+      content: row.content ?? "",
+      sentiment: normalizeSentiment(row.sentiment),
+      topic: row.topic ?? "Sin tema",
       timestamp: row.timestamp,
-      reach: row.reach,
-      engagement: row.engagement,
-      mediaType: row.mediaType,
-      cluster: row.cluster,
-      subcluster: row.subcluster,
-      microcluster: row.microcluster,
+      reach: row.reach ?? 0,
+      engagement: row.engagement ?? 0,
+      mediaType: row.mediaType ?? "texto",
+      cluster: row.cluster ?? "Sin cluster",
+      subcluster: row.subcluster ?? "Sin subcluster",
+      microcluster: row.microcluster ?? "Sin microcluster",
       location: {
-        city: row.city,
-        lat: Number(row.lat),
-        lng: Number(row.lng),
+        city: row.city ?? "Sin ubicación",
+        lat: row.lat === null || row.lat === undefined ? null : Number(row.lat),
+        lng: row.lng === null || row.lng === undefined ? null : Number(row.lng),
       },
+      url: row.url ?? undefined,
+      domain: row.domain ?? undefined,
+      language: row.language ?? undefined,
     }));
     res.json(posts);
   } catch (error) {
@@ -367,7 +380,7 @@ const loadPosts = async (count) => {
       p.id,
       p.author,
       p.handle,
-      coalesce(pl.display_name, p.platform_id) as platform,
+      coalesce(pl.display_name, p.platform_id, p.content_source_name, p.content_source) as platform,
       p.content,
       p.sentiment,
       coalesce(t.display_name, p.topic_id) as topic,
@@ -378,9 +391,12 @@ const loadPosts = async (count) => {
       coalesce(c.display_name, p.cluster_id) as cluster,
       coalesce(sc.display_name, p.subcluster_id) as subcluster,
       coalesce(mc.display_name, p.microcluster_id) as microcluster,
-      l.city,
-      l.lat,
-      l.lng
+      coalesce(l.city, p.city, p.location_name) as city,
+      coalesce(l.lat, p.latitude) as lat,
+      coalesce(l.lng, p.longitude) as lng,
+      p.url,
+      p.domain,
+      p.language
     from posts p
     left join platforms pl on pl.id = p.platform_id
     left join topics t on t.id = p.topic_id
@@ -394,24 +410,27 @@ const loadPosts = async (count) => {
   const result = await query(sql, [count]);
   return result.rows.map((row) => ({
     id: row.id,
-    author: row.author,
-    handle: row.handle,
-    platform: row.platform,
-    content: row.content,
-    sentiment: row.sentiment,
-    topic: row.topic,
+    author: row.author ?? "Sin autor",
+    handle: row.handle ?? "",
+    platform: row.platform ?? "Sin plataforma",
+    content: row.content ?? "",
+    sentiment: normalizeSentiment(row.sentiment),
+    topic: row.topic ?? "Sin tema",
     timestamp: row.timestamp,
-    reach: row.reach,
-    engagement: row.engagement,
-    mediaType: row.mediaType,
-    cluster: row.cluster,
-    subcluster: row.subcluster,
-    microcluster: row.microcluster,
+    reach: row.reach ?? 0,
+    engagement: row.engagement ?? 0,
+    mediaType: row.mediaType ?? "texto",
+    cluster: row.cluster ?? "Sin cluster",
+    subcluster: row.subcluster ?? "Sin subcluster",
+    microcluster: row.microcluster ?? "Sin microcluster",
     location: {
-      city: row.city,
-      lat: Number(row.lat),
-      lng: Number(row.lng),
+      city: row.city ?? "Sin ubicación",
+      lat: row.lat === null || row.lat === undefined ? null : Number(row.lat),
+      lng: row.lng === null || row.lng === undefined ? null : Number(row.lng),
     },
+    url: row.url ?? undefined,
+    domain: row.domain ?? undefined,
+    language: row.language ?? undefined,
   }));
 };
 

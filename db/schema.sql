@@ -62,6 +62,8 @@ create table if not exists locations (
 
 create table if not exists posts (
   id text primary key,
+  -- Fuente/IDs externos (Brandwatch Consumer Insights: "mention")
+  source_system text not null default 'local',
   author text not null,
   handle text,
   platform_id text references platforms(id),
@@ -75,7 +77,128 @@ create table if not exists posts (
   media_type media_type not null,
   cluster_id text references clusters(id),
   subcluster_id text references subclusters(id),
-  microcluster_id text references microclusters(id)
+  microcluster_id text references microclusters(id),
+
+  -- Campos "mention" (Consumer API). Opcionales, porque no todas las fuentes/devuelven todo.
+  consumer_guid text,
+  consumer_added_at timestamptz,
+  consumer_updated_at timestamptz,
+  url text,
+  original_url text,
+  thread_url text,
+  title text,
+  domain text,
+  language text,
+  content_source text,
+  content_source_name text,
+  page_type text,
+  pub_type text,
+  subtype text,
+  resource_type text,
+  publisher_sub_type text,
+  country text,
+  region text,
+  city text,
+  latitude numeric(9, 6),
+  longitude numeric(9, 6),
+  location_name text,
+
+  -- Workflow (Consumer API: assignment/priority/status/checked/starred)
+  workflow_assignment text,
+  workflow_priority text,
+  workflow_status text,
+  workflow_checked boolean,
+  workflow_starred boolean,
+
+  -- Taxonomias aplicadas desde la API (tags/categories/classifications) o nuestros pipelines.
+  tags text[],
+  categories text[],
+  classifications text[],
+
+  -- Backstop para campos no modelados y para auditoria.
+  raw_metadata jsonb,
+  custom jsonb
+);
+
+-- Tablas para sincronizar el catálogo/configuración desde Brandwatch Consumer API
+-- (proyectos, queries, tags, categorías). Estas tablas no son requeridas por el UI
+-- hoy, pero evitan migraciones disruptivas cuando habilitemos ingesta/backfill.
+
+create table if not exists consumer_projects (
+  id text primary key,
+  name text not null,
+  description text,
+  timezone text,
+  raw jsonb,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create table if not exists consumer_queries (
+  id text primary key,
+  project_id text not null references consumer_projects(id) on delete cascade,
+  name text not null,
+  type text,
+  boolean_query text,
+  display_name text,
+  description text,
+  languages text[],
+  content_sources text[],
+  start_date date,
+  state text,
+  raw jsonb,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique (project_id, name)
+);
+
+create table if not exists consumer_query_groups (
+  id text primary key,
+  project_id text not null references consumer_projects(id) on delete cascade,
+  name text not null,
+  shared boolean default false,
+  shared_project_ids text[],
+  raw jsonb,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique (project_id, name)
+);
+
+create table if not exists consumer_query_group_queries (
+  group_id text not null references consumer_query_groups(id) on delete cascade,
+  query_id text not null references consumer_queries(id) on delete cascade,
+  primary key (group_id, query_id)
+);
+
+create table if not exists consumer_ruletags (
+  id text primary key,
+  project_id text not null references consumer_projects(id) on delete cascade,
+  name text not null,
+  display_name text,
+  matching_type text,
+  raw jsonb,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique (project_id, name)
+);
+
+create table if not exists consumer_rulecategories (
+  id text primary key,
+  project_id text not null references consumer_projects(id) on delete cascade,
+  name text not null,
+  display_name text,
+  parent_id text references consumer_rulecategories(id) on delete set null,
+  raw jsonb,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+-- Menciones (posts) pueden aparecer en múltiples queries; guardamos la relación para backfill/polling.
+create table if not exists post_query_matches (
+  post_id text not null references posts(id) on delete cascade,
+  query_id text not null references consumer_queries(id) on delete cascade,
+  matched_at timestamptz default now(),
+  primary key (post_id, query_id)
 );
 
 create table if not exists classification_labels (
@@ -232,11 +355,60 @@ create table if not exists alert_rules (
   unique (signal_type, scope_type, scope_id)
 );
 
+-- Evolución aditiva para DBs existentes: si ya existe `posts`, agregamos campos de Consumer API.
+alter table if exists posts add column if not exists source_system text not null default 'local';
+alter table if exists posts add column if not exists consumer_guid text;
+alter table if exists posts add column if not exists consumer_added_at timestamptz;
+alter table if exists posts add column if not exists consumer_updated_at timestamptz;
+alter table if exists posts add column if not exists url text;
+alter table if exists posts add column if not exists original_url text;
+alter table if exists posts add column if not exists thread_url text;
+alter table if exists posts add column if not exists title text;
+alter table if exists posts add column if not exists domain text;
+alter table if exists posts add column if not exists language text;
+alter table if exists posts add column if not exists content_source text;
+alter table if exists posts add column if not exists content_source_name text;
+alter table if exists posts add column if not exists page_type text;
+alter table if exists posts add column if not exists pub_type text;
+alter table if exists posts add column if not exists subtype text;
+alter table if exists posts add column if not exists resource_type text;
+alter table if exists posts add column if not exists publisher_sub_type text;
+alter table if exists posts add column if not exists country text;
+alter table if exists posts add column if not exists region text;
+alter table if exists posts add column if not exists city text;
+alter table if exists posts add column if not exists latitude numeric(9, 6);
+alter table if exists posts add column if not exists longitude numeric(9, 6);
+alter table if exists posts add column if not exists location_name text;
+alter table if exists posts add column if not exists workflow_assignment text;
+alter table if exists posts add column if not exists workflow_priority text;
+alter table if exists posts add column if not exists workflow_status text;
+alter table if exists posts add column if not exists workflow_checked boolean;
+alter table if exists posts add column if not exists workflow_starred boolean;
+alter table if exists posts add column if not exists tags text[];
+alter table if exists posts add column if not exists categories text[];
+alter table if exists posts add column if not exists classifications text[];
+alter table if exists posts add column if not exists raw_metadata jsonb;
+alter table if exists posts add column if not exists custom jsonb;
+
 create index if not exists idx_posts_timestamp on posts (timestamp desc);
 create index if not exists idx_posts_cluster on posts (cluster_id);
 create index if not exists idx_posts_topic on posts (topic_id);
 create index if not exists idx_posts_location on posts (location_id);
 create index if not exists idx_posts_sentiment on posts (sentiment);
+create index if not exists idx_posts_source_system on posts (source_system);
+create index if not exists idx_posts_content_source on posts (content_source);
+create index if not exists idx_posts_language on posts (language);
+create index if not exists idx_posts_domain on posts (domain);
+create index if not exists idx_posts_country on posts (country);
+create index if not exists idx_posts_region on posts (region);
+create index if not exists idx_posts_city_raw on posts (city);
+create index if not exists idx_posts_consumer_guid on posts (consumer_guid);
+create index if not exists idx_post_query_matches_query on post_query_matches (query_id);
+create index if not exists idx_consumer_queries_project on consumer_queries (project_id);
+create index if not exists idx_consumer_query_groups_project on consumer_query_groups (project_id);
+create index if not exists idx_consumer_ruletags_project on consumer_ruletags (project_id);
+create index if not exists idx_consumer_rulecategories_project on consumer_rulecategories (project_id);
+create index if not exists idx_consumer_rulecategories_parent on consumer_rulecategories (parent_id);
 create index if not exists idx_alerts_status on alerts (status);
 create index if not exists idx_alerts_severity on alerts (severity);
 create index if not exists idx_alerts_scope on alerts (scope_type, scope_id);

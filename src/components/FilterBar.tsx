@@ -16,12 +16,13 @@ export interface Filters {
 
 interface Props {
   filters: Filters;
+  platforms: string[];
   clusters: string[];
   subclusters: string[];
   onChange: (filters: Filters) => void;
 }
 
-const FilterBar: FC<Props> = ({ filters, clusters, subclusters, onChange }) => {
+const FilterBar: FC<Props> = ({ filters, platforms, clusters, subclusters, onChange }) => {
   const defaultReset: Filters = {
     sentiment: "todos",
     platform: "todos",
@@ -48,14 +49,28 @@ const FilterBar: FC<Props> = ({ filters, clusters, subclusters, onChange }) => {
     { value: "negativo", label: "Negativo" },
   ];
 
+  const platformLabel: Record<string, string> = {
+    "X/Twitter": "X / Twitter",
+  };
+
+  const preferredOrder = ["X/Twitter", "Facebook", "Instagram", "YouTube", "TikTok", "Reddit"];
+  const platformUniverse = new Set([
+    ...platforms.filter(Boolean),
+    ...(filters.platform !== "todos" ? [filters.platform] : []),
+  ]);
+  const orderedPlatforms = [
+    ...preferredOrder.filter((p) => platformUniverse.has(p)),
+    ...Array.from(platformUniverse)
+      .filter((p) => !preferredOrder.includes(p))
+      .sort((a, b) => a.localeCompare(b)),
+  ];
+
   const platformOptions: { value: Filters["platform"]; label: string }[] = [
     { value: "todos", label: "Todas" },
-    { value: "X/Twitter", label: "X / Twitter" },
-    { value: "Facebook", label: "Facebook" },
-    { value: "Instagram", label: "Instagram" },
-    { value: "YouTube", label: "YouTube" },
-    { value: "TikTok", label: "TikTok" },
-    { value: "Reddit", label: "Reddit" },
+    ...orderedPlatforms.map((platform) => ({
+      value: platform,
+      label: platformLabel[platform] ?? platform,
+    })),
   ];
 
   const clusterOptions: { value: Filters["cluster"]; label: string }[] = [

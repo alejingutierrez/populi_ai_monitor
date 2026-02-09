@@ -120,7 +120,7 @@ export default async function handler(req, res) {
       p.id,
       p.author,
       p.handle,
-      coalesce(pl.display_name, p.platform_id) as platform,
+      coalesce(pl.display_name, p.platform_id, p.content_source_name, p.content_source) as platform,
       p.content,
       p.sentiment,
       coalesce(t.display_name, p.topic_id) as topic,
@@ -131,9 +131,12 @@ export default async function handler(req, res) {
       coalesce(c.display_name, p.cluster_id) as cluster,
       coalesce(sc.display_name, p.subcluster_id) as subcluster,
       coalesce(mc.display_name, p.microcluster_id) as microcluster,
-      l.city,
-      l.lat,
-      l.lng
+      coalesce(l.city, p.city, p.location_name) as city,
+      coalesce(l.lat, p.latitude) as lat,
+      coalesce(l.lng, p.longitude) as lng,
+      p.url,
+      p.domain,
+      p.language
     from posts p
     left join platforms pl on pl.id = p.platform_id
     left join topics t on t.id = p.topic_id

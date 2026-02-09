@@ -65,12 +65,15 @@ export const buildLocationInsights = (posts: SocialPost[]): CityInsight[] => {
 
   const buckets = new Map<string, SocialPost[]>()
   posts.forEach((post) => {
-    const key = `${post.location.city}-${post.location.lat}-${post.location.lng}`
+    const { lat, lng } = post.location
+    if (typeof lat !== 'number' || typeof lng !== 'number') return
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return
+    const key = `${post.location.city}-${lat}-${lng}`
     buckets.set(key, [...(buckets.get(key) ?? []), post])
   })
 
   return Array.from(buckets.entries())
-    .map(([key, bucket]): CityInsight => {
+    .map(([key, bucket]): CityInsight | null => {
       const sentiments: Record<Sentiment, number> = {
         positivo: 0,
         neutral: 0,
@@ -102,6 +105,10 @@ export const buildLocationInsights = (posts: SocialPost[]): CityInsight[] => {
       const prevDayKey = dayKeys.length > 1 ? dayKeys[dayKeys.length - 2] : undefined
 
       const loc = bucket[0].location
+      const lat = loc.lat
+      const lng = loc.lng
+      if (typeof lat !== 'number' || typeof lng !== 'number') return null
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
       const engagementRate = reach ? (engagement / reach) * 100 : 0
       const sentimentIndex = calcSentimentIndex(bucket)
       const riskScore = calcRiskScore(bucket)
@@ -109,8 +116,8 @@ export const buildLocationInsights = (posts: SocialPost[]): CityInsight[] => {
       return {
         id: key,
         city: loc.city,
-        lat: loc.lat,
-        lng: loc.lng,
+        lat,
+        lng,
         total: bucket.length,
         reach,
         engagement,
@@ -124,5 +131,6 @@ export const buildLocationInsights = (posts: SocialPost[]): CityInsight[] => {
         timeWindow: { from: windowFrom, to: windowTo },
       }
     })
+    .filter((insight): insight is CityInsight => Boolean(insight))
     .sort((a, b) => b.total - a.total)
 }

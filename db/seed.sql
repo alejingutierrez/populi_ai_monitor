@@ -7176,5 +7176,57 @@ insert into posts (id, author, handle, platform_id, content, sentiment, topic_id
 ('pr-6999', 'Marco Carrasquillo', '@lucacarrin_81', 'Facebook', 'Reporte de microapagones y reclamos a compañías. Ciudadanía mantiene la conversación activa. Tema: Educacion.', 'negativo', 'Educacion', 'Fajardo', '2026-01-10T10:23:44.000Z', 929, 811, 'video', 'talento', 'talento::empleo', 'talento::empleo::ferias empleo'),
 ('pr-7000', 'Camille Suárez', '@viviansant_82', 'Facebook', 'Reportan interrupciones de agua y coordinación de cisternas. Ciudadanía mantiene la conversación activa. Tema: Seguridad.', 'positivo', 'Seguridad', 'Guaynabo', '2026-01-07T06:50:35.472Z', 9539, 390, 'texto', 'seguridad', 'seguridad::eventos', 'seguridad::eventos::control acceso');
 
+-- Ejemplo tipo Brandwatch (Consumer API): sin `platform_id` ni `location_id`,
+-- pero con `content_source_name` + geo crudo para validar fallbacks en `/posts`.
+insert into posts (
+  id,
+  source_system,
+  author,
+  handle,
+  platform_id,
+  content,
+  sentiment,
+  topic_id,
+  location_id,
+  timestamp,
+  reach,
+  engagement,
+  media_type,
+  cluster_id,
+  subcluster_id,
+  microcluster_id,
+  content_source_name,
+  city,
+  latitude,
+  longitude,
+  url,
+  domain,
+  language
+) values (
+  'bw-mention-1',
+  'brandwatch',
+  'Mencion externa',
+  null,
+  null,
+  'Mencion importada desde Brandwatch (Consumer Insights) para probar mapeo y tolerancia a datos parciales.',
+  'neutral',
+  null,
+  null,
+  '2026-01-20T12:00:00.000Z',
+  0,
+  0,
+  'texto',
+  null,
+  null,
+  null,
+  'Online News',
+  'San Juan',
+  18.4655,
+  -66.1057,
+  'https://example.com/pr',
+  'example.com',
+  'es'
+);
+
 
 commit;

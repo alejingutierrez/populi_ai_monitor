@@ -210,6 +210,11 @@ function App() {
     [posts]
   );
 
+  const platforms = useMemo(
+    () => Array.from(new Set(posts.map((p) => p.platform))).sort(),
+    [posts]
+  );
+
   const subclusters = useMemo(
     () => Array.from(new Set(posts.map((p) => p.subcluster))).sort(),
     [posts]
@@ -461,6 +466,7 @@ function App() {
           search={search}
           onSearch={setSearch}
           filters={filters}
+          platforms={platforms}
           clusters={clusters}
           subclusters={subclusters}
           onFiltersChange={setFilters}

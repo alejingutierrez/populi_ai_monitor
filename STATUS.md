@@ -44,3 +44,5 @@ Estados sugeridos: Planned, In progress, Blocked, Done.
 | US-2026-02-09-038 | Done | 2026-02-09 | Propuesta de 20 mejoras UX/UI para Geo Tagging (análisis + management); backlog priorizable (sin implementación). |
 | US-2026-02-09-039 | Done | 2026-02-09 | Propuesta de 20 mejoras UX/UI para Feed Stream (análisis + management); backlog priorizable (sin implementación). |
 | US-2026-02-09-040 | Done | 2026-02-09 | Propuesta de 20 mejoras UX/UI para Overview (análisis + management) documentada en `OVERVIEW_UX_IMPROVEMENTS.md`. |
+| US-2026-02-09-041 | Done | 2026-02-09 | Neon schema + frontend tipado preparados para migración/backfill desde Brandwatch (Consumer API). |
+| US-2026-02-09-042 | Done | 2026-02-09 | Deep dive de readiness: schema aplicado en Neon, fallbacks en API, SSL robusto en conexiones, seed con ejemplo Brandwatch, build ok. |

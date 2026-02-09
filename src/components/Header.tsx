@@ -11,6 +11,7 @@ interface Props {
   search: string;
   onSearch: (value: string) => void;
   filters: Filters;
+  platforms: string[];
   clusters: string[];
   subclusters: string[];
   onFiltersChange: (filters: Filters) => void;
@@ -24,6 +25,7 @@ const Header: FC<Props> = ({
   search,
   onSearch,
   filters,
+  platforms,
   clusters,
   subclusters,
   onFiltersChange,
@@ -110,6 +112,7 @@ const Header: FC<Props> = ({
 
       <FilterBar
         filters={filters}
+        platforms={platforms}
         clusters={clusters}
         subclusters={subclusters}
         onChange={onFiltersChange}

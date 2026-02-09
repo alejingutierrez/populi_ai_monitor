@@ -119,6 +119,12 @@ Mantén las historias organizadas por área. Añade una nueva historia por solic
   - Incluye: (M32) tabla `alert_metrics` time-series.
   - Incluye: (M33) tabla `alert_rules` con thresholds y overrides.
 
+- US-2026-02-09-041 — Como desarrollador, quiero alinear el esquema Neon y el tipado/consumo de datos en frontend con `CONSUMER_API.md` para migrar a Brandwatch (Consumer Insights) con backfill sin romper la app.
+  - Criterios: `db/schema.sql` agrega campos de mention (Brandwatch) a `posts` y crea tablas `consumer_*` + `post_query_matches`.
+  - Criterios: frontend acepta plataformas/temas dinámicos (sin unions rígidas) y tolera geolocalización parcial (lat/lng nulos).
+  - Criterios: `api/` y `mock-api/` normalizan `sentiment` y no fuerzan `lat/lng` a `0` cuando faltan.
+  - Criterios: `npm run build` pasa.
+
 ## Infra/Deploy
 - US-2026-02-03-028 — Como mantenedor, quiero diagnosticar y corregir el auto-deploy de Vercel tras `git push` para garantizar despliegues automáticos.
   - Criterios: identificar causa raíz; restaurar integración Git->Vercel o documentar workaround; logs de Vercel revisados.
@@ -141,3 +147,10 @@ Mantén las historias organizadas por área. Añade una nueva historia por solic
   - Criterios: sección con pasos de verificación (build logs, Git link, webhook, SSO, alias de producción).
 - US-2026-02-03-031 — Como mantenedor, quiero que `CONSUMER_API.md` esté versionado y disponible en git.
   - Criterios: archivo trackeado y en el repo principal.
+
+- US-2026-02-09-042 — Como mantenedor, quiero una verificación profunda (deep dive) de que el pipeline Consumer API -> Neon -> Frontend está listo, para evitar roturas cuando habilitemos ingesta y backfill.
+  - Criterios: `db/schema.sql` aplicado en Neon (nuevas columnas/tables existen).
+  - Criterios: `api/` y `mock-api/` conectan a Neon con SSL aunque el string no venga “perfecto”.
+  - Criterios: `/posts` usa fallbacks (`content_source_name`, `city`, `latitude/longitude`) cuando no hay FKs (`platform_id`/`location_id`).
+  - Criterios: `db/seed.sql` incluye al menos 1 post estilo Brandwatch para validar fallbacks.
+  - Criterios: `npm run build` pasa.

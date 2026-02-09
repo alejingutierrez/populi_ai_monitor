@@ -45,27 +45,37 @@ export const formatRange = (start, end) =>
     { month: 'short', day: 'numeric' }
   )}`
 
+export const normalizeSentiment = (value) => {
+  const raw = String(value ?? '').toLowerCase()
+  if (raw === 'positive' || raw === 'positivo') return 'positivo'
+  if (raw === 'negative' || raw === 'negativo') return 'negativo'
+  return 'neutral'
+}
+
 export const mapRows = (rows) =>
   rows.map((row) => ({
     id: row.id,
-    author: row.author,
-    handle: row.handle,
-    platform: row.platform,
-    content: row.content,
-    sentiment: row.sentiment,
-    topic: row.topic,
+    author: row.author ?? 'Sin autor',
+    handle: row.handle ?? '',
+    platform: row.platform ?? 'Sin plataforma',
+    content: row.content ?? '',
+    sentiment: normalizeSentiment(row.sentiment),
+    topic: row.topic ?? 'Sin tema',
     timestamp: row.timestamp,
-    reach: row.reach,
-    engagement: row.engagement,
-    mediaType: row.mediaType,
-    cluster: row.cluster,
-    subcluster: row.subcluster,
-    microcluster: row.microcluster,
+    reach: row.reach ?? 0,
+    engagement: row.engagement ?? 0,
+    mediaType: row.mediaType ?? 'texto',
+    cluster: row.cluster ?? 'Sin cluster',
+    subcluster: row.subcluster ?? 'Sin subcluster',
+    microcluster: row.microcluster ?? 'Sin microcluster',
     location: {
-      city: row.city,
-      lat: Number(row.lat),
-      lng: Number(row.lng),
+      city: row.city ?? 'Sin ubicación',
+      lat: row.lat === null || row.lat === undefined ? null : Number(row.lat),
+      lng: row.lng === null || row.lng === undefined ? null : Number(row.lng),
     },
+    url: row.url ?? undefined,
+    domain: row.domain ?? undefined,
+    language: row.language ?? undefined,
   }))
 
 export const filterPosts = (posts, filters, search) =>

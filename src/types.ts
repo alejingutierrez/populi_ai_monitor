@@ -1,24 +1,9 @@
 export type Sentiment = "positivo" | "neutral" | "negativo";
 
-export type Platform =
-  | "X/Twitter"
-  | "Facebook"
-  | "Instagram"
-  | "YouTube"
-  | "TikTok"
-  | "Reddit";
-
-export type Topic =
-  | "Infraestructura"
-  | "Turismo"
-  | "Salud"
-  | "Seguridad"
-  | "Energia"
-  | "Educacion"
-  | "Clima"
-  | "Innovacion"
-  | "Empleo"
-  | "Comunidad";
+// Brandwatch (Consumer Insights) puede devolver valores no previstos para plataforma/tema.
+// Mantenemos estos campos como strings para evitar roturas al migrar/backfill.
+export type Platform = string;
+export type Topic = string;
 
 export interface SocialPost {
   id: string;
@@ -30,8 +15,8 @@ export interface SocialPost {
   topic: Topic;
   location: {
     city: string;
-    lat: number;
-    lng: number;
+    lat: number | null;
+    lng: number | null;
   };
   timestamp: string;
   reach: number;
@@ -40,6 +25,10 @@ export interface SocialPost {
   cluster: string;
   subcluster: string;
   microcluster: string;
+  // Campos opcionales para compatibilidad futura con Consumer API + Neon.
+  url?: string;
+  domain?: string;
+  language?: string;
 }
 
 export interface TimelineDatum {
