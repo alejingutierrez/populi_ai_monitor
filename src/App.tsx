@@ -203,7 +203,7 @@ function App() {
     };
     load();
     return () => controller.abort();
-  }, []);
+  }, [apiBase]);
 
   const clusters = useMemo(
     () => Array.from(new Set(posts.map((p) => p.cluster))).sort(),
@@ -489,15 +489,17 @@ function App() {
           />
         ) : activeNav === "Geo Tagging" ? (
           <GeoTaggingPage
+            metrics={metrics}
             posts={posts}
             filteredPosts={filteredPosts}
             filters={filters}
             search={search}
           />
         ) : activeNav === "Network Connections" ? (
-          <NetworkConnectionsPage posts={posts} filters={filters} search={search} />
+          <NetworkConnectionsPage metrics={metrics} posts={posts} filters={filters} search={search} />
         ) : activeNav === "Alerts" ? (
           <AlertsPage
+            metrics={metrics}
             posts={posts}
             filters={filters}
             search={search}
@@ -507,7 +509,7 @@ function App() {
             onRequestInsight={() => setInsightOpen(true)}
           />
         ) : (
-          <ComingSoon title={activeNav} />
+          <ComingSoon title={activeNav} metrics={metrics} />
         )}
       </div>
       <InsightModal isOpen={insightOpen} onClose={() => setInsightOpen(false)} />

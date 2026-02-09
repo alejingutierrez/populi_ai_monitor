@@ -7,6 +7,7 @@ import GeoTerritoryIntel from '../components/GeoTerritoryIntel'
 import GeoTopicsPanel from '../components/GeoTopicsPanel'
 import MapView from '../components/MapView'
 import type { Filters } from '../components/FilterBar'
+import SummaryGrid, { type SummaryMetrics } from '../components/SummaryGrid'
 import {
   buildLocationInsights,
   calcRiskScore,
@@ -16,6 +17,7 @@ import {
 import type { SocialPost } from '../types'
 
 interface Props {
+  metrics: SummaryMetrics
   posts: SocialPost[]
   filteredPosts: SocialPost[]
   filters: Filters
@@ -76,6 +78,7 @@ const buildTopTopics = (posts: SocialPost[], limit = 3) => {
 }
 
 const GeoTaggingPage: FC<Props> = ({
+  metrics,
   posts,
   filteredPosts,
   filters,
@@ -195,6 +198,7 @@ const GeoTaggingPage: FC<Props> = ({
 
   return (
     <main className='p-4 md:p-6 space-y-6 overflow-y-auto'>
+      <SummaryGrid metrics={metrics} />
       <GeoPulse stats={pulseStats} />
 
       <div className='grid gap-4 xl:grid-cols-[1.6fr_1fr]'>

@@ -952,7 +952,13 @@ export const buildAlerts = (
   return deduped
     .sort((a, b) => b.score - a.score)
     .slice(0, 32)
-    .map(({ score, parentScopeId, parentScopeType, primarySignal, ...alert }) => alert)
+    .map(({ score, parentScopeId, parentScopeType, primarySignal, ...alert }) => {
+      void score
+      void parentScopeId
+      void parentScopeType
+      void primarySignal
+      return alert
+    })
 }
 
 export const buildAlertTimeline = (alerts: Alert[], start: Date, end: Date) => {

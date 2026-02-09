@@ -7,27 +7,29 @@ import {
 import { motion, useReducedMotion } from "framer-motion";
 import type { FC, ReactNode } from "react";
 
-interface Props {
-  metrics: {
-    totalPosts: number;
-    reach: number;
-    avgEngagement: number;
-    topTopic: string;
-    topCities: string[];
-    deltas: {
-      totalPct: number;
-      reachPct: number;
-      engagementPct: number;
-      sentimentPct: number;
-      reputationPct: number;
-      polarizationPct: number;
-      viralPropensityPct: number;
-    };
-    reputationalRisk: number;
-    polarization: number;
-    viralPropensity: number;
-    sentimentIndex: number;
+export type SummaryMetrics = {
+  totalPosts: number;
+  reach: number;
+  avgEngagement: number;
+  topTopic: string;
+  topCities: string[];
+  deltas: {
+    totalPct: number;
+    reachPct: number;
+    engagementPct: number;
+    sentimentPct: number;
+    reputationPct: number;
+    polarizationPct: number;
+    viralPropensityPct: number;
   };
+  reputationalRisk: number;
+  polarization: number;
+  viralPropensity: number;
+  sentimentIndex: number;
+};
+
+interface Props {
+  metrics: SummaryMetrics;
 }
 
 const SummaryGrid: FC<Props> = ({ metrics }) => {

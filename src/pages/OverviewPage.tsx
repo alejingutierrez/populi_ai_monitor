@@ -1,5 +1,5 @@
 import type { FC } from "react";
-import SummaryGrid from "../components/SummaryGrid";
+import SummaryGrid, { type SummaryMetrics } from "../components/SummaryGrid";
 import TimelineChart from "../components/TimelineChart";
 import MapView from "../components/MapView";
 import PostFeed from "../components/PostFeed";
@@ -9,26 +9,7 @@ import type { SocialPost, TimelineDatum } from "../types";
 import type { Filters } from "../components/FilterBar";
 
 interface Props {
-  metrics: {
-    totalPosts: number;
-    reach: number;
-    avgEngagement: number;
-    topTopic: string;
-    topCities: string[];
-    deltas: {
-      totalPct: number;
-      reachPct: number;
-      engagementPct: number;
-      sentimentPct: number;
-      reputationPct: number;
-      polarizationPct: number;
-      viralPropensityPct: number;
-    };
-    reputationalRisk: number;
-    polarization: number;
-    viralPropensity: number;
-    sentimentIndex: number;
-  };
+  metrics: SummaryMetrics;
   filteredPosts: SocialPost[];
   timelineData: TimelineDatum[];
   clusterStats: ClusterStat[];

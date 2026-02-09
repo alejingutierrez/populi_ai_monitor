@@ -109,24 +109,41 @@ const StreamPulse: FC<Props> = ({ posts, metrics }) => {
 
   const hourMs = 60 * 60 * 1000;
   const bucketCount = 12;
-  const activityEnd = latestTimestamp || Date.now();
-  const activityStart = activityEnd - bucketCount * hourMs;
-  const activityBuckets = Array.from({ length: bucketCount }, (_, idx) => ({
-    label: new Date(activityStart + idx * hourMs).toLocaleTimeString("es-PR", {
-      hour: "2-digit",
-      minute: "2-digit",
-    }),
-    count: 0,
-  }));
-  posts.forEach((post) => {
-    const ts = new Date(post.timestamp).getTime();
-    if (ts < activityStart || ts > activityEnd) return;
-    const bucketIndex = Math.min(
-      bucketCount - 1,
-      Math.max(0, Math.floor((ts - activityStart) / hourMs))
-    );
-    activityBuckets[bucketIndex].count += 1;
-  });
+  const activityEnd = latestTimestamp;
+  const { activityStart, activityBuckets } = (() => {
+    if (!activityEnd) {
+      return {
+        activityStart: 0,
+        activityBuckets: Array.from({ length: bucketCount }, () => ({
+          label: "—",
+          count: 0,
+        })),
+      };
+    }
+
+    const activityStart = activityEnd - bucketCount * hourMs;
+    const activityBuckets = Array.from({ length: bucketCount }, (_, idx) => ({
+      label: new Date(activityStart + idx * hourMs).toLocaleTimeString("es-PR", {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      count: 0,
+    }));
+
+    return { activityStart, activityBuckets };
+  })();
+
+  if (activityEnd) {
+    posts.forEach((post) => {
+      const ts = new Date(post.timestamp).getTime();
+      if (ts < activityStart || ts > activityEnd) return;
+      const bucketIndex = Math.min(
+        bucketCount - 1,
+        Math.max(0, Math.floor((ts - activityStart) / hourMs))
+      );
+      activityBuckets[bucketIndex].count += 1;
+    });
+  }
   const activityMax = Math.max(1, ...activityBuckets.map((bucket) => bucket.count));
 
   const signals: { label: string; tone: string }[] = [];

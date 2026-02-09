@@ -53,7 +53,7 @@ const topEntries = (map: Map<string, number>, limit = 3) =>
     .slice(0, limit)
     .map(([name, count]) => ({ name, count }));
 
-const PostFeed: FC<Props> = ({
+const PostFeedInner: FC<Props> = ({
   posts,
   eyebrow = "Feed Stream",
   title = "Hilos priorizados",
@@ -67,11 +67,16 @@ const PostFeed: FC<Props> = ({
   const isCompact = density === "compact";
   const [isSmall, setIsSmall] = useState(false);
   const baseCount = isSmall ? 8 : 12;
-  const [visibleCount, setVisibleCount] = useState(baseCount);
+  const [page, setPage] = useState(1);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [menuAnchor, setMenuAnchor] = useState<DOMRect | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   const actionButtonRefs = useRef(new Map<string, HTMLButtonElement>());
+
+  const closeMenu = () => {
+    setOpenMenuId(null);
+    setMenuAnchor(null);
+  };
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -87,27 +92,17 @@ const PostFeed: FC<Props> = ({
   }, []);
 
   useEffect(() => {
-    setVisibleCount(baseCount);
-  }, [baseCount, posts.length]);
-
-  useEffect(() => {
     if (!openMenuId || typeof window === "undefined") return;
     const handleClick = (event: MouseEvent) => {
       const target = event.target as HTMLElement | null;
       if (!target) return;
       if (target.closest(`[data-post-id="${openMenuId}"]`)) return;
       if (target.closest(`[data-menu-id="${openMenuId}"]`)) return;
-      setOpenMenuId(null);
+      closeMenu();
     };
     window.addEventListener("click", handleClick);
     return () => window.removeEventListener("click", handleClick);
   }, [openMenuId]);
-
-  useEffect(() => {
-    if (isCompact && openMenuId) {
-      setOpenMenuId(null);
-    }
-  }, [isCompact, openMenuId]);
 
   const feedIntel = useMemo(() => {
     const topicCount = new Map<string, number>();
@@ -135,7 +130,7 @@ const PostFeed: FC<Props> = ({
       cityCount.set(post.location.city, (cityCount.get(post.location.city) ?? 0) + 1);
     });
 
-    const end = latestTimestamp || Date.now();
+    const end = latestTimestamp;
     const windowMs = 15 * 60 * 1000;
     const recentStart = end - windowMs;
     const prevStart = end - windowMs * 2;
@@ -194,24 +189,17 @@ const PostFeed: FC<Props> = ({
   }, [posts]);
 
   useEffect(() => {
-    if (!openMenuId || typeof window === "undefined") {
-      setMenuAnchor(null);
-      return;
-    }
     let raf = 0;
     const updateAnchor = () => {
+      if (!openMenuId) return;
       const anchor = actionButtonRefs.current.get(openMenuId);
-      if (!anchor) {
-        setMenuAnchor(null);
-        return;
-      }
-      setMenuAnchor(anchor.getBoundingClientRect());
+      setMenuAnchor(anchor ? anchor.getBoundingClientRect() : null);
     };
     const handleReflow = () => {
       if (raf) cancelAnimationFrame(raf);
       raf = requestAnimationFrame(updateAnchor);
     };
-    updateAnchor();
+    if (!openMenuId || typeof window === "undefined") return;
     const scroller = scrollAreaRef.current;
     window.addEventListener("resize", handleReflow);
     scroller?.addEventListener("scroll", handleReflow, { passive: true });
@@ -222,6 +210,8 @@ const PostFeed: FC<Props> = ({
     };
   }, [openMenuId]);
 
+  const maxPage = Math.max(1, Math.ceil(posts.length / Math.max(1, baseCount)));
+  const visibleCount = Math.min(posts.length, baseCount * page);
   const items = posts.slice(0, visibleCount);
   const canShowMore = posts.length > visibleCount;
 
@@ -389,9 +379,15 @@ const PostFeed: FC<Props> = ({
                       {isCompact ? null : (
                         <button
                           type="button"
-                          onClick={() =>
-                            setOpenMenuId((current) => (current === post.id ? null : post.id))
-                          }
+                          onClick={() => {
+                            if (openMenuId === post.id) {
+                              closeMenu();
+                              return;
+                            }
+                            const anchor = actionButtonRefs.current.get(post.id);
+                            setMenuAnchor(anchor ? anchor.getBoundingClientRect() : null);
+                            setOpenMenuId(post.id);
+                          }}
                           ref={(node) => {
                             if (!node) {
                               actionButtonRefs.current.delete(post.id);
@@ -480,9 +476,7 @@ const PostFeed: FC<Props> = ({
           {canShowMore ? (
             <button
               type="button"
-              onClick={() =>
-                setVisibleCount((count) => Math.min(posts.length, count + baseCount))
-              }
+              onClick={() => setPage((current) => Math.min(maxPage, current + 1))}
               className="w-full rounded-xl border border-slate-200 bg-white py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
             >
               Mostrar más
@@ -491,7 +485,7 @@ const PostFeed: FC<Props> = ({
           {visibleCount > baseCount ? (
             <button
               type="button"
-              onClick={() => setVisibleCount(baseCount)}
+              onClick={() => setPage(1)}
               className="w-full rounded-xl border border-slate-200 bg-white py-2 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
             >
               Mostrar menos
@@ -510,7 +504,7 @@ const PostFeed: FC<Props> = ({
               <button
                 type="button"
                 role="menuitem"
-                onClick={() => setOpenMenuId(null)}
+                onClick={closeMenu}
                 className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
               >
                 <TagIcon className="h-4 w-4 text-slate-500" />
@@ -519,7 +513,7 @@ const PostFeed: FC<Props> = ({
               <button
                 type="button"
                 role="menuitem"
-                onClick={() => setOpenMenuId(null)}
+                onClick={closeMenu}
                 className="flex w-full items-start gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
               >
                 <SquaresPlusIcon className="h-4 w-4 text-slate-500" />
@@ -533,7 +527,7 @@ const PostFeed: FC<Props> = ({
               <button
                 type="button"
                 role="menuitem"
-                onClick={() => setOpenMenuId(null)}
+                onClick={closeMenu}
                 className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
               >
                 <FlagIcon className="h-4 w-4 text-slate-500" />
@@ -543,7 +537,7 @@ const PostFeed: FC<Props> = ({
               <button
                 type="button"
                 role="menuitem"
-                onClick={() => setOpenMenuId(null)}
+                onClick={closeMenu}
                 className="flex w-full items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
               >
                 <EyeSlashIcon className="h-4 w-4 text-slate-500" />
@@ -552,7 +546,7 @@ const PostFeed: FC<Props> = ({
               <button
                 type="button"
                 role="menuitem"
-                onClick={() => setOpenMenuId(null)}
+                onClick={closeMenu}
                 className="flex w-full items-center gap-2 px-4 py-2 text-sm text-rose-600 hover:bg-rose-50"
               >
                 <TrashIcon className="h-4 w-4 text-rose-500" />
@@ -564,6 +558,14 @@ const PostFeed: FC<Props> = ({
         : null}
     </section>
   );
+};
+
+const PostFeed: FC<Props> = (props) => {
+  const density = props.density ?? "comfortable";
+  const first = props.posts[0]?.id ?? "empty";
+  const last = props.posts[props.posts.length - 1]?.id ?? "empty";
+  const resetKey = `${density}:${props.posts.length}:${first}:${last}`;
+  return <PostFeedInner key={resetKey} {...props} />;
 };
 
 export default PostFeed;

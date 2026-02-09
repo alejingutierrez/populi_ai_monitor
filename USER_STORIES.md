@@ -56,6 +56,23 @@ Mantén las historias organizadas por área. Añade una nueva historia por solic
 - US-2026-02-03-034 — Como analista, quiero 10 nuevos componentes de análisis para Alerts basados en la BD y la lógica del motor.
   - Incluye: (M45) propuesta de componentes con propósito, datos requeridos y ubicación sugerida en UI.
   - Progreso: implementados Lifecycle+SLA, Radar de señales, Propagación por scope y Shift de sentimiento/riesgo en Alerts.
+- US-2026-02-09-035 — Como operador, quiero ver la barra de métricas globales (SummaryGrid) en todas las páginas para mantener KPIs consistentes al navegar.
+  - Criterios: `SummaryGrid` aparece como primer bloque de contenido después de los filtros en Overview, Feed Stream, Geo Tagging, Network Connections y Alerts.
+- US-2026-02-09-036 — Como analista, quiero una lista de 20 mejoras UX/UI para Alerts (análisis + creación + management) para operar el ciclo completo de triage e iteración de reglas.
+  - Criterios: 20 mejoras concretas con “qué/cómo/dónde” (componentes/flows); agrupadas y priorizables; sin implementación en código en esta historia.
+- US-2026-02-09-037 — Como analista, quiero una lista de 20 mejoras UX/UI para Network Connections (análisis + management) para investigar relaciones y coordinación sin fricción.
+  - Criterios: 20 mejoras concretas (interacciones, legibilidad, workflow de investigación, guardado/compartición) sin borrar componentes existentes.
+  - Criterios: propuestas aterrizadas a `NetworkGraph`, `NetworkInsightsPanel`, `ConnectionMatrix`, `NetworkPulse` y `src/data/networkConnections.ts`; sin implementación en código en esta historia.
+- US-2026-02-09-038 — Como analista, quiero una lista de 20 mejoras UX/UI para Geo Tagging (análisis + management) para acelerar la investigación territorial y tomar acciones con menos fricción.
+  - Criterios: 20 mejoras concretas con “qué/cómo/dónde” (componentes/flows) sin borrar componentes existentes; sin implementación en código en esta historia.
+  - Criterios: propuestas aterrizadas a `src/pages/GeoTaggingPage.tsx`, `MapView`, `GeoPulse`, `GeoTerritoryIntel`, `GeoSentimentPanel`, `GeoTopicsPanel` y `GeoDrilldown`.
+- US-2026-02-09-039 — Como analista, quiero una lista de 20 mejoras UX/UI para Feed Stream (análisis + management) para investigar y operar conversaciones sin fricción.
+  - Criterios: 20 mejoras concretas con “qué/cómo/dónde” (componentes/flows) sin borrar componentes existentes; sin implementación en código en esta historia.
+  - Criterios: propuestas aterrizadas a `src/pages/FeedStreamPage.tsx`, `src/components/FeedStreamList.tsx`, `src/components/PostFeed.tsx`, `src/components/TrendRadar.tsx`, `src/components/SubConversationExplorer.tsx`, `src/components/TopicPanel.tsx` y `src/App.tsx` (filtros/selección global).
+- US-2026-02-09-040 — Como analista, quiero una lista de 20 mejoras UX/UI para Overview (análisis + management) para convertirla en un workspace de análisis y reducir fricción al investigar.
+  - Criterios: 20 mejoras concretas con “qué/cómo/dónde” (IA/UX, vínculos entre módulos, confianza temporal, management del layout) sin borrar componentes existentes; sin implementación en código en esta historia.
+  - Criterios: propuestas aterrizadas a `src/pages/OverviewPage.tsx` + `SummaryGrid`, `TimelineChart`, `MapView`, `PostFeed`, `TopicPanel`, `ConversationTrends` y `src/App.tsx`.
+  - Entregable: `OVERVIEW_UX_IMPROVEMENTS.md`.
 
 ## Backend/API
 - US-2026-01-25-018 — Como desarrollador, quiero endpoints de Alerts con cálculo de reglas para abastecer el frontend.

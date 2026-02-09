@@ -38,3 +38,9 @@ Estados sugeridos: Planned, In progress, Blocked, Done.
 | US-2026-02-03-032 | Done | 2026-02-03 | Ajuste de ancho consistente en Alerts y rediseño de AlertTimeline; deploy Ready verificado. |
 | US-2026-02-03-033 | Done | 2026-02-03 | AlertTimeline removido de Alerts y deploy Ready verificado. |
 | US-2026-02-03-034 | Done | 2026-02-03 | Implementados 4 componentes analíticos (Lifecycle+SLA, Señales, Propagación por scope, Shift de sentimiento/riesgo). |
+| US-2026-02-09-035 | Done | 2026-02-09 | SummaryGrid en todas las páginas (Overview/Feed/Geo/Network/Alerts); lint/build OK; verificación Vercel post-push. |
+| US-2026-02-09-036 | Done | 2026-02-09 | Propuesta de 20 mejoras UX/UI (análisis + creación + management) para Alerts; backlog priorizable. |
+| US-2026-02-09-037 | Done | 2026-02-09 | Propuesta de 20 mejoras UX/UI para Network Connections (análisis + management); backlog priorizable (sin implementación). |
+| US-2026-02-09-038 | Done | 2026-02-09 | Propuesta de 20 mejoras UX/UI para Geo Tagging (análisis + management); backlog priorizable (sin implementación). |
+| US-2026-02-09-039 | Done | 2026-02-09 | Propuesta de 20 mejoras UX/UI para Feed Stream (análisis + management); backlog priorizable (sin implementación). |
+| US-2026-02-09-040 | Done | 2026-02-09 | Propuesta de 20 mejoras UX/UI para Overview (análisis + management) documentada en `OVERVIEW_UX_IMPROVEMENTS.md`. |

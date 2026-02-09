@@ -167,6 +167,12 @@ const AlertsStream: FC<Props> = ({
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [snoozeHours, setSnoozeHours] = useState(2)
 
+  const validSelectedIds = useMemo(() => {
+    if (!selectedIds.size) return selectedIds
+    const valid = new Set(alerts.map((alert) => alert.id))
+    return new Set([...selectedIds].filter((id) => valid.has(id)))
+  }, [alerts, selectedIds])
+
   const counts = useMemo(() => {
     const base = {
       all: alerts.length,
@@ -341,7 +347,7 @@ const AlertsStream: FC<Props> = ({
   }
 
   const runBulkAction = (action: AlertStatus) => {
-    const ids = Array.from(selectedIds)
+    const ids = Array.from(validSelectedIds)
     if (!ids.length) return
     const options: ActionOptions | undefined =
       action === 'snoozed'
@@ -405,15 +411,6 @@ const AlertsStream: FC<Props> = ({
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [selectedIds, onBulkAction, onAction, sorted, selectedAlertId, onSelectAlert, snoozeHours])
-
-  useEffect(() => {
-    if (!selectedIds.size) return
-    setSelectedIds((prev) => {
-      const valid = new Set(alerts.map((alert) => alert.id))
-      const next = new Set([...prev].filter((id) => valid.has(id)))
-      return next
-    })
-  }, [alerts])
 
   return (
     <section className='card p-4 min-w-0'>
@@ -548,9 +545,9 @@ const AlertsStream: FC<Props> = ({
         </div>
       )}
 
-      {selectedIds.size ? (
+      {validSelectedIds.size ? (
         <div className='mb-3 flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-semibold text-slate-600'>
-          <span>{selectedIds.size} seleccionadas</span>
+          <span>{validSelectedIds.size} seleccionadas</span>
           <button
             type='button'
             onClick={() => runBulkAction('ack')}
@@ -625,7 +622,7 @@ const AlertsStream: FC<Props> = ({
             ageHours > slaTarget &&
             (alert.status === 'open' || alert.status === 'ack' || alert.status === 'escalated')
           const sparkline = buildSparkline(alert.evidence)
-          const isSelected = selectedIds.has(alert.id)
+          const isSelected = validSelectedIds.has(alert.id)
 
           return (
             <div

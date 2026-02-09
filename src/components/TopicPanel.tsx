@@ -52,6 +52,20 @@ type TooltipState = {
   y: number;
 };
 
+const resolveClusterPath = (clusters: ClusterStat[], path: string[]) => {
+  let cursor: ClusterStat | null = null;
+  let cursorList = clusters;
+  const validPath: string[] = [];
+  for (const name of path) {
+    const match = cursorList.find((item) => item.name === name);
+    if (!match) break;
+    validPath.push(name);
+    cursor = match;
+    cursorList = match.children ?? [];
+  }
+  return { node: cursor, path: validPath };
+};
+
 const TopicPanel: FC<Props> = ({ clusters }) => {
   const [activePath, setActivePath] = useState<string[]>([]);
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
@@ -71,46 +85,10 @@ const TopicPanel: FC<Props> = ({ clusters }) => {
     return () => observer.disconnect();
   }, []);
 
-  if (!clusters.length) {
-    return (
-      <section className="card p-4 h-full flex flex-col min-h-[360px] min-w-0">
-        <div className="card-header">
-          <div>
-            <p className="muted">Network Connections</p>
-            <p className="h-section">Clusters, subclusters y microclusters</p>
-          </div>
-        </div>
-        <div className="flex-1 flex items-center justify-center text-sm text-slate-500">
-          Sin datos para mostrar clusters.
-        </div>
-      </section>
-    );
-  }
-
-  const resolvePath = (path: string[]) => {
-    let cursor: ClusterStat | null = null;
-    let cursorList = clusters;
-    const validPath: string[] = [];
-    for (const name of path) {
-      const match = cursorList.find((item) => item.name === name);
-      if (!match) break;
-      validPath.push(name);
-      cursor = match;
-      cursorList = match.children ?? [];
-    }
-    return { node: cursor, path: validPath };
-  };
-
   const { node: activeNode, path: normalizedPath } = useMemo(
-    () => resolvePath(activePath),
+    () => resolveClusterPath(clusters, activePath),
     [activePath, clusters]
   );
-
-  useEffect(() => {
-    if (normalizedPath.join(" / ") !== activePath.join(" / ")) {
-      setActivePath(normalizedPath);
-    }
-  }, [activePath, normalizedPath]);
 
   const activeLevel = normalizedPath.length + 1;
 
@@ -473,7 +451,11 @@ const TopicPanel: FC<Props> = ({ clusters }) => {
               })}
             </svg>
           ) : null}
-          {!tiles.length ? (
+          {!clusters.length ? (
+            <div className="absolute inset-0 flex items-center justify-center text-sm text-slate-500">
+              Sin datos para mostrar clusters.
+            </div>
+          ) : bounds.width && bounds.height && !tiles.length ? (
             <div className="absolute inset-0 flex items-center justify-center text-sm text-slate-500">
               No hay subniveles para mostrar en este nivel.
             </div>

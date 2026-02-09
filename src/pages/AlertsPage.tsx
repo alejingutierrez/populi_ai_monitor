@@ -7,6 +7,7 @@ import AlertsLifecyclePanel from '../components/AlertsLifecyclePanel'
 import AlertsPulse from '../components/AlertsPulse'
 import AlertsStream from '../components/AlertsStream'
 import type { Filters } from '../components/FilterBar'
+import SummaryGrid, { type SummaryMetrics } from '../components/SummaryGrid'
 import {
   buildAlerts,
   formatRange,
@@ -16,6 +17,7 @@ import {
 import type { SocialPost } from '../types'
 
 interface Props {
+  metrics: SummaryMetrics
   posts: SocialPost[]
   filters: Filters
   search: string
@@ -86,6 +88,7 @@ const calcSlaHours = (alerts: Alert[], referenceTime: number) => {
 }
 
 const AlertsPage: FC<Props> = ({
+  metrics,
   posts,
   filters,
   search,
@@ -447,6 +450,7 @@ const AlertsPage: FC<Props> = ({
 
   return (
     <main className='p-4 md:p-6 space-y-6 overflow-y-auto'>
+      <SummaryGrid metrics={metrics} />
       <AlertsPulse stats={pulseStats} />
 
       <div className='rounded-2xl border border-slate-200 bg-white px-4 py-2 text-xs text-slate-600'>

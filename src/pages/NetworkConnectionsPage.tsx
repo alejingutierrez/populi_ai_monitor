@@ -1,10 +1,11 @@
 import type { FC } from 'react'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import ConnectionMatrix from '../components/ConnectionMatrix'
 import NetworkGraph, { type GraphLayout, type NodeSizeMode } from '../components/NetworkGraph'
 import NetworkInsightsPanel from '../components/NetworkInsightsPanel'
 import NetworkPulse from '../components/NetworkPulse'
 import type { Filters } from '../components/FilterBar'
+import SummaryGrid, { type SummaryMetrics } from '../components/SummaryGrid'
 import {
   buildNetworkData,
   type NetworkLevel,
@@ -12,6 +13,7 @@ import {
 import type { SocialPost } from '../types'
 
 interface Props {
+  metrics: SummaryMetrics
   posts: SocialPost[]
   filters: Filters
   search: string
@@ -37,18 +39,14 @@ const pctChange = (current: number, prev: number) => {
   return ((current - prev) / Math.abs(prev)) * 100
 }
 
-const NetworkConnectionsPage: FC<Props> = ({ posts, filters, search }) => {
+const NetworkConnectionsPage: FC<Props> = ({ metrics, posts, filters, search }) => {
   const [level, setLevel] = useState<NetworkLevel>('cluster')
   const [layout, setLayout] = useState<GraphLayout>('force')
   const [sizeBy, setSizeBy] = useState<NodeSizeMode>('volume')
-  const [minWeight, setMinWeight] = useState(1)
+  const [thresholdMode, setThresholdMode] = useState<'auto' | 'manual'>('auto')
+  const [manualMinWeight, setManualMinWeight] = useState(1)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
-
-  useEffect(() => {
-    setSelectedNodeId(null)
-    setSelectedEdgeId(null)
-  }, [level])
 
   const { currentPosts, prevPosts, rangeLabel } = useMemo(() => {
     if (!posts.length) {
@@ -142,23 +140,39 @@ const NetworkConnectionsPage: FC<Props> = ({ posts, filters, search }) => {
     [currentNetwork.metrics, prevNetwork.metrics, rangeLabel]
   )
 
-  useEffect(() => {
-    if (!currentNetwork.edges.length) {
-      setMinWeight(1)
-      return
-    }
+  const autoMinWeight = useMemo(() => {
+    if (!currentNetwork.edges.length) return 1
     const weights = currentNetwork.edges.map((edge) => edge.weight).sort((a, b) => a - b)
     const median = weights[Math.floor(weights.length / 2)]
-    setMinWeight(Math.max(1, median))
-  }, [level, currentNetwork.edges])
+    return Math.max(1, median)
+  }, [currentNetwork.edges])
 
   const maxWeight = useMemo(() => {
     if (!currentNetwork.edges.length) return 1
     return Math.max(...currentNetwork.edges.map((edge) => edge.weight))
   }, [currentNetwork.edges])
 
+  const minWeight =
+    thresholdMode === 'auto'
+      ? autoMinWeight
+      : Math.min(Math.max(1, manualMinWeight), Math.max(1, maxWeight))
+
+  const handleThresholdChange = (value: number) => {
+    setThresholdMode('manual')
+    setManualMinWeight(value)
+  }
+
+  const handleLevelChange = (nextLevel: NetworkLevel) => {
+    setLevel(nextLevel)
+    setSelectedNodeId(null)
+    setSelectedEdgeId(null)
+    setThresholdMode('auto')
+    setManualMinWeight(1)
+  }
+
   return (
     <main className='p-4 md:p-6 space-y-6 overflow-y-auto'>
+      <SummaryGrid metrics={metrics} />
       <NetworkPulse stats={pulseStats} />
 
       <div className='grid gap-4 xl:grid-cols-[1.6fr_1fr]'>
@@ -172,10 +186,10 @@ const NetworkConnectionsPage: FC<Props> = ({ posts, filters, search }) => {
           maxWeight={maxWeight}
           selectedNodeId={selectedNodeId}
           selectedEdgeId={selectedEdgeId}
-          onLevelChange={setLevel}
+          onLevelChange={handleLevelChange}
           onLayoutChange={setLayout}
           onSizeByChange={setSizeBy}
-          onThresholdChange={setMinWeight}
+          onThresholdChange={handleThresholdChange}
           onNodeSelect={setSelectedNodeId}
         />
         <NetworkInsightsPanel

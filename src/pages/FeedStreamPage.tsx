@@ -5,29 +5,10 @@ import type { SocialPost, TimelineDatum } from "../types";
 import FeedStreamList from "../components/FeedStreamList";
 import TrendRadar from "../components/TrendRadar";
 import SubConversationExplorer from "../components/SubConversationExplorer";
-import SummaryGrid from "../components/SummaryGrid";
+import SummaryGrid, { type SummaryMetrics } from "../components/SummaryGrid";
 
 interface Props {
-  metrics: {
-    totalPosts: number;
-    reach: number;
-    avgEngagement: number;
-    topTopic: string;
-    topCities: string[];
-    deltas: {
-      totalPct: number;
-      reachPct: number;
-      engagementPct: number;
-      sentimentPct: number;
-      reputationPct: number;
-      polarizationPct: number;
-      viralPropensityPct: number;
-    };
-    reputationalRisk: number;
-    polarization: number;
-    viralPropensity: number;
-    sentimentIndex: number;
-  };
+  metrics: SummaryMetrics;
   filteredPosts: SocialPost[];
   timelineData: TimelineDatum[];
   clusterStats: ClusterStat[];
