@@ -54,3 +54,4 @@ Estados sugeridos: Planned, In progress, Blocked, Done.
 | US-2026-02-10-048 | Done | 2026-02-10 | Rediseño de header/controles de AlertsStream: barra clara (cola/orden/filtros) + panel avanzado colapsable; build OK. |
 | US-2026-02-10-049 | Done | 2026-02-10 | AlertsStream: tabs de estado siempre visibles + CTA de triage + conteos facetados; panel de vistas/severidad más entendible; build OK. |
 | US-2026-02-10-050 | Done | 2026-02-10 | AlertsStream: modo Foco vs Todos + cards más escaneables; auto-scroll en selección (J/K) y “bandejas” con mejor progressive disclosure; build OK. |
+| US-2026-02-10-051 | Done | 2026-02-10 | AlertsStream: removida UI duplicada (chip orden), selección bulk sin “círculo” (space/shift/cmd), deltas interpretables (Δ abs + tooltip), spacing/responsive mejorados; build OK. |

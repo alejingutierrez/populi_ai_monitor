@@ -352,8 +352,24 @@ const pickPrimarySignal = (signals, impactRatio) => {
   return sorted[0]
 }
 
-const buildSummary = (stats, deltaPct) =>
-  `Δ ${deltaPct.toFixed(0)}% · Negatividad ${stats.negativeShare.toFixed(0)}% · Riesgo ${stats.riskScore.toFixed(0)}`
+const compactFormatter = new Intl.NumberFormat('es-PR', {
+  notation: 'compact',
+  maximumFractionDigits: 1,
+})
+
+const formatCompact = (value) =>
+  Number.isFinite(value) ? compactFormatter.format(value) : '0'
+
+const formatSignedCompact = (value) => {
+  if (!Number.isFinite(value) || value === 0) return '0'
+  const sign = value > 0 ? '+' : '-'
+  return `${sign}${formatCompact(Math.abs(value))}`
+}
+
+const buildSummary = (stats, prevStats) => {
+  const deltaAbs = (stats?.total ?? 0) - (prevStats?.total ?? 0)
+  return `Vol ${formatCompact(stats.total)} · Δ ${formatSignedCompact(deltaAbs)} · Neg ${stats.negativeShare.toFixed(0)}% · Riesgo ${stats.riskScore.toFixed(0)}`
+}
 
 const buildEvidence = (posts) => {
   const scored = posts
@@ -625,7 +641,7 @@ export const buildAlerts = (currentPosts, prevPosts, thresholds = {}) => {
       stableId,
       instanceId,
       title: `Panorama general · ${primary.label}`,
-      summary: buildSummary(overallStats, overallSignals.deltaPct),
+      summary: buildSummary(overallStats, overallPrev),
       severity,
       status: 'open',
       priority,
@@ -733,7 +749,7 @@ export const buildAlerts = (currentPosts, prevPosts, thresholds = {}) => {
         stableId,
         instanceId,
         title: `${scopeId} · ${primary.label}`,
-        summary: buildSummary(stats, deltaPct),
+        summary: buildSummary(stats, prevStats),
         severity,
         status: 'open',
         priority,

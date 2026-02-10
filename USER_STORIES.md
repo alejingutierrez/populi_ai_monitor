@@ -78,6 +78,10 @@ Mantén las historias organizadas por área. Añade una nueva historia por solic
   - Criterios: modo “Foco” (detalles solo en la alerta seleccionada) + modo “Todos” (detalles completos); mantener la misma información disponible.
   - Criterios: al navegar con J/K la alerta seleccionada hace auto-scroll en el stream y las acciones/atajos siguen funcionando.
   - Criterios: la cabecera reduce controles redundantes; “bandejas”/vistas siguen existiendo pero con mejor progressive disclosure.
+- US-2026-02-10-051 — Como analista, quiero que AlertsStream reduzca ruido visual y números engañosos (deltas enormes), mejorando alineación, spacing y responsive sin perder bulk actions.
+  - Criterios: remover el “círculo” de selección; selección bulk sigue posible por teclado y/o modificadores (sin degradar atajos).
+  - Criterios: eliminar duplicación de UI (chip de orden repetido) y ajustar spacing para lectura rápida en móvil/desktop.
+  - Criterios: cambios porcentuales grandes se presentan de forma interpretable (delta absoluto + tooltip), evitando valores tipo 699900% en la vista principal.
 - US-2026-02-09-037 — Como analista, quiero una lista de 20 mejoras UX/UI para Network Connections (análisis + management) para investigar relaciones y coordinación sin fricción.
   - Criterios: 20 mejoras concretas (interacciones, legibilidad, workflow de investigación, guardado/compartición) sin borrar componentes existentes.
   - Criterios: propuestas aterrizadas a `NetworkGraph`, `NetworkInsightsPanel`, `ConnectionMatrix`, `NetworkPulse` y `src/data/networkConnections.ts`; sin implementación en código en esta historia.

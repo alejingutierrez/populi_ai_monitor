@@ -49,10 +49,47 @@ const pctChange = (current: number, prev: number) => {
   return ((current - prev) / Math.abs(prev)) * 100
 }
 
-const buildDeltaBadge = (current: number, prev: number, prefersLower = false) => {
-  const delta = pctChange(current, prev)
+const formatSigned = (value: number, digits = 0) => {
+  if (!Number.isFinite(value) || value === 0) return '0'
+  return `${value > 0 ? '+' : ''}${value.toFixed(digits)}`
+}
+
+const formatSignedCompact = (value: number) => {
+  if (!Number.isFinite(value) || value === 0) return '0'
+  const sign = value > 0 ? '+' : '-'
+  return `${sign}${formatCompact(Math.abs(value))}`
+}
+
+const buildVolumeDeltaBadge = (current: number, prev: number) => {
+  const deltaPct = pctChange(current, prev)
+  const deltaAbs = current - prev
   const label =
-    prev === 0 && current > 0 ? 'Nuevo' : `${delta >= 0 ? '+' : ''}${delta.toFixed(0)}%`
+    prev === 0 && current > 0
+      ? 'Nuevo'
+      : Math.abs(deltaPct) > 9999
+        ? formatSignedCompact(deltaAbs)
+        : `${deltaPct >= 0 ? '+' : ''}${deltaPct.toFixed(0)}%`
+  return {
+    label,
+    tone:
+      prev === 0 && current > 0
+        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+        : deltaAbs >= 0
+          ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+          : 'border-rose-200 bg-rose-50 text-rose-700',
+  }
+}
+
+const buildDeltaValueBadge = (
+  current: number,
+  prev: number,
+  options?: { unit?: string; digits?: number; prefersLower?: boolean }
+) => {
+  const unit = options?.unit ?? ''
+  const digits = options?.digits ?? 0
+  const prefersLower = options?.prefersLower ?? false
+  const delta = current - prev
+  const label = `${formatSigned(delta, digits)}${unit}`
   const isGood = prefersLower ? delta <= 0 : delta >= 0
   return {
     label,
@@ -530,23 +567,24 @@ const AlertIntel: FC<Props> = ({
                 Cambios
               </span>
               {(() => {
-                const volumeBadge = buildDeltaBadge(
+                const volumeBadge = buildVolumeDeltaBadge(
                   currentPoint.metrics.volumeCurrent,
                   prevPoint.metrics.volumeCurrent
                 )
-                const negBadge = buildDeltaBadge(
+                const negBadge = buildDeltaValueBadge(
                   currentPoint.metrics.negativeShare,
                   prevPoint.metrics.negativeShare,
-                  true
+                  { unit: 'pp', digits: 0, prefersLower: true }
                 )
-                const riskBadge = buildDeltaBadge(
+                const riskBadge = buildDeltaValueBadge(
                   currentPoint.metrics.riskScore,
                   prevPoint.metrics.riskScore,
-                  true
+                  { unit: '', digits: 0, prefersLower: true }
                 )
-                const impactBadge = buildDeltaBadge(
+                const impactBadge = buildDeltaValueBadge(
                   currentPoint.metrics.impactRatio,
-                  prevPoint.metrics.impactRatio
+                  prevPoint.metrics.impactRatio,
+                  { unit: 'x', digits: 2 }
                 )
                 return (
                   <>

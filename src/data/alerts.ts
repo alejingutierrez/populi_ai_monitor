@@ -489,8 +489,27 @@ const pickPrimarySignal = (signals: AlertSignal[], impactRatio: number) => {
   return sorted[0]
 }
 
-const buildSummary = (stats: ReturnType<typeof buildStats>, deltaPct: number) =>
-  `Δ ${deltaPct.toFixed(0)}% · Negatividad ${stats.negativeShare.toFixed(0)}% · Riesgo ${stats.riskScore.toFixed(0)}`
+const compactFormatter = new Intl.NumberFormat('es-PR', {
+  notation: 'compact',
+  maximumFractionDigits: 1,
+})
+
+const formatCompact = (value: number) =>
+  Number.isFinite(value) ? compactFormatter.format(value) : '0'
+
+const formatSignedCompact = (value: number) => {
+  if (!Number.isFinite(value) || value === 0) return '0'
+  const sign = value > 0 ? '+' : '-'
+  return `${sign}${formatCompact(Math.abs(value))}`
+}
+
+const buildSummary = (
+  stats: ReturnType<typeof buildStats>,
+  prevStats: ReturnType<typeof buildStats>
+) => {
+  const deltaAbs = stats.total - prevStats.total
+  return `Vol ${formatCompact(stats.total)} · Δ ${formatSignedCompact(deltaAbs)} · Neg ${stats.negativeShare.toFixed(0)}% · Riesgo ${stats.riskScore.toFixed(0)}`
+}
 
 const buildEvidence = (posts: SocialPost[]) => {
   const scored = posts
@@ -798,7 +817,7 @@ export const buildAlerts = (
       stableId,
       instanceId,
       title: `Panorama general · ${primary.label}`,
-      summary: buildSummary(overallStats, overallSignals.deltaPct),
+      summary: buildSummary(overallStats, overallPrev),
       severity,
       status: 'open',
       priority,
@@ -906,7 +925,7 @@ export const buildAlerts = (
         stableId,
         instanceId,
         title: `${scopeId} · ${primary.label}`,
-        summary: buildSummary(stats, deltaPct),
+        summary: buildSummary(stats, prevStats),
         severity,
         status: 'open',
         priority,

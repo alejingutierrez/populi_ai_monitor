@@ -2,7 +2,6 @@ import {
   ArrowUpRightIcon,
   CheckCircleIcon,
   ClockIcon,
-  FlagIcon,
 } from '@heroicons/react/24/outline'
 import { useCallback, useEffect, useMemo, useRef, useState, type FC } from 'react'
 import type { Alert, AlertSeverity, AlertStatus } from '../data/alerts'
@@ -78,6 +77,27 @@ const formatTime = (timestamp: string) =>
     hour: '2-digit',
     minute: '2-digit',
   })
+
+const compactFormatter = new Intl.NumberFormat('es-PR', {
+  notation: 'compact',
+  maximumFractionDigits: 1,
+})
+
+const formatCompact = (value: number) =>
+  Number.isFinite(value) ? compactFormatter.format(value) : '0'
+
+const formatSignedCompact = (value: number) => {
+  if (!Number.isFinite(value) || value === 0) return '0'
+  const sign = value > 0 ? '+' : '-'
+  return `${sign}${formatCompact(Math.abs(value))}`
+}
+
+const formatDeltaPctLabel = (current: number, prev: number, deltaPct: number) => {
+  if (!Number.isFinite(deltaPct)) return '—'
+  if (prev === 0 && current > 0) return 'Nuevo'
+  if (Math.abs(deltaPct) > 9999) return deltaPct >= 0 ? '+>9999%' : '->9999%'
+  return `${deltaPct >= 0 ? '+' : ''}${deltaPct.toFixed(0)}%`
+}
 
 const slaTargets: Record<AlertSeverity, number> = {
   critical: 2,
@@ -380,6 +400,27 @@ const AlertsStream: FC<Props> = ({
 
   const clearSelection = useCallback(() => setSelectedIds(new Set()), [])
 
+  const selectRange = useCallback(
+    (fromId: string, toId: string) => {
+      const ids = sorted.map((alert) => alert.id)
+      const fromIndex = ids.indexOf(fromId)
+      const toIndex = ids.indexOf(toId)
+      if (fromIndex === -1 || toIndex === -1) {
+        toggleSelection(toId)
+        return
+      }
+      const [start, end] =
+        fromIndex <= toIndex ? [fromIndex, toIndex] : [toIndex, fromIndex]
+      const rangeIds = ids.slice(start, end + 1)
+      setSelectedIds((prev) => {
+        const next = new Set(prev)
+        rangeIds.forEach((id) => next.add(id))
+        return next
+      })
+    },
+    [sorted, toggleSelection]
+  )
+
   const selectAllFiltered = useCallback(() => {
     setSelectedIds(new Set(filtered.map((alert) => alert.id)))
   }, [filtered])
@@ -434,6 +475,14 @@ const AlertsStream: FC<Props> = ({
         if (nextId) onSelectAlert?.(nextId)
         return
       }
+      if (key === ' ') {
+        event.preventDefault()
+        const targetId = selectedAlertId ?? sorted[0]?.id
+        if (!targetId) return
+        if (!selectedAlertId) onSelectAlert?.(targetId)
+        toggleSelection(targetId)
+        return
+      }
       if (key === 'a') {
         event.preventDefault()
         runBulkAction('ack')
@@ -457,7 +506,7 @@ const AlertsStream: FC<Props> = ({
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [clearSelection, runBulkAction, sorted, selectedAlertId, onSelectAlert])
+  }, [clearSelection, onSelectAlert, runBulkAction, selectedAlertId, sorted, toggleSelection])
 
   const activeViewMeta =
     views.find(
@@ -575,6 +624,12 @@ const AlertsStream: FC<Props> = ({
               </p>
               <p className='mt-1 text-[11px] text-slate-600'>J/K mover selección</p>
               <p className='mt-2 text-[10px] uppercase tracking-[0.16em] text-slate-400 font-semibold'>
+                Selección
+              </p>
+              <p className='mt-1 text-[11px] text-slate-600'>Espacio seleccionar/deseleccionar</p>
+              <p className='mt-1 text-[11px] text-slate-600'>Shift+click seleccionar rango</p>
+              <p className='mt-1 text-[11px] text-slate-600'>Cmd/Ctrl+click toggle selección</p>
+              <p className='mt-2 text-[10px] uppercase tracking-[0.16em] text-slate-400 font-semibold'>
                 Acciones bulk
               </p>
               <p className='mt-1 text-[11px] text-slate-600'>A reconocer · S posponer · R resolver · E escalar</p>
@@ -622,10 +677,7 @@ const AlertsStream: FC<Props> = ({
         </button>
       </div>
 
-      <div className='mt-3 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600'>
-        <span className='rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1'>
-          Orden: {sortLabels[sortBy]}
-        </span>
+      <div className='mt-2 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600'>
         {severityChip ? (
           <button
             type='button'
@@ -827,14 +879,37 @@ const AlertsStream: FC<Props> = ({
               data-alert-id={alert.id}
               role='button'
               tabIndex={0}
-              onClick={() => onSelectAlert?.(alert.id)}
+              onClick={(event) => {
+                if (event.shiftKey) {
+                  if (selectedAlertId) {
+                    selectRange(selectedAlertId, alert.id)
+                  } else {
+                    toggleSelection(alert.id)
+                  }
+                  onSelectAlert?.(alert.id)
+                  return
+                }
+                if (event.metaKey || event.ctrlKey) {
+                  toggleSelection(alert.id)
+                  onSelectAlert?.(alert.id)
+                  return
+                }
+                onSelectAlert?.(alert.id)
+              }}
               onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
+                if (event.key === ' ') {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  toggleSelection(alert.id)
+                  onSelectAlert?.(alert.id)
+                  return
+                }
+                if (event.key === 'Enter') {
                   event.preventDefault()
                   onSelectAlert?.(alert.id)
                 }
               }}
-              className={`group w-full text-left rounded-2xl border px-4 shadow-sm transition ${
+              className={`group w-full text-left rounded-2xl border px-3 sm:px-4 shadow-sm transition ${
                 showDetails ? 'py-3' : 'py-2.5'
               } ${
                 isActive
@@ -844,24 +919,7 @@ const AlertsStream: FC<Props> = ({
                     : 'border-slate-200 bg-white hover:border-prBlue/60'
               } ${isSelected ? 'ring-2 ring-prBlue/30' : ''}`}
             >
-              <div className='flex items-start gap-3'>
-                <button
-                  type='button'
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    toggleSelection(alert.id)
-                  }}
-                  aria-label={isSelected ? 'Quitar de la selección' : 'Agregar a la selección'}
-                  aria-pressed={isSelected}
-                  title='Seleccionar para acciones bulk'
-                  className={`mt-1 flex h-6 w-6 items-center justify-center rounded-full border text-[11px] font-semibold ${
-                    isSelected
-                      ? 'border-prBlue bg-prBlue text-white'
-                      : 'border-slate-200 bg-white text-slate-300 hover:border-prBlue/60 hover:text-prBlue/40'
-                  }`}
-                >
-                  <CheckCircleIcon className='h-3.5 w-3.5' />
-                </button>
+              <div className='flex items-start gap-3 sm:gap-4'>
                 <div className={`flex-1 ${showDetails ? 'space-y-2' : 'space-y-1.5'}`}>
                   <div className='flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600'>
                     <span
@@ -879,11 +937,17 @@ const AlertsStream: FC<Props> = ({
                     </span>
                   </div>
                   <p className='text-sm font-semibold text-ink'>{alert.title}</p>
-                  {showDetails ? (
-                    <p className='text-xs text-slate-500'>{alert.summary}</p>
-                  ) : (
-                    <p className='text-xs text-slate-500 truncate'>{alert.summary}</p>
-                  )}
+                  {(() => {
+                    const volumeCurrent = alert.metrics.volumeCurrent
+                    const volumePrev = alert.metrics.volumePrev
+                    const deltaAbsLabel = formatSignedCompact(volumeCurrent - volumePrev)
+                    const summary = `Vol ${formatCompact(volumeCurrent)} · Δ ${deltaAbsLabel} · Neg ${alert.metrics.negativeShare.toFixed(0)}% · Riesgo ${alert.metrics.riskScore.toFixed(0)}`
+                    return showDetails ? (
+                      <p className='text-xs text-slate-500'>{summary}</p>
+                    ) : (
+                      <p className='text-xs text-slate-500 truncate'>{summary}</p>
+                    )
+                  })()}
                   <div className='flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600'>
                     {visibleSignals.map((signal) => (
                       <span
@@ -903,10 +967,30 @@ const AlertsStream: FC<Props> = ({
                   </div>
                 </div>
                 <div className='flex flex-col items-end gap-2 text-[10px] font-semibold text-slate-600'>
-                  <span className='inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1'>
-                    <FlagIcon className='h-3.5 w-3.5' />
-                    {alert.metrics.volumeDeltaPct.toFixed(0)}%
-                  </span>
+                  {(() => {
+                    const volumeCurrent = alert.metrics.volumeCurrent
+                    const volumePrev = alert.metrics.volumePrev
+                    const deltaAbs = volumeCurrent - volumePrev
+                    const deltaAbsLabel = formatSignedCompact(deltaAbs)
+                    const deltaPctLabel = formatDeltaPctLabel(
+                      volumeCurrent,
+                      volumePrev,
+                      alert.metrics.volumeDeltaPct
+                    )
+                    return (
+                      <span
+                        title={`Volumen: ${volumeCurrent.toLocaleString('es-PR')} vs ${volumePrev.toLocaleString('es-PR')} · Δ ${deltaPctLabel}`}
+                        className='inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-1'
+                      >
+                        <span className='text-slate-500'>
+                          Vol {formatCompact(volumeCurrent)}
+                        </span>
+                        <span className='rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-slate-700'>
+                          Δ {deltaAbsLabel}
+                        </span>
+                      </span>
+                    )
+                  })()}
                   <span
                     className={`rounded-full border px-2 py-1 ${
                       slaBreach
