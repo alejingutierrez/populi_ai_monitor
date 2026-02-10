@@ -63,11 +63,11 @@ const scopeTypeLabels: Record<Alert['scopeType'], string> = {
   platform: 'Plataforma',
 }
 
-const severityAccentBar: Record<AlertSeverity, string> = {
-  critical: 'from-rose-500 to-rose-300',
-  high: 'from-amber-500 to-amber-300',
-  medium: 'from-sky-500 to-sky-300',
-  low: 'from-slate-500 to-slate-300',
+const severityTopBarGradient: Record<AlertSeverity, string> = {
+  critical: 'linear-gradient(90deg, rgba(244, 63, 94, 0.82), rgba(253, 164, 175, 0.82))',
+  high: 'linear-gradient(90deg, rgba(245, 158, 11, 0.82), rgba(252, 211, 77, 0.82))',
+  medium: 'linear-gradient(90deg, rgba(14, 165, 233, 0.82), rgba(125, 211, 252, 0.82))',
+  low: 'linear-gradient(90deg, rgba(100, 116, 139, 0.78), rgba(203, 213, 225, 0.78))',
 }
 
 const severityWeight = (severity: AlertSeverity) => {
@@ -885,30 +885,33 @@ const AlertsStream: FC<Props> = ({
         className={`max-h-[55vh] md:max-h-[60vh] xl:max-h-none xl:flex-1 xl:min-h-0 overflow-y-auto pr-1 ${
           detailsMode === 'focus' ? 'space-y-2' : 'space-y-3'
         }`}
-      >
-        {sorted.map((alert) => {
-          const ageHours = calcAgeHours(alert)
-          const slaTarget = slaTargets[alert.severity]
-          const remainingHours = slaTarget - ageHours
+	      >
+	        {sorted.map((alert) => {
+	          const ageHours = calcAgeHours(alert)
+	          const slaTarget = slaTargets[alert.severity]
+	          const remainingHours = slaTarget - ageHours
           const slaLabel =
             remainingHours >= 0
               ? `SLA restante ${formatDuration(remainingHours)}`
               : `Vencida hace ${formatDuration(Math.abs(remainingHours))}`
-          const slaBreach =
-            ageHours > slaTarget &&
-            (alert.status === 'open' || alert.status === 'ack' || alert.status === 'escalated')
-          const isSelected = validSelectedIds.has(alert.id)
-          const isActive = selectedAlertId === alert.id
-          const showDetails = detailsMode === 'full' || isActive
-          const visibleSignals = showDetails
+	          const slaBreach =
+	            ageHours > slaTarget &&
+	            (alert.status === 'open' || alert.status === 'ack' || alert.status === 'escalated')
+	          const topBarGradient = slaBreach
+	            ? severityTopBarGradient.critical
+	            : severityTopBarGradient[alert.severity]
+	          const isSelected = validSelectedIds.has(alert.id)
+	          const isActive = selectedAlertId === alert.id
+	          const showDetails = detailsMode === 'full' || isActive
+	          const visibleSignals = showDetails
             ? alert.signals.slice(0, 2)
             : alert.signals.slice(0, 1)
           const sparkline = showDetails ? buildSparkline(alert.evidence) : null
 
-          return (
-            <div
-              key={alert.id}
-              data-alert-id={alert.id}
+	          return (
+	            <div
+	              key={alert.id}
+	              data-alert-id={alert.id}
               role='button'
               tabIndex={0}
               onClick={(event) => {
@@ -941,26 +944,26 @@ const AlertsStream: FC<Props> = ({
                   onSelectAlert?.(alert.id)
                 }
               }}
-              className={`group relative w-full text-left rounded-2xl border px-3 sm:px-4 shadow-sm transition ${
-                showDetails ? 'py-2.5' : 'py-2'
-              } ${
-                isActive
-                  ? 'border-prBlue bg-prBlue/5'
-                  : slaBreach
-                    ? 'border-rose-200 bg-rose-50/40'
-                    : 'border-slate-200 bg-white hover:border-prBlue/60'
-              } ${isSelected ? 'ring-2 ring-prBlue/30' : ''}`}
-            >
-              <div
-                aria-hidden='true'
-                className={`absolute inset-x-0 top-0 h-1 rounded-t-2xl bg-gradient-to-r ${
-                  slaBreach ? 'from-rose-500 to-rose-300' : severityAccentBar[alert.severity]
-                } opacity-70`}
-              />
-              <div className='flex items-start gap-3 sm:gap-4'>
-                <div className={`flex-1 ${showDetails ? 'space-y-2' : 'space-y-1.5'}`}>
-                  <div className='flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600'>
-                    <span
+	              className={`group relative w-full text-left rounded-2xl border px-3 sm:px-4 shadow-sm transition ${
+	                showDetails ? 'py-2.5' : 'py-2'
+	              } ${
+	                isActive
+	                  ? 'border-prBlue bg-prBlue/5'
+	                  : slaBreach
+	                    ? 'border-rose-200 bg-rose-50/40'
+	                    : 'border-slate-200 bg-white hover:border-prBlue/60'
+	              } ${isSelected ? 'ring-2 ring-prBlue/30' : ''}`}
+	              style={{
+	                backgroundImage: topBarGradient,
+	                backgroundRepeat: 'no-repeat',
+	                backgroundSize: '100% 4px',
+	                backgroundPosition: '0 0',
+	              }}
+	            >
+	              <div className='flex items-start gap-3 sm:gap-4'>
+	                <div className={`flex-1 ${showDetails ? 'space-y-2' : 'space-y-1.5'}`}>
+	                  <div className='flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600'>
+	                    <span
                       className={`rounded-full border px-2 py-0.5 ${severityTone[alert.severity]}`}
                     >
                       {severityLabels[alert.severity]}

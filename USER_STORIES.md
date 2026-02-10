@@ -91,6 +91,9 @@ Mantén las historias organizadas por área. Añade una nueva historia por solic
 - US-2026-02-10-054 — Como analista, quiero que `AlertIntel` y `AlertsStream` sean menos altos y usen el color + mini-gráficos embebidos para leer patrones más rápido sin romper la estructura actual.
   - Criterios: en pantallas grandes, ambos paneles tienen altura contenida con scroll interno (evita que empujen los módulos inferiores) sin afectar mobile.
   - Criterios: los cards usan acentos de color consistentes (volumen azul, negatividad rojo, riesgo ámbar, etc.) y mini-gráficos (sparklines/meters) sin aumentar ruido visual.
+- US-2026-02-10-055 — Como analista, quiero pulir el rediseño de altura/color: evitar overflow visual en cards del Stream y simplificar el Intel para que no requiera scroll interno.
+  - Criterios: la barra/acento superior de las cards en `AlertsStream` no se “sale” visualmente de la card y no corta el menú “Más”.
+  - Criterios: `AlertIntel` reduce densidad del tab “Resumen” (menos cards/duplicación) y vuelve a scroll normal de página (sin scroll interno vertical por defecto).
 - US-2026-02-09-037 — Como analista, quiero una lista de 20 mejoras UX/UI para Network Connections (análisis + management) para investigar relaciones y coordinación sin fricción.
   - Criterios: 20 mejoras concretas (interacciones, legibilidad, workflow de investigación, guardado/compartición) sin borrar componentes existentes.
   - Criterios: propuestas aterrizadas a `NetworkGraph`, `NetworkInsightsPanel`, `ConnectionMatrix`, `NetworkPulse` y `src/data/networkConnections.ts`; sin implementación en código en esta historia.

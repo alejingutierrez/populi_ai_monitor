@@ -128,11 +128,11 @@ const severityTone: Record<Alert['severity'], string> = {
   low: 'border-slate-200 bg-slate-100 text-slate-600',
 }
 
-const severityAccentBar: Record<Alert['severity'], string> = {
-  critical: 'from-rose-500 to-rose-300',
-  high: 'from-amber-500 to-amber-300',
-  medium: 'from-sky-500 to-sky-300',
-  low: 'from-slate-500 to-slate-300',
+const severityTopBarGradient: Record<Alert['severity'], string> = {
+  critical: 'linear-gradient(90deg, rgba(244, 63, 94, 0.82), rgba(253, 164, 175, 0.82))',
+  high: 'linear-gradient(90deg, rgba(245, 158, 11, 0.82), rgba(252, 211, 77, 0.82))',
+  medium: 'linear-gradient(90deg, rgba(14, 165, 233, 0.82), rgba(125, 211, 252, 0.82))',
+  low: 'linear-gradient(90deg, rgba(100, 116, 139, 0.78), rgba(203, 213, 225, 0.78))',
 }
 
 const severityLabels: Record<Alert['severity'], string> = {
@@ -364,7 +364,6 @@ const AnalystSummary: FC<AnalystSummaryProps> = ({
   const impactPrev = prevPoint?.metrics.impactRatio
   const engagementPrev = prevPoint?.metrics.engagement
   const reachPrev = prevPoint?.metrics.reach
-  const engagementRatePrev = prevPoint?.metrics.engagementRate
 
   const negBadge =
     typeof negPrev === 'number'
@@ -400,13 +399,6 @@ const AnalystSummary: FC<AnalystSummaryProps> = ({
   const reachDelta = typeof reachPrev === 'number' ? alert.metrics.reach - reachPrev : null
   const reachDeltaLabel =
     typeof reachDelta === 'number' && reachDelta !== 0 ? formatSignedCompact(reachDelta) : null
-  const engagementRateBadge =
-    typeof engagementRatePrev === 'number'
-      ? buildDeltaValueBadge(alert.metrics.engagementRate, engagementRatePrev, {
-          unit: 'pp',
-          digits: 1,
-        })
-      : null
 
   const signalTypes = useMemo(
     () => new Set(alert.signals.map((signal) => signal.type)),
@@ -443,9 +435,17 @@ const AnalystSummary: FC<AnalystSummaryProps> = ({
   }, [signalTypes])
 
   const toneInfo = 'border-prBlue/30 bg-prBlue/10 text-prBlue'
+  const topicsPreview = alert.topTopics.slice(0, 4)
+  const topicsExtra = Math.max(0, alert.topTopics.length - topicsPreview.length)
+  const entities = alert.topEntities ?? []
+  const entitiesPreview = entities.slice(0, 3)
+  const entitiesExtra = Math.max(0, entities.length - entitiesPreview.length)
+  const keywords = alert.keywords ?? []
+  const keywordsPreview = keywords.slice(0, 4)
+  const keywordsExtra = Math.max(0, keywords.length - keywordsPreview.length)
 
   return (
-    <div className='mt-4 space-y-3'>
+    <div className='mt-4 space-y-2'>
       <div className='rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50/80 via-white to-white px-3 py-2 shadow-sm'>
         <div className='flex flex-wrap items-start justify-between gap-2'>
           <div className='min-w-0'>
@@ -495,42 +495,43 @@ const AnalystSummary: FC<AnalystSummaryProps> = ({
             ) : null}
           </p>
         ) : null}
+        {currentPoint ? (
+          prevPoint ? (
+            <div className='mt-2 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600'>
+              <span className='text-[10px] uppercase tracking-[0.14em] text-slate-400'>
+                Cambios
+              </span>
+              <span
+                title={`Volumen: ${volumeCurrent.toLocaleString('es-PR')} vs ${volumePrev.toLocaleString('es-PR')} · Δ ${volumeDeltaPctLabel}`}
+                className={`rounded-full border px-2 py-0.5 ${toneInfo}`}
+              >
+                Vol Δ {volumeDeltaAbsLabel}
+              </span>
+              {negBadge ? (
+                <span className={`rounded-full border px-2 py-0.5 ${negBadge.tone}`}>
+                  Neg {negBadge.label}
+                </span>
+              ) : null}
+              {riskBadge ? (
+                <span className={`rounded-full border px-2 py-0.5 ${riskBadge.tone}`}>
+                  Riesgo {riskBadge.label}
+                </span>
+              ) : null}
+              {impactBadge ? (
+                <span className={`rounded-full border px-2 py-0.5 ${impactBadge.tone}`}>
+                  Impacto {impactBadge.label}
+                </span>
+              ) : null}
+            </div>
+          ) : (
+            <p className='mt-2 text-[11px] text-slate-500'>
+              Sin ventana previa disponible con los filtros actuales.
+            </p>
+          )
+        ) : null}
       </div>
 
-      {prevPoint && currentPoint ? (
-        <div className='flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-semibold text-slate-600'>
-          <span className='text-[10px] uppercase tracking-[0.14em] text-slate-400'>
-            Cambios
-          </span>
-          <span
-            title={`Volumen: ${volumeCurrent.toLocaleString('es-PR')} vs ${volumePrev.toLocaleString('es-PR')} · Δ ${volumeDeltaPctLabel}`}
-            className={`rounded-full border px-2 py-0.5 ${toneInfo}`}
-          >
-            Vol Δ {volumeDeltaAbsLabel}
-          </span>
-          {negBadge ? (
-            <span className={`rounded-full border px-2 py-0.5 ${negBadge.tone}`}>
-              Neg {negBadge.label}
-            </span>
-          ) : null}
-          {riskBadge ? (
-            <span className={`rounded-full border px-2 py-0.5 ${riskBadge.tone}`}>
-              Riesgo {riskBadge.label}
-            </span>
-          ) : null}
-          {impactBadge ? (
-            <span className={`rounded-full border px-2 py-0.5 ${impactBadge.tone}`}>
-              Impacto {impactBadge.label}
-            </span>
-          ) : null}
-        </div>
-      ) : (
-        <div className='rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600'>
-          Sin ventana previa disponible con los filtros actuales.
-        </div>
-      )}
-
-      <div className='grid gap-4 lg:grid-cols-2'>
+      <div className='grid gap-3 lg:grid-cols-2'>
         <div className='grid gap-3 sm:grid-cols-2'>
           <div className='rounded-2xl border border-prBlue/20 bg-gradient-to-br from-prBlue/10 via-white to-white px-3 py-2 shadow-sm'>
             <div className='flex items-start justify-between gap-3'>
@@ -620,9 +621,9 @@ const AnalystSummary: FC<AnalystSummaryProps> = ({
             </div>
           </div>
 
-          <div className='rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50/80 via-white to-white px-3 py-2 shadow-sm'>
-            <div className='flex items-start justify-between gap-3'>
-              <div>
+	          <div className='rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50/80 via-white to-white px-3 py-2 shadow-sm'>
+	            <div className='flex items-start justify-between gap-3'>
+	              <div>
                 <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
                   Impacto
                 </p>
@@ -647,191 +648,223 @@ const AnalystSummary: FC<AnalystSummaryProps> = ({
                 <span className={`rounded-full border px-2 py-0.5 ${impactBadge.tone}`}>
                   Δ {impactBadge.label}
                 </span>
-              ) : (
-                <span className='text-slate-400'>Δ —</span>
-              )}
-            </div>
-            <p className='mt-1 text-[11px] text-slate-500'>
-              Reach {formatCompact(alert.metrics.reach)}
-            </p>
-          </div>
+	              ) : (
+	                <span className='text-slate-400'>Δ —</span>
+	              )}
+	            </div>
+	          </div>
 
-          <div className='rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50/80 via-white to-white px-3 py-2 shadow-sm'>
-            <div className='flex items-start justify-between gap-3'>
-              <div>
-                <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
-                  Engagement
-                </p>
-                <p className='text-lg font-semibold text-ink'>
-                  {formatCompact(alert.metrics.engagement)}
-                </p>
-              </div>
-              <MiniSparkline
-                values={evidenceSeries.engagement}
-                tone='#10b981'
-                className='h-6 w-14 opacity-90'
-              />
-            </div>
-            <div className='mt-1 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600'>
-              {engagementDeltaLabel ? (
-                <span className='rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-slate-700'>
-                  Δ {engagementDeltaLabel}
-                </span>
-              ) : (
-                <span className='text-slate-400'>Δ —</span>
-              )}
-              <span className='text-slate-500'>
-                Tasa {alert.metrics.engagementRate.toFixed(1)}%
-              </span>
-            </div>
-          </div>
+	          <div className='rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50/80 via-white to-white px-3 py-2 shadow-sm sm:col-span-2'>
+	            <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
+	              Cobertura y actividad
+	            </p>
+	            <div className='mt-2 grid gap-3 sm:grid-cols-3'>
+	              <div className='min-w-0'>
+	                <p className='text-[10px] uppercase tracking-[0.14em] text-slate-400 font-semibold'>
+	                  Engagement
+	                </p>
+	                <div className='mt-1 flex items-end justify-between gap-3'>
+	                  <p className='text-base font-semibold text-ink'>
+	                    {formatCompact(alert.metrics.engagement)}
+	                  </p>
+	                  <MiniSparkline
+	                    values={evidenceSeries.engagement}
+	                    tone='#10b981'
+	                    className='h-5 w-12 opacity-90'
+	                  />
+	                </div>
+	                <div className='mt-1 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600'>
+	                  {engagementDeltaLabel ? (
+	                    <span className='rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-slate-700'>
+	                      Δ {engagementDeltaLabel}
+	                    </span>
+	                  ) : (
+	                    <span className='text-slate-400'>Δ —</span>
+	                  )}
+	                  <span className='text-slate-500'>
+	                    Tasa {alert.metrics.engagementRate.toFixed(1)}%
+	                  </span>
+	                </div>
+	              </div>
 
-          <div className='rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50/80 via-white to-white px-3 py-2 shadow-sm'>
-            <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
-              Cobertura
-            </p>
-            <p className='text-lg font-semibold text-ink'>{alert.uniqueAuthors ?? 0}</p>
-            <p className='text-[11px] text-slate-500'>
-              Autores únicos · Geo {alert.geoSpread ?? 0}
-            </p>
-            <div className='mt-1'>
-              <div className='flex items-center justify-between text-[11px] font-semibold text-slate-600'>
-                <span className='text-slate-500'>Nuevos</span>
-                <span className='text-slate-700'>{alert.newAuthorsPct?.toFixed(0) ?? 0}%</span>
-              </div>
-              <MiniMeter
-                value={alert.newAuthorsPct ?? 0}
-                max={100}
-                tone='bg-prBlue'
-                className='h-1.5 w-full rounded-full bg-slate-200/70'
-              />
-            </div>
-          </div>
-        </div>
+	              <div className='min-w-0'>
+	                <p className='text-[10px] uppercase tracking-[0.14em] text-slate-400 font-semibold'>
+	                  Reach
+	                </p>
+	                <p className='mt-1 text-base font-semibold text-ink'>
+	                  {formatCompact(alert.metrics.reach)}
+	                </p>
+	                <div className='mt-1 text-[11px] font-semibold text-slate-600'>
+	                  {reachDeltaLabel ? (
+	                    <span className='rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-slate-700'>
+	                      Δ {reachDeltaLabel}
+	                    </span>
+	                  ) : (
+	                    <span className='text-slate-400'>Δ —</span>
+	                  )}
+	                </div>
+	              </div>
+
+	              <div className='min-w-0'>
+	                <p className='text-[10px] uppercase tracking-[0.14em] text-slate-400 font-semibold'>
+	                  Cobertura
+	                </p>
+	                <p className='mt-1 text-base font-semibold text-ink'>{alert.uniqueAuthors ?? 0}</p>
+	                <p className='text-[11px] text-slate-500'>
+	                  Autores únicos · Geo {alert.geoSpread ?? 0}
+	                </p>
+	                <div className='mt-1'>
+	                  <div className='flex items-center justify-between text-[11px] font-semibold text-slate-600'>
+	                    <span className='text-slate-500'>Nuevos</span>
+	                    <span className='text-slate-700'>{alert.newAuthorsPct?.toFixed(0) ?? 0}%</span>
+	                  </div>
+	                  <MiniMeter
+	                    value={alert.newAuthorsPct ?? 0}
+	                    max={100}
+	                    tone='bg-prBlue'
+	                    className='h-1.5 w-full rounded-full bg-slate-200/70'
+	                  />
+	                </div>
+	              </div>
+	            </div>
+	          </div>
+	        </div>
 
         <div className='space-y-3'>
-          <div className='rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50/80 via-white to-white px-3 py-2 shadow-sm'>
-            <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
-              Drivers (lo que domina)
-            </p>
-            <div className='mt-2 space-y-3'>
-              <div>
-                <p className='text-[10px] uppercase tracking-[0.14em] text-slate-400 font-semibold'>
-                  Temas
-                </p>
-                <div className='mt-1 flex flex-wrap gap-2 text-[11px] font-semibold text-slate-600'>
-                  {alert.topTopics.length ? (
-                    alert.topTopics.map((topic) => (
-                      <span
-                        key={topic.name}
-                        className='rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1'
-                      >
-                        {topic.name} · {topic.count}
-                      </span>
-                    ))
-                  ) : (
-                    <span className='text-xs text-slate-500'>Sin temas dominantes.</span>
-                  )}
-                </div>
-              </div>
+	          <div className='rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50/80 via-white to-white px-3 py-2 shadow-sm'>
+	            <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
+	              Drivers (lo que domina)
+	            </p>
+	            <div className='mt-2 space-y-2'>
+	              <div>
+	                <p className='text-[10px] uppercase tracking-[0.14em] text-slate-400 font-semibold'>
+	                  Temas
+	                </p>
+	                <div className='mt-1 flex flex-wrap gap-2 text-[11px] font-semibold text-slate-600'>
+	                  {topicsPreview.length ? (
+	                    topicsPreview.map((topic) => (
+	                      <span
+	                        key={topic.name}
+	                        className='rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5'
+	                      >
+	                        {topic.name} · {topic.count}
+	                      </span>
+	                    ))
+	                  ) : (
+	                    <span className='text-xs text-slate-500'>Sin temas dominantes.</span>
+	                  )}
+	                  {topicsExtra ? (
+	                    <span className='rounded-full border border-slate-200 bg-white px-2 py-0.5 text-slate-500'>
+	                      +{topicsExtra}
+	                    </span>
+	                  ) : null}
+	                </div>
+	              </div>
+	
+	              <div>
+	                <p className='text-[10px] uppercase tracking-[0.14em] text-slate-400 font-semibold'>
+	                  Entidades
+	                </p>
+	                <div className='mt-1 flex flex-wrap gap-2 text-[11px] font-semibold text-slate-600'>
+	                  {entitiesPreview.length ? (
+	                    entitiesPreview.map((entity) => (
+	                      <span
+	                        key={entity.name}
+	                        className='rounded-full border border-slate-200 bg-white px-2 py-0.5'
+	                      >
+	                        {entity.name} · {entity.count}
+	                      </span>
+	                    ))
+	                  ) : (
+	                    <span className='text-xs text-slate-500'>Sin entidades.</span>
+	                  )}
+	                  {entitiesExtra ? (
+	                    <span className='rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-slate-500'>
+	                      +{entitiesExtra}
+	                    </span>
+	                  ) : null}
+	                </div>
+	              </div>
+	              {keywords.length ? (
+	                <details className='rounded-xl border border-slate-200 bg-white px-2 py-1.5'>
+	                  <summary className='cursor-pointer text-[11px] font-semibold text-slate-600'>
+	                    Keywords <span className='text-slate-400'>({keywords.length})</span>
+	                  </summary>
+	                  <div className='mt-2 flex flex-wrap gap-2 text-[11px] font-semibold text-slate-600'>
+	                    {keywordsPreview.map((keyword) => (
+	                      <span
+	                        key={keyword.term}
+	                        className='rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5'
+	                      >
+	                        {keyword.term} · {keyword.count}
+	                      </span>
+	                    ))}
+	                    {keywordsExtra ? (
+	                      <span className='rounded-full border border-slate-200 bg-white px-2 py-0.5 text-slate-500'>
+	                        +{keywordsExtra}
+	                      </span>
+	                    ) : null}
+	                  </div>
+	                </details>
+	              ) : null}
+	            </div>
+	          </div>
 
-              <div>
-                <p className='text-[10px] uppercase tracking-[0.14em] text-slate-400 font-semibold'>
-                  Entidades
-                </p>
-                <div className='mt-1 flex flex-wrap gap-2 text-[11px] font-semibold text-slate-600'>
-                  {alert.topEntities?.length ? (
-                    alert.topEntities.map((entity) => (
-                      <span
-                        key={entity.name}
-                        className='rounded-full border border-slate-200 bg-white px-2.5 py-1'
-                      >
-                        {entity.name} · {entity.count}
-                      </span>
-                    ))
-                  ) : (
-                    <span className='text-xs text-slate-500'>Sin entidades.</span>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <p className='text-[10px] uppercase tracking-[0.14em] text-slate-400 font-semibold'>
-                  Keywords
-                </p>
-                <div className='mt-1 flex flex-wrap gap-2 text-[11px] font-semibold text-slate-600'>
-                  {alert.keywords?.length ? (
-                    alert.keywords.map((keyword) => (
-                      <span
-                        key={keyword.term}
-                        className='rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1'
-                      >
-                        {keyword.term} · {keyword.count}
-                      </span>
-                    ))
-                  ) : (
-                    <span className='text-xs text-slate-500'>Sin keywords.</span>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className='rounded-2xl border border-prBlue/20 bg-gradient-to-br from-prBlue/10 via-white to-white px-3 py-2 shadow-sm'>
-            <div className='flex items-center gap-2 text-[11px] font-semibold text-slate-500 uppercase tracking-[0.16em]'>
-              <SparklesIcon className='h-4 w-4 text-prBlue' />
-              Guía rápida
-            </div>
-            <ul className='mt-2 text-xs text-slate-600 space-y-2'>
-              {quickSteps.map((step) => (
-                <li key={step}>{step}</li>
-              ))}
-            </ul>
-            {alert.ruleValues ? (
-              <div className='mt-3'>
-                <p className='text-[10px] uppercase tracking-[0.14em] text-slate-400 font-semibold'>
-                  Señales activas
-                </p>
-                <div className='mt-1 flex flex-wrap gap-2 text-[11px] font-semibold text-slate-600'>
-                  {alert.signals.map((signal) => {
-                    const rule = alert.ruleValues?.[signal.type]
-                    const catalog = ruleCatalog[signal.type]
-                    const valueLabel = rule ? formatRuleValue(rule) : null
-                    return (
-                      <span
-                        key={`${alert.id}-signal-value-${signal.type}`}
-                        title={
-                          catalog
-                            ? `${catalog.label}: ${valueLabel ?? '—'} · Umbral ${catalog.threshold}`
-                            : valueLabel ?? signal.label
-                        }
-                        className='rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1'
-                      >
-                        {signal.label}
-                        {valueLabel ? ` · ${valueLabel}` : ''}
-                      </span>
-                    )
-                  })}
-                </div>
-              </div>
-            ) : null}
-            {prevPoint && currentPoint ? (
-              <div className='mt-3 grid gap-2 sm:grid-cols-2 text-[11px] font-semibold text-slate-600'>
-                {reachDeltaLabel ? (
-                  <span className='rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-slate-700'>
-                    Reach {reachDeltaLabel}
-                  </span>
-                ) : null}
-                {engagementRateBadge ? (
-                  <span className={`rounded-full border px-2 py-1 ${engagementRateBadge.tone}`}>
-                    Tasa {engagementRateBadge.label}
-                  </span>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-        </div>
-      </div>
+	          <div className='rounded-2xl border border-prBlue/20 bg-gradient-to-br from-prBlue/10 via-white to-white px-3 py-2 shadow-sm'>
+	            <div className='flex items-center gap-2 text-[11px] font-semibold text-slate-500 uppercase tracking-[0.16em]'>
+	              <SparklesIcon className='h-4 w-4 text-prBlue' />
+	              Guía rápida
+	            </div>
+	            <ul className='mt-2 space-y-1.5 text-xs text-slate-600'>
+	              {quickSteps.slice(0, 2).map((step) => (
+	                <li key={step}>{step}</li>
+	              ))}
+	            </ul>
+	            {quickSteps.length > 2 || alert.ruleValues ? (
+	              <details className='mt-2 rounded-xl border border-slate-200 bg-white px-2 py-1.5'>
+	                <summary className='cursor-pointer text-[11px] font-semibold text-slate-600'>
+	                  Más detalle
+	                </summary>
+	                {quickSteps.length > 2 ? (
+	                  <ul className='mt-2 space-y-1.5 text-xs text-slate-600'>
+	                    {quickSteps.slice(2).map((step) => (
+	                      <li key={step}>{step}</li>
+	                    ))}
+	                  </ul>
+	                ) : null}
+	                {alert.ruleValues ? (
+	                  <div className='mt-3'>
+	                    <p className='text-[10px] uppercase tracking-[0.14em] text-slate-400 font-semibold'>
+	                      Señales activas
+	                    </p>
+	                    <div className='mt-1 flex flex-wrap gap-2 text-[11px] font-semibold text-slate-600'>
+	                      {alert.signals.map((signal) => {
+	                        const rule = alert.ruleValues?.[signal.type]
+	                        const catalog = ruleCatalog[signal.type]
+	                        const valueLabel = rule ? formatRuleValue(rule) : null
+	                        return (
+	                          <span
+	                            key={`${alert.id}-signal-value-${signal.type}`}
+	                            title={
+	                              catalog
+	                                ? `${catalog.label}: ${valueLabel ?? '—'} · Umbral ${catalog.threshold}`
+	                                : valueLabel ?? signal.label
+	                            }
+	                            className='rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5'
+	                          >
+	                            {signal.label}
+	                            {valueLabel ? ` · ${valueLabel}` : ''}
+	                          </span>
+	                        )
+	                      })}
+	                    </div>
+	                  </div>
+	                ) : null}
+	              </details>
+	            ) : null}
+	          </div>
+	        </div>
+	      </div>
 
       <div className='flex flex-wrap items-center gap-2'>
         <button
@@ -963,18 +996,33 @@ const AlertIntel: FC<Props> = ({
 
   const titleParts = splitAlertTitle(alert.title)
   const headerTitle = titleParts.scope ? titleParts.signal : alert.title
-  const headerScopeBase = titleParts.scope || alert.scopeLabel
-  const headerScope =
-    alert.scopeType === 'overall'
-      ? headerScopeBase
-      : `${scopeTypeLabels[alert.scopeType] ?? alert.scopeType}: ${headerScopeBase}`
+	  const headerScopeBase = titleParts.scope || alert.scopeLabel
+	  const headerScope =
+	    alert.scopeType === 'overall'
+	      ? headerScopeBase
+	      : `${scopeTypeLabels[alert.scopeType] ?? alert.scopeType}: ${headerScopeBase}`
+	  const headerTopBarGradient = severityTopBarGradient[alert.severity]
+	  const headerSignalsPreview = alert.signals.slice(0, 4)
+	  const headerSignalsExtra = alert.signals.length - headerSignalsPreview.length
+	  const headerSignalsExtraLabel =
+	    headerSignalsExtra > 0
+	      ? alert.signals
+	          .slice(headerSignalsPreview.length)
+	          .map((signal) => signal.label)
+	          .filter(Boolean)
+	          .join(' · ')
+	      : ''
 
-  return (
-    <section className='card p-4 min-w-0 relative xl:max-h-[72vh] xl:overflow-hidden xl:flex xl:flex-col'>
-      <div
-        aria-hidden='true'
-        className={`absolute inset-x-0 top-0 h-1 rounded-t-2xl bg-gradient-to-r ${severityAccentBar[alert.severity]} opacity-70`}
-      />
+	  return (
+	    <section
+	      className='card p-4 min-w-0'
+	      style={{
+	        backgroundImage: headerTopBarGradient,
+	        backgroundRepeat: 'no-repeat',
+	        backgroundSize: '100% 4px',
+	        backgroundPosition: '0 0',
+	      }}
+	    >
       <div className='card-header items-start gap-3 flex-col'>
         <div className='flex items-start justify-between gap-2 w-full'>
           <div>
@@ -989,20 +1037,28 @@ const AlertIntel: FC<Props> = ({
           >
             {severityLabels[alert.severity]}
           </span>
-        </div>
-        <div className='flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600'>
-          {alert.signals.map((signal) => (
-            <span
-              key={`${alert.id}-${signal.type}`}
-              className='rounded-full border border-slate-200 bg-white px-2.5 py-1'
-            >
-              {signal.label}
-            </span>
-          ))}
-        </div>
-      </div>
+	        </div>
+	        <div className='flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600'>
+	          {headerSignalsPreview.map((signal) => (
+	            <span
+	              key={`${alert.id}-${signal.type}`}
+	              className='rounded-full border border-slate-200 bg-white px-2 py-0.5'
+	            >
+	              {signal.label}
+	            </span>
+	          ))}
+	          {headerSignalsExtra ? (
+	            <span
+	              title={headerSignalsExtraLabel ? `También: ${headerSignalsExtraLabel}` : undefined}
+	              className='rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-slate-600'
+	            >
+	              +{headerSignalsExtra}
+	            </span>
+	          ) : null}
+	        </div>
+	      </div>
 
-      <div className='mt-4 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600'>
+      <div className='mt-3 flex items-center gap-2 overflow-x-auto pb-1 filters-scroll text-[11px] font-semibold text-slate-600'>
         {[
           { key: 'resumen', label: 'Resumen' },
           { key: 'evidencia', label: `Evidencia (${alert.evidence.length})` },
@@ -1017,7 +1073,7 @@ const AlertIntel: FC<Props> = ({
             key={tab.key}
             type='button'
             onClick={() => setActiveTab(tab.key as typeof activeTab)}
-            className={`rounded-full border px-2.5 py-1 ${
+            className={`shrink-0 rounded-full border px-2.5 py-1 whitespace-nowrap ${
               activeTab === tab.key
                 ? 'border-prBlue bg-prBlue/10 text-prBlue'
                 : 'border-slate-200 bg-white text-slate-600'
@@ -1028,7 +1084,7 @@ const AlertIntel: FC<Props> = ({
         ))}
       </div>
 
-      <div className='xl:flex-1 xl:min-h-0 xl:overflow-y-auto xl:pr-1'>
+      <div>
         {activeTab === 'resumen' ? (
           <AnalystSummary
             alert={alert}
@@ -1566,13 +1622,18 @@ const AlertIntel: FC<Props> = ({
                     ) : null}
                   </div>
 
-                  <div className='mt-2 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600'>
-                    <span className='rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5'>
-                      Δ {item.metrics.volumeDeltaPct.toFixed(0)}%
-                    </span>
-                    <span className='rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5'>
-                      Neg {item.metrics.negativeShare.toFixed(0)}%
-                    </span>
+	                  <div className='mt-2 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600'>
+	                    <span className='rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5'>
+	                      Δ{' '}
+	                      {formatDeltaPctLabel(
+	                        item.metrics.volumeCurrent,
+	                        item.metrics.volumePrev,
+	                        item.metrics.volumeDeltaPct
+	                      )}
+	                    </span>
+	                    <span className='rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5'>
+	                      Neg {item.metrics.negativeShare.toFixed(0)}%
+	                    </span>
                     <span className='rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5'>
                       Riesgo {item.metrics.riskScore.toFixed(0)}
                     </span>
