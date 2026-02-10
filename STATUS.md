@@ -56,3 +56,4 @@ Estados sugeridos: Planned, In progress, Blocked, Done.
 | US-2026-02-10-050 | Done | 2026-02-10 | AlertsStream: modo Foco vs Todos + cards más escaneables; auto-scroll en selección (J/K) y “bandejas” con mejor progressive disclosure; build OK. |
 | US-2026-02-10-051 | Done | 2026-02-10 | AlertsStream: removida UI duplicada (chip orden), selección bulk sin “círculo” (space/shift/cmd), deltas interpretables (Δ abs + tooltip), spacing/responsive mejorados; build OK. |
 | US-2026-02-10-052 | Done | 2026-02-10 | AlertIntel: rediseño del “Resumen” para `scopeType=overall` (Panorama) con ventana + cambios + drivers + guía rápida; deltas sin % engañosos; AlertsStream etiqueta “Panorama”; build OK. |
+| US-2026-02-10-053 | Done | 2026-02-10 | AlertIntel: “Resumen” analítico aplicado a todos los `scopeType` + split de títulos (scope vs señal) para evitar redundancia; build OK. |

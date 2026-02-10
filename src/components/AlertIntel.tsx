@@ -151,6 +151,15 @@ const statusTone: Record<Alert['status'], string> = {
   escalated: 'border-rose-200 bg-rose-50 text-rose-700',
 }
 
+const scopeTypeLabels: Record<Alert['scopeType'], string> = {
+  overall: 'Panorama',
+  cluster: 'Cluster',
+  subcluster: 'Subcluster',
+  microcluster: 'Microcluster',
+  city: 'Municipio',
+  platform: 'Plataforma',
+}
+
 const sentimentTone: Record<string, string> = {
   positivo: 'border-emerald-200 bg-emerald-50 text-emerald-700',
   neutral: 'border-slate-200 bg-slate-100 text-slate-600',
@@ -230,7 +239,7 @@ const highlightText = (text: string, terms: string[]) => {
   )
 }
 
-type PanoramaSummaryProps = {
+type AnalystSummaryProps = {
   alert: Alert
   prevPoint: AlertHistoryPoint | null
   currentPoint: AlertHistoryPoint | null
@@ -240,7 +249,7 @@ type PanoramaSummaryProps = {
   onRequestInsight?: (alert: Alert) => void
 }
 
-const PanoramaSummary: FC<PanoramaSummaryProps> = ({
+const AnalystSummary: FC<AnalystSummaryProps> = ({
   alert,
   prevPoint,
   currentPoint,
@@ -249,6 +258,10 @@ const PanoramaSummary: FC<PanoramaSummaryProps> = ({
   onOpenFeedStream,
   onRequestInsight,
 }) => {
+  const titleParts = splitAlertTitle(alert.title)
+  const scopeLabel = titleParts.scope || alert.scopeLabel
+  const scopeTypeLabel = scopeTypeLabels[alert.scopeType] ?? alert.scopeType
+
   const volumeCurrent = alert.metrics.volumeCurrent
   const volumePrev = prevPoint?.metrics.volumeCurrent ?? alert.metrics.volumePrev
   const volumeDeltaAbs = volumeCurrent - volumePrev
@@ -350,9 +363,25 @@ const PanoramaSummary: FC<PanoramaSummaryProps> = ({
         <div className='flex flex-wrap items-start justify-between gap-2'>
           <div className='min-w-0'>
             <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
-              Panorama general
+              Resumen operativo
             </p>
-            <p className='mt-1 text-xs text-slate-600'>{alert.summary}</p>
+            <div className='mt-1 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600'>
+              {alert.scopeType === 'overall' ? (
+                <span className='rounded-full border border-slate-200 bg-white px-2.5 py-1'>
+                  Panorama general
+                </span>
+              ) : (
+                <>
+                  <span className='rounded-full border border-slate-200 bg-white px-2.5 py-1'>
+                    {scopeTypeLabel}
+                  </span>
+                  <span className='rounded-full border border-slate-200 bg-white px-2.5 py-1'>
+                    {scopeLabel}
+                  </span>
+                </>
+              )}
+            </div>
+            <p className='mt-2 text-xs text-slate-600'>{alert.summary}</p>
           </div>
           <div className='flex flex-wrap items-center gap-2 text-[10px] font-semibold text-slate-600'>
             {Number.isFinite(alert.priority) ? (
@@ -769,10 +798,13 @@ const AlertIntel: FC<Props> = ({
     )
   }
 
-  const isOverall = alert.scopeType === 'overall'
   const titleParts = splitAlertTitle(alert.title)
-  const headerTitle = isOverall ? titleParts.signal : alert.title
-  const headerScope = isOverall ? (titleParts.scope || alert.scopeLabel) : alert.scopeLabel
+  const headerTitle = titleParts.scope ? titleParts.signal : alert.title
+  const headerScopeBase = titleParts.scope || alert.scopeLabel
+  const headerScope =
+    alert.scopeType === 'overall'
+      ? headerScopeBase
+      : `${scopeTypeLabels[alert.scopeType] ?? alert.scopeType}: ${headerScopeBase}`
 
   return (
     <section className='card p-4 min-w-0'>
@@ -830,119 +862,15 @@ const AlertIntel: FC<Props> = ({
       </div>
 
       {activeTab === 'resumen' ? (
-        isOverall ? (
-          <PanoramaSummary
-            alert={alert}
-            prevPoint={prevPoint}
-            currentPoint={currentPoint}
-            formatWindow={formatWindow}
-            onApplyScope={onApplyScope}
-            onOpenFeedStream={onOpenFeedStream}
-            onRequestInsight={onRequestInsight}
-          />
-        ) : (
-          <div className='mt-4 space-y-4'>
-            <div className='grid gap-3 sm:grid-cols-2'>
-              <div className='rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm'>
-                <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
-                  Volumen
-                </p>
-                <p className='text-lg font-semibold text-ink'>
-                  {formatCompact(alert.metrics.volumeCurrent)}
-                </p>
-                {(() => {
-                  const current = alert.metrics.volumeCurrent
-                  const prev = alert.metrics.volumePrev
-                  const deltaAbsLabel = formatSignedCompact(current - prev)
-                  const deltaPctLabel = formatDeltaPctLabel(
-                    current,
-                    prev,
-                    alert.metrics.volumeDeltaPct
-                  )
-                  return (
-                    <p
-                      className='text-[11px] text-slate-500'
-                      title={`Previo ${prev.toLocaleString('es-PR')} · Δ ${deltaPctLabel}`}
-                    >
-                      Prev {formatCompact(prev)} · Δ {deltaAbsLabel}
-                    </p>
-                  )
-                })()}
-              </div>
-              <div className='rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm'>
-                <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
-                  Negatividad
-                </p>
-                <p className='text-lg font-semibold text-ink'>
-                  {alert.metrics.negativeShare.toFixed(0)}%
-                </p>
-                <p className='text-[11px] text-slate-500'>
-                  Riesgo {alert.metrics.riskScore.toFixed(0)} / 100
-                </p>
-              </div>
-              <div className='rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm'>
-                <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
-                  Impacto
-                </p>
-                <p className='text-lg font-semibold text-ink'>
-                  {alert.metrics.impactRatio.toFixed(2)}x
-                </p>
-                <p className='text-[11px] text-slate-500'>
-                  Reach {formatCompact(alert.metrics.reach)}
-                </p>
-              </div>
-              <div className='rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm'>
-                <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
-                  Engagement
-                </p>
-                <p className='text-lg font-semibold text-ink'>
-                  {formatCompact(alert.metrics.engagement)}
-                </p>
-                <p className='text-[11px] text-slate-500'>
-                  Tasa {alert.metrics.engagementRate.toFixed(1)}%
-                </p>
-              </div>
-            </div>
-
-            <div className='space-y-3'>
-              <div className='flex items-center gap-2 text-[11px] font-semibold text-slate-500 uppercase tracking-[0.16em]'>
-                <SparklesIcon className='h-4 w-4 text-prBlue' />
-                Resumen IA
-              </div>
-              <ul className='text-xs text-slate-600 space-y-2'>
-                <li>Validar señal principal y revisar evidencia crítica.</li>
-                <li>Confirmar tema dominante y responsables internos.</li>
-                <li>Definir si escala o se resuelve con respuesta puntual.</li>
-              </ul>
-              <div className='flex flex-wrap items-center gap-2'>
-                <button
-                  type='button'
-                  onClick={() => onApplyScope?.(alert)}
-                  className='inline-flex items-center gap-2 rounded-xl bg-prBlue px-3 py-2 text-xs font-semibold text-white shadow-glow border border-prBlue/80 hover:brightness-110'
-                >
-                  <MapPinIcon className='h-4 w-4' />
-                  Aplicar filtros
-                </button>
-                <button
-                  type='button'
-                  onClick={() => onOpenFeedStream?.(alert)}
-                  className='inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:border-prBlue'
-                >
-                  <ArrowTopRightOnSquareIcon className='h-4 w-4' />
-                  Ver en Feed Stream
-                </button>
-                <button
-                  type='button'
-                  onClick={() => onRequestInsight?.(alert)}
-                  className='inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 hover:border-emerald-300'
-                >
-                  <SparklesIcon className='h-4 w-4' />
-                  Pedir insight de esta alerta
-                </button>
-              </div>
-            </div>
-          </div>
-        )
+        <AnalystSummary
+          alert={alert}
+          prevPoint={prevPoint}
+          currentPoint={currentPoint}
+          formatWindow={formatWindow}
+          onApplyScope={onApplyScope}
+          onOpenFeedStream={onOpenFeedStream}
+          onRequestInsight={onRequestInsight}
+        />
       ) : null}
 
       {activeTab === 'historia' ? (

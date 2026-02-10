@@ -85,6 +85,9 @@ Mantén las historias organizadas por área. Añade una nueva historia por solic
 - US-2026-02-10-052 — Como analista, quiero que “Panorama general · Volumen en alza” (scope `overall`) sea un panel de análisis más rico y estandarizado para entender cambios, drivers y cobertura sin fricción.
   - Criterios: el tab “Resumen” de `AlertIntel` para `scopeType=overall` muestra: (1) ventana actual vs previa, (2) cambios clave (Δ abs/pp) sin % engañosos, (3) drivers (temas/entidades/keywords) y (4) cobertura (autores/geo) con layout responsive.
   - Criterios: el header y chips evitan redundancia (“Panorama general” no se repite en exceso) y el contenido sigue siendo igual de rico (sin borrar tabs existentes).
+- US-2026-02-10-053 — Como analista, quiero que el rediseño del “Resumen” y el split de títulos (scope vs señal) aplique a todas las alertas, para estandarizar el Intel sin depender de `overall`.
+  - Criterios: `AlertIntel` muestra el layout “analyst summary” para cualquier `scopeType`, reusando las mismas secciones (snapshot + cambios + drivers + guía + CTAs) con fallbacks cuando no hay ventana previa.
+  - Criterios: el header de `AlertIntel` separa título en `scope · señal` para evitar duplicación (ej. “San Juan” no se repite en title + scope).
 - US-2026-02-09-037 — Como analista, quiero una lista de 20 mejoras UX/UI para Network Connections (análisis + management) para investigar relaciones y coordinación sin fricción.
   - Criterios: 20 mejoras concretas (interacciones, legibilidad, workflow de investigación, guardado/compartición) sin borrar componentes existentes.
   - Criterios: propuestas aterrizadas a `NetworkGraph`, `NetworkInsightsPanel`, `ConnectionMatrix`, `NetworkPulse` y `src/data/networkConnections.ts`; sin implementación en código en esta historia.
