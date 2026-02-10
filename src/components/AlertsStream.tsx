@@ -63,6 +63,13 @@ const scopeTypeLabels: Record<Alert['scopeType'], string> = {
   platform: 'Plataforma',
 }
 
+const severityAccentBar: Record<AlertSeverity, string> = {
+  critical: 'from-rose-500 to-rose-300',
+  high: 'from-amber-500 to-amber-300',
+  medium: 'from-sky-500 to-sky-300',
+  low: 'from-slate-500 to-slate-300',
+}
+
 const severityWeight = (severity: AlertSeverity) => {
   if (severity === 'critical') return 4
   if (severity === 'high') return 3
@@ -178,6 +185,22 @@ const Sparkline: FC<{ values: number[]; tone?: string }> = ({ values, tone }) =>
         strokeLinejoin='round'
       />
     </svg>
+  )
+}
+
+const Meter: FC<{ value: number; max: number; tone: string }> = ({
+  value,
+  max,
+  tone,
+}) => {
+  const ratio = max > 0 ? Math.min(1, Math.max(0, value / max)) : 0
+  return (
+    <span className='ml-1 inline-flex h-1.5 w-10 items-center rounded-full bg-slate-200/70'>
+      <span
+        className={`h-1.5 rounded-full ${tone}`}
+        style={{ width: `${Math.round(ratio * 100)}%` }}
+      />
+    </span>
   )
 }
 
@@ -542,7 +565,7 @@ const AlertsStream: FC<Props> = ({
         }
 
   return (
-    <section className='card p-4 min-w-0'>
+    <section className='card p-4 min-w-0 xl:max-h-[72vh] xl:overflow-hidden xl:flex xl:flex-col'>
       <div className='card-header items-start gap-4 flex-col lg:flex-row lg:items-center'>
         <div className='min-w-0'>
           <p className='muted'>Alerts</p>
@@ -859,7 +882,7 @@ const AlertsStream: FC<Props> = ({
 
       <div
         ref={listRef}
-        className={`max-h-[65vh] overflow-y-auto pr-1 ${
+        className={`max-h-[55vh] md:max-h-[60vh] xl:max-h-none xl:flex-1 xl:min-h-0 overflow-y-auto pr-1 ${
           detailsMode === 'focus' ? 'space-y-2' : 'space-y-3'
         }`}
       >
@@ -918,8 +941,8 @@ const AlertsStream: FC<Props> = ({
                   onSelectAlert?.(alert.id)
                 }
               }}
-              className={`group w-full text-left rounded-2xl border px-3 sm:px-4 shadow-sm transition ${
-                showDetails ? 'py-3' : 'py-2.5'
+              className={`group relative w-full text-left rounded-2xl border px-3 sm:px-4 shadow-sm transition ${
+                showDetails ? 'py-2.5' : 'py-2'
               } ${
                 isActive
                   ? 'border-prBlue bg-prBlue/5'
@@ -928,6 +951,12 @@ const AlertsStream: FC<Props> = ({
                     : 'border-slate-200 bg-white hover:border-prBlue/60'
               } ${isSelected ? 'ring-2 ring-prBlue/30' : ''}`}
             >
+              <div
+                aria-hidden='true'
+                className={`absolute inset-x-0 top-0 h-1 rounded-t-2xl bg-gradient-to-r ${
+                  slaBreach ? 'from-rose-500 to-rose-300' : severityAccentBar[alert.severity]
+                } opacity-70`}
+              />
               <div className='flex items-start gap-3 sm:gap-4'>
                 <div className={`flex-1 ${showDetails ? 'space-y-2' : 'space-y-1.5'}`}>
                   <div className='flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600'>
@@ -1011,19 +1040,26 @@ const AlertsStream: FC<Props> = ({
                   </span>
                 </div>
               </div>
-              <div className='mt-3 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600'>
-                <span className='rounded-full border border-slate-200 bg-slate-50 px-2 py-1'>
-                  Negatividad {alert.metrics.negativeShare.toFixed(0)}%
+              <div className='mt-2 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600'>
+                <span className='inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-1'>
+                  Neg {alert.metrics.negativeShare.toFixed(0)}%
+                  <Meter value={alert.metrics.negativeShare} max={100} tone='bg-prRed' />
                 </span>
-                <span className='rounded-full border border-slate-200 bg-slate-50 px-2 py-1'>
-                  Riesgo {alert.metrics.riskScore.toFixed(0)} / 100
+                <span className='inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-1'>
+                  Riesgo {alert.metrics.riskScore.toFixed(0)}
+                  <Meter value={alert.metrics.riskScore} max={100} tone='bg-amber-500' />
                 </span>
-                <span className='rounded-full border border-slate-200 bg-slate-50 px-2 py-1'>
+                <span className='inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-1'>
                   Impacto {alert.metrics.impactRatio.toFixed(2)}x
+                  <Meter
+                    value={Math.min(2, Math.max(0, alert.metrics.impactRatio))}
+                    max={2}
+                    tone='bg-indigo-500'
+                  />
                 </span>
               </div>
               {showDetails ? (
-                <div className='mt-3 flex flex-wrap items-center gap-4 text-[10px] font-semibold text-slate-500'>
+                <div className='mt-2 flex flex-wrap items-center gap-4 text-[10px] font-semibold text-slate-500'>
                   <div className='flex items-center gap-2'>
                     <span className='uppercase tracking-[0.12em] text-[9px]'>Vol</span>
                     <Sparkline values={sparkline?.volume ?? []} tone='#2563eb' />
@@ -1037,7 +1073,7 @@ const AlertsStream: FC<Props> = ({
                   </span>
                 </div>
               ) : null}
-              <div className='mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500'>
+              <div className='mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500'>
                 <span>
                   Última detección: {formatTime(alert.lastSeenAt)} · Edad{' '}
                   {formatDuration(ageHours)}

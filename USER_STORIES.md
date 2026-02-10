@@ -88,6 +88,9 @@ Mantén las historias organizadas por área. Añade una nueva historia por solic
 - US-2026-02-10-053 — Como analista, quiero que el rediseño del “Resumen” y el split de títulos (scope vs señal) aplique a todas las alertas, para estandarizar el Intel sin depender de `overall`.
   - Criterios: `AlertIntel` muestra el layout “analyst summary” para cualquier `scopeType`, reusando las mismas secciones (snapshot + cambios + drivers + guía + CTAs) con fallbacks cuando no hay ventana previa.
   - Criterios: el header de `AlertIntel` separa título en `scope · señal` para evitar duplicación (ej. “San Juan” no se repite en title + scope).
+- US-2026-02-10-054 — Como analista, quiero que `AlertIntel` y `AlertsStream` sean menos altos y usen el color + mini-gráficos embebidos para leer patrones más rápido sin romper la estructura actual.
+  - Criterios: en pantallas grandes, ambos paneles tienen altura contenida con scroll interno (evita que empujen los módulos inferiores) sin afectar mobile.
+  - Criterios: los cards usan acentos de color consistentes (volumen azul, negatividad rojo, riesgo ámbar, etc.) y mini-gráficos (sparklines/meters) sin aumentar ruido visual.
 - US-2026-02-09-037 — Como analista, quiero una lista de 20 mejoras UX/UI para Network Connections (análisis + management) para investigar relaciones y coordinación sin fricción.
   - Criterios: 20 mejoras concretas (interacciones, legibilidad, workflow de investigación, guardado/compartición) sin borrar componentes existentes.
   - Criterios: propuestas aterrizadas a `NetworkGraph`, `NetworkInsightsPanel`, `ConnectionMatrix`, `NetworkPulse` y `src/data/networkConnections.ts`; sin implementación en código en esta historia.

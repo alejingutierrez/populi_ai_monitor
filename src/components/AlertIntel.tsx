@@ -128,6 +128,13 @@ const severityTone: Record<Alert['severity'], string> = {
   low: 'border-slate-200 bg-slate-100 text-slate-600',
 }
 
+const severityAccentBar: Record<Alert['severity'], string> = {
+  critical: 'from-rose-500 to-rose-300',
+  high: 'from-amber-500 to-amber-300',
+  medium: 'from-sky-500 to-sky-300',
+  low: 'from-slate-500 to-slate-300',
+}
+
 const severityLabels: Record<Alert['severity'], string> = {
   critical: 'Crítica',
   high: 'Alta',
@@ -218,6 +225,85 @@ const formatRuleValue = (rule: AlertRuleValue) => {
   return '—'
 }
 
+const buildEvidenceSeries = (posts: Alert['evidence'], buckets = 10) => {
+  if (!posts?.length) return { volume: [], negativity: [], reach: [], engagement: [] }
+  const timestamps = posts.map((post) => new Date(post.timestamp).getTime())
+  const minTs = Math.min(...timestamps)
+  const maxTs = Math.max(...timestamps)
+  const span = Math.max(1, maxTs - minTs)
+  const bucketSize = span / buckets
+  const bins = Array.from({ length: buckets }, () => ({
+    total: 0,
+    negative: 0,
+    reach: 0,
+    engagement: 0,
+  }))
+  posts.forEach((post) => {
+    const ts = new Date(post.timestamp).getTime()
+    const index = Math.min(buckets - 1, Math.floor((ts - minTs) / bucketSize))
+    const bin = bins[index]
+    bin.total += 1
+    if (post.sentiment === 'negativo') bin.negative += 1
+    bin.reach += post.reach
+    bin.engagement += post.engagement
+  })
+  return {
+    volume: bins.map((bin) => bin.total),
+    negativity: bins.map((bin) => (bin.total ? (bin.negative / bin.total) * 100 : 0)),
+    reach: bins.map((bin) => bin.reach),
+    engagement: bins.map((bin) => bin.engagement),
+  }
+}
+
+const MiniSparkline: FC<{ values: number[]; tone?: string; className?: string }> = ({
+  values,
+  tone,
+  className,
+}) => {
+  if (!values.length) {
+    return <div className={className ?? 'h-6 w-14 rounded-full bg-slate-100'} />
+  }
+  const max = Math.max(...values)
+  const min = Math.min(...values)
+  const range = Math.max(1, max - min)
+  const points = values
+    .map((value, index) => {
+      const x = (index / Math.max(1, values.length - 1)) * 100
+      const y = 32 - ((value - min) / range) * 28
+      return `${x},${y}`
+    })
+    .join(' ')
+  return (
+    <svg viewBox='0 0 100 32' className={className ?? 'h-6 w-14'}>
+      <polyline
+        points={points}
+        fill='none'
+        strokeWidth='2'
+        stroke={tone ?? '#0f172a'}
+        strokeLinecap='round'
+        strokeLinejoin='round'
+      />
+    </svg>
+  )
+}
+
+const MiniMeter: FC<{ value: number; max: number; tone: string; className?: string }> = ({
+  value,
+  max,
+  tone,
+  className,
+}) => {
+  const ratio = max > 0 ? Math.min(1, Math.max(0, value / max)) : 0
+  return (
+    <div className={className ?? 'mt-1 h-1.5 w-full rounded-full bg-slate-200/70'}>
+      <div
+        className={`h-1.5 rounded-full ${tone}`}
+        style={{ width: `${Math.round(ratio * 100)}%` }}
+      />
+    </div>
+  )
+}
+
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 const highlightText = (text: string, terms: string[]) => {
@@ -261,6 +347,7 @@ const AnalystSummary: FC<AnalystSummaryProps> = ({
   const titleParts = splitAlertTitle(alert.title)
   const scopeLabel = titleParts.scope || alert.scopeLabel
   const scopeTypeLabel = scopeTypeLabels[alert.scopeType] ?? alert.scopeType
+  const evidenceSeries = useMemo(() => buildEvidenceSeries(alert.evidence, 10), [alert.evidence])
 
   const volumeCurrent = alert.metrics.volumeCurrent
   const volumePrev = prevPoint?.metrics.volumeCurrent ?? alert.metrics.volumePrev
@@ -358,8 +445,8 @@ const AnalystSummary: FC<AnalystSummaryProps> = ({
   const toneInfo = 'border-prBlue/30 bg-prBlue/10 text-prBlue'
 
   return (
-    <div className='mt-4 space-y-4'>
-      <div className='rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50/80 via-white to-white px-3 py-2.5 shadow-sm'>
+    <div className='mt-4 space-y-3'>
+      <div className='rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50/80 via-white to-white px-3 py-2 shadow-sm'>
         <div className='flex flex-wrap items-start justify-between gap-2'>
           <div className='min-w-0'>
             <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
@@ -445,26 +532,47 @@ const AnalystSummary: FC<AnalystSummaryProps> = ({
 
       <div className='grid gap-4 lg:grid-cols-2'>
         <div className='grid gap-3 sm:grid-cols-2'>
-          <div className='rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm'>
-            <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
-              Volumen
-            </p>
-            <p className='text-lg font-semibold text-ink'>{formatCompact(volumeCurrent)}</p>
+          <div className='rounded-2xl border border-prBlue/20 bg-gradient-to-br from-prBlue/10 via-white to-white px-3 py-2 shadow-sm'>
+            <div className='flex items-start justify-between gap-3'>
+              <div>
+                <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
+                  Volumen
+                </p>
+                <p className='text-lg font-semibold text-ink'>{formatCompact(volumeCurrent)}</p>
+              </div>
+              <MiniSparkline
+                values={evidenceSeries.volume}
+                tone='#0b4f9c'
+                className='h-6 w-14 opacity-90'
+              />
+            </div>
             <div className='mt-1 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600'>
               <span className='text-slate-500'>Prev {formatCompact(volumePrev)}</span>
-              <span title={`Δ ${volumeDeltaPctLabel} vs previo`} className={`rounded-full border px-2 py-0.5 ${toneInfo}`}>
+              <span
+                title={`Δ ${volumeDeltaPctLabel} vs previo`}
+                className={`rounded-full border px-2 py-0.5 ${toneInfo}`}
+              >
                 Δ {volumeDeltaAbsLabel}
               </span>
             </div>
           </div>
 
-          <div className='rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm'>
-            <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
-              Negatividad
-            </p>
-            <p className='text-lg font-semibold text-ink'>
-              {alert.metrics.negativeShare.toFixed(0)}%
-            </p>
+          <div className='rounded-2xl border border-prRed/20 bg-gradient-to-br from-prRed/10 via-white to-white px-3 py-2 shadow-sm'>
+            <div className='flex items-start justify-between gap-3'>
+              <div>
+                <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
+                  Negatividad
+                </p>
+                <p className='text-lg font-semibold text-ink'>
+                  {alert.metrics.negativeShare.toFixed(0)}%
+                </p>
+              </div>
+              <MiniSparkline
+                values={evidenceSeries.negativity}
+                tone='#d62828'
+                className='h-6 w-14 opacity-90'
+              />
+            </div>
             <div className='mt-1 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600'>
               {typeof negPrev === 'number' ? (
                 <span className='text-slate-500'>Prev {negPrev.toFixed(0)}%</span>
@@ -479,11 +587,25 @@ const AnalystSummary: FC<AnalystSummaryProps> = ({
             </div>
           </div>
 
-          <div className='rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm'>
-            <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
-              Riesgo
-            </p>
-            <p className='text-lg font-semibold text-ink'>{alert.metrics.riskScore.toFixed(0)}</p>
+          <div className='rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50/80 via-white to-white px-3 py-2 shadow-sm'>
+            <div className='flex items-start justify-between gap-3'>
+              <div>
+                <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
+                  Riesgo
+                </p>
+                <p className='text-lg font-semibold text-ink'>
+                  {alert.metrics.riskScore.toFixed(0)}
+                </p>
+              </div>
+              <div className='w-14 pt-1'>
+                <MiniMeter
+                  value={alert.metrics.riskScore}
+                  max={100}
+                  tone='bg-amber-500'
+                  className='h-1.5 w-full rounded-full bg-slate-200/70'
+                />
+              </div>
+            </div>
             <div className='mt-1 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600'>
               {typeof riskPrev === 'number' ? (
                 <span className='text-slate-500'>Prev {riskPrev.toFixed(0)}</span>
@@ -498,11 +620,25 @@ const AnalystSummary: FC<AnalystSummaryProps> = ({
             </div>
           </div>
 
-          <div className='rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm'>
-            <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
-              Impacto
-            </p>
-            <p className='text-lg font-semibold text-ink'>{alert.metrics.impactRatio.toFixed(2)}x</p>
+          <div className='rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50/80 via-white to-white px-3 py-2 shadow-sm'>
+            <div className='flex items-start justify-between gap-3'>
+              <div>
+                <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
+                  Impacto
+                </p>
+                <p className='text-lg font-semibold text-ink'>
+                  {alert.metrics.impactRatio.toFixed(2)}x
+                </p>
+              </div>
+              <div className='w-14 pt-1'>
+                <MiniMeter
+                  value={Math.min(2, Math.max(0, alert.metrics.impactRatio))}
+                  max={2}
+                  tone='bg-indigo-500'
+                  className='h-1.5 w-full rounded-full bg-slate-200/70'
+                />
+              </div>
+            </div>
             <div className='mt-1 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600'>
               {typeof impactPrev === 'number' ? (
                 <span className='text-slate-500'>Prev {impactPrev.toFixed(2)}x</span>
@@ -515,14 +651,27 @@ const AnalystSummary: FC<AnalystSummaryProps> = ({
                 <span className='text-slate-400'>Δ —</span>
               )}
             </div>
-            <p className='mt-1 text-[11px] text-slate-500'>Reach {formatCompact(alert.metrics.reach)}</p>
+            <p className='mt-1 text-[11px] text-slate-500'>
+              Reach {formatCompact(alert.metrics.reach)}
+            </p>
           </div>
 
-          <div className='rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm'>
-            <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
-              Engagement
-            </p>
-            <p className='text-lg font-semibold text-ink'>{formatCompact(alert.metrics.engagement)}</p>
+          <div className='rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50/80 via-white to-white px-3 py-2 shadow-sm'>
+            <div className='flex items-start justify-between gap-3'>
+              <div>
+                <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
+                  Engagement
+                </p>
+                <p className='text-lg font-semibold text-ink'>
+                  {formatCompact(alert.metrics.engagement)}
+                </p>
+              </div>
+              <MiniSparkline
+                values={evidenceSeries.engagement}
+                tone='#10b981'
+                className='h-6 w-14 opacity-90'
+              />
+            </div>
             <div className='mt-1 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600'>
               {engagementDeltaLabel ? (
                 <span className='rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-slate-700'>
@@ -531,23 +680,37 @@ const AnalystSummary: FC<AnalystSummaryProps> = ({
               ) : (
                 <span className='text-slate-400'>Δ —</span>
               )}
-              <span className='text-slate-500'>Tasa {alert.metrics.engagementRate.toFixed(1)}%</span>
+              <span className='text-slate-500'>
+                Tasa {alert.metrics.engagementRate.toFixed(1)}%
+              </span>
             </div>
           </div>
 
-          <div className='rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm'>
+          <div className='rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50/80 via-white to-white px-3 py-2 shadow-sm'>
             <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
               Cobertura
             </p>
             <p className='text-lg font-semibold text-ink'>{alert.uniqueAuthors ?? 0}</p>
             <p className='text-[11px] text-slate-500'>
-              Autores únicos · Nuevos {alert.newAuthorsPct?.toFixed(0) ?? 0}% · Geo {alert.geoSpread ?? 0}
+              Autores únicos · Geo {alert.geoSpread ?? 0}
             </p>
+            <div className='mt-1'>
+              <div className='flex items-center justify-between text-[11px] font-semibold text-slate-600'>
+                <span className='text-slate-500'>Nuevos</span>
+                <span className='text-slate-700'>{alert.newAuthorsPct?.toFixed(0) ?? 0}%</span>
+              </div>
+              <MiniMeter
+                value={alert.newAuthorsPct ?? 0}
+                max={100}
+                tone='bg-prBlue'
+                className='h-1.5 w-full rounded-full bg-slate-200/70'
+              />
+            </div>
           </div>
         </div>
 
         <div className='space-y-3'>
-          <div className='rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm'>
+          <div className='rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50/80 via-white to-white px-3 py-2 shadow-sm'>
             <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
               Drivers (lo que domina)
             </p>
@@ -614,7 +777,7 @@ const AnalystSummary: FC<AnalystSummaryProps> = ({
             </div>
           </div>
 
-          <div className='rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm'>
+          <div className='rounded-2xl border border-prBlue/20 bg-gradient-to-br from-prBlue/10 via-white to-white px-3 py-2 shadow-sm'>
             <div className='flex items-center gap-2 text-[11px] font-semibold text-slate-500 uppercase tracking-[0.16em]'>
               <SparklesIcon className='h-4 w-4 text-prBlue' />
               Guía rápida
@@ -807,7 +970,11 @@ const AlertIntel: FC<Props> = ({
       : `${scopeTypeLabels[alert.scopeType] ?? alert.scopeType}: ${headerScopeBase}`
 
   return (
-    <section className='card p-4 min-w-0'>
+    <section className='card p-4 min-w-0 relative xl:max-h-[72vh] xl:overflow-hidden xl:flex xl:flex-col'>
+      <div
+        aria-hidden='true'
+        className={`absolute inset-x-0 top-0 h-1 rounded-t-2xl bg-gradient-to-r ${severityAccentBar[alert.severity]} opacity-70`}
+      />
       <div className='card-header items-start gap-3 flex-col'>
         <div className='flex items-start justify-between gap-2 w-full'>
           <div>
@@ -861,177 +1028,178 @@ const AlertIntel: FC<Props> = ({
         ))}
       </div>
 
-      {activeTab === 'resumen' ? (
-        <AnalystSummary
-          alert={alert}
-          prevPoint={prevPoint}
-          currentPoint={currentPoint}
-          formatWindow={formatWindow}
-          onApplyScope={onApplyScope}
-          onOpenFeedStream={onOpenFeedStream}
-          onRequestInsight={onRequestInsight}
-        />
-      ) : null}
+      <div className='xl:flex-1 xl:min-h-0 xl:overflow-y-auto xl:pr-1'>
+        {activeTab === 'resumen' ? (
+          <AnalystSummary
+            alert={alert}
+            prevPoint={prevPoint}
+            currentPoint={currentPoint}
+            formatWindow={formatWindow}
+            onApplyScope={onApplyScope}
+            onOpenFeedStream={onOpenFeedStream}
+            onRequestInsight={onRequestInsight}
+          />
+        ) : null}
 
-      {activeTab === 'historia' ? (
-        <div className='mt-4 space-y-3'>
-          <div className='flex items-center justify-between gap-2'>
-            <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
-              Historia por ventana
-            </p>
-            {currentPoint ? (
-              <span className='rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-600'>
-                {formatWindow(currentPoint)}
-              </span>
-            ) : null}
-          </div>
+        {activeTab === 'historia' ? (
+          <div className='mt-4 space-y-3'>
+            <div className='flex items-center justify-between gap-2'>
+              <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
+                Historia por ventana
+              </p>
+              {currentPoint ? (
+                <span className='rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-600'>
+                  {formatWindow(currentPoint)}
+                </span>
+              ) : null}
+            </div>
 
-          {isLoading ? (
-            <div className='rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600'>
-              Cargando historia…
-            </div>
-          ) : !currentPoint ? (
-            <div className='rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600'>
-              Sin historia disponible para esta alerta en el rango actual.
-            </div>
-          ) : (
-            <div className='grid gap-3 sm:grid-cols-2'>
-              {prevPoint ? (
+            {isLoading ? (
+              <div className='rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600'>
+                Cargando historia…
+              </div>
+            ) : !currentPoint ? (
+              <div className='rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600'>
+                Sin historia disponible para esta alerta en el rango actual.
+              </div>
+            ) : (
+              <div className='grid gap-3 sm:grid-cols-2'>
+                {prevPoint ? (
+                  <div className='rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm'>
+                    <p className='text-[10px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
+                      Ventana previa
+                    </p>
+                    <p className='text-[11px] text-slate-500 mt-1'>{formatWindow(prevPoint)}</p>
+                    <div className='mt-2 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600'>
+                      <span className={`rounded-full border px-2 py-0.5 ${severityTone[prevPoint.severity]}`}>
+                        {severityLabels[prevPoint.severity]}
+                      </span>
+                      <span className={`rounded-full border px-2 py-0.5 ${statusTone[prevPoint.status]}`}>
+                        {statusLabels[prevPoint.status]}
+                      </span>
+                    </div>
+                    <div className='mt-3 grid gap-2'>
+                      <div className='flex items-center justify-between text-xs text-slate-600'>
+                        <span>Volumen</span>
+                        <span className='font-semibold text-slate-700'>
+                          {formatCompact(prevPoint.metrics.volumeCurrent)}
+                        </span>
+                      </div>
+                      <div className='flex items-center justify-between text-xs text-slate-600'>
+                        <span>Negatividad</span>
+                        <span className='font-semibold text-slate-700'>
+                          {prevPoint.metrics.negativeShare.toFixed(0)}%
+                        </span>
+                      </div>
+                      <div className='flex items-center justify-between text-xs text-slate-600'>
+                        <span>Riesgo</span>
+                        <span className='font-semibold text-slate-700'>
+                          {prevPoint.metrics.riskScore.toFixed(0)}
+                        </span>
+                      </div>
+                      <div className='flex items-center justify-between text-xs text-slate-600'>
+                        <span>Impacto</span>
+                        <span className='font-semibold text-slate-700'>
+                          {prevPoint.metrics.impactRatio.toFixed(2)}x
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className='rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-600'>
+                    Sin ventana previa disponible con los filtros actuales.
+                  </div>
+                )}
+
                 <div className='rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm'>
                   <p className='text-[10px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
-                    Ventana previa
+                    Ventana actual
                   </p>
-                  <p className='text-[11px] text-slate-500 mt-1'>{formatWindow(prevPoint)}</p>
+                  <p className='text-[11px] text-slate-500 mt-1'>{formatWindow(currentPoint)}</p>
                   <div className='mt-2 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600'>
-                    <span className={`rounded-full border px-2 py-0.5 ${severityTone[prevPoint.severity]}`}>
-                      {severityLabels[prevPoint.severity]}
+                    <span className={`rounded-full border px-2 py-0.5 ${severityTone[currentPoint.severity]}`}>
+                      {severityLabels[currentPoint.severity]}
                     </span>
-                    <span className={`rounded-full border px-2 py-0.5 ${statusTone[prevPoint.status]}`}>
-                      {statusLabels[prevPoint.status]}
+                    <span className={`rounded-full border px-2 py-0.5 ${statusTone[currentPoint.status]}`}>
+                      {statusLabels[currentPoint.status]}
                     </span>
                   </div>
                   <div className='mt-3 grid gap-2'>
                     <div className='flex items-center justify-between text-xs text-slate-600'>
                       <span>Volumen</span>
                       <span className='font-semibold text-slate-700'>
-                        {formatCompact(prevPoint.metrics.volumeCurrent)}
+                        {formatCompact(currentPoint.metrics.volumeCurrent)}
                       </span>
                     </div>
                     <div className='flex items-center justify-between text-xs text-slate-600'>
                       <span>Negatividad</span>
                       <span className='font-semibold text-slate-700'>
-                        {prevPoint.metrics.negativeShare.toFixed(0)}%
+                        {currentPoint.metrics.negativeShare.toFixed(0)}%
                       </span>
                     </div>
                     <div className='flex items-center justify-between text-xs text-slate-600'>
                       <span>Riesgo</span>
                       <span className='font-semibold text-slate-700'>
-                        {prevPoint.metrics.riskScore.toFixed(0)}
+                        {currentPoint.metrics.riskScore.toFixed(0)}
                       </span>
                     </div>
                     <div className='flex items-center justify-between text-xs text-slate-600'>
                       <span>Impacto</span>
                       <span className='font-semibold text-slate-700'>
-                        {prevPoint.metrics.impactRatio.toFixed(2)}x
+                        {currentPoint.metrics.impactRatio.toFixed(2)}x
                       </span>
                     </div>
                   </div>
                 </div>
-              ) : (
-                <div className='rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-600'>
-                  Sin ventana previa disponible con los filtros actuales.
-                </div>
-              )}
-
-              <div className='rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm'>
-                <p className='text-[10px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
-                  Ventana actual
-                </p>
-                <p className='text-[11px] text-slate-500 mt-1'>{formatWindow(currentPoint)}</p>
-                <div className='mt-2 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600'>
-                  <span className={`rounded-full border px-2 py-0.5 ${severityTone[currentPoint.severity]}`}>
-                    {severityLabels[currentPoint.severity]}
-                  </span>
-                  <span className={`rounded-full border px-2 py-0.5 ${statusTone[currentPoint.status]}`}>
-                    {statusLabels[currentPoint.status]}
-                  </span>
-                </div>
-                <div className='mt-3 grid gap-2'>
-                  <div className='flex items-center justify-between text-xs text-slate-600'>
-                    <span>Volumen</span>
-                    <span className='font-semibold text-slate-700'>
-                      {formatCompact(currentPoint.metrics.volumeCurrent)}
-                    </span>
-                  </div>
-                  <div className='flex items-center justify-between text-xs text-slate-600'>
-                    <span>Negatividad</span>
-                    <span className='font-semibold text-slate-700'>
-                      {currentPoint.metrics.negativeShare.toFixed(0)}%
-                    </span>
-                  </div>
-                  <div className='flex items-center justify-between text-xs text-slate-600'>
-                    <span>Riesgo</span>
-                    <span className='font-semibold text-slate-700'>
-                      {currentPoint.metrics.riskScore.toFixed(0)}
-                    </span>
-                  </div>
-                  <div className='flex items-center justify-between text-xs text-slate-600'>
-                    <span>Impacto</span>
-                    <span className='font-semibold text-slate-700'>
-                      {currentPoint.metrics.impactRatio.toFixed(2)}x
-                    </span>
-                  </div>
-                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {prevPoint && currentPoint && !isLoading ? (
-            <div className='flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-semibold text-slate-600'>
-              <span className='text-[10px] uppercase tracking-[0.14em] text-slate-400'>
-                Cambios
-              </span>
-              {(() => {
-                const volumeBadge = buildVolumeDeltaBadge(
-                  currentPoint.metrics.volumeCurrent,
-                  prevPoint.metrics.volumeCurrent
-                )
-                const negBadge = buildDeltaValueBadge(
-                  currentPoint.metrics.negativeShare,
-                  prevPoint.metrics.negativeShare,
-                  { unit: 'pp', digits: 0, prefersLower: true }
-                )
-                const riskBadge = buildDeltaValueBadge(
-                  currentPoint.metrics.riskScore,
-                  prevPoint.metrics.riskScore,
-                  { unit: '', digits: 0, prefersLower: true }
-                )
-                const impactBadge = buildDeltaValueBadge(
-                  currentPoint.metrics.impactRatio,
-                  prevPoint.metrics.impactRatio,
-                  { unit: 'x', digits: 2 }
-                )
-                return (
-                  <>
-                    <span className={`rounded-full border px-2 py-0.5 ${volumeBadge.tone}`}>
-                      Vol {volumeBadge.label}
-                    </span>
-                    <span className={`rounded-full border px-2 py-0.5 ${negBadge.tone}`}>
-                      Neg {negBadge.label}
-                    </span>
-                    <span className={`rounded-full border px-2 py-0.5 ${riskBadge.tone}`}>
-                      Riesgo {riskBadge.label}
-                    </span>
-                    <span className={`rounded-full border px-2 py-0.5 ${impactBadge.tone}`}>
-                      Impacto {impactBadge.label}
-                    </span>
-                  </>
-                )
-              })()}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
+            {prevPoint && currentPoint && !isLoading ? (
+              <div className='flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-semibold text-slate-600'>
+                <span className='text-[10px] uppercase tracking-[0.14em] text-slate-400'>
+                  Cambios
+                </span>
+                {(() => {
+                  const volumeBadge = buildVolumeDeltaBadge(
+                    currentPoint.metrics.volumeCurrent,
+                    prevPoint.metrics.volumeCurrent
+                  )
+                  const negBadge = buildDeltaValueBadge(
+                    currentPoint.metrics.negativeShare,
+                    prevPoint.metrics.negativeShare,
+                    { unit: 'pp', digits: 0, prefersLower: true }
+                  )
+                  const riskBadge = buildDeltaValueBadge(
+                    currentPoint.metrics.riskScore,
+                    prevPoint.metrics.riskScore,
+                    { unit: '', digits: 0, prefersLower: true }
+                  )
+                  const impactBadge = buildDeltaValueBadge(
+                    currentPoint.metrics.impactRatio,
+                    prevPoint.metrics.impactRatio,
+                    { unit: 'x', digits: 2 }
+                  )
+                  return (
+                    <>
+                      <span className={`rounded-full border px-2 py-0.5 ${volumeBadge.tone}`}>
+                        Vol {volumeBadge.label}
+                      </span>
+                      <span className={`rounded-full border px-2 py-0.5 ${negBadge.tone}`}>
+                        Neg {negBadge.label}
+                      </span>
+                      <span className={`rounded-full border px-2 py-0.5 ${riskBadge.tone}`}>
+                        Riesgo {riskBadge.label}
+                      </span>
+                      <span className={`rounded-full border px-2 py-0.5 ${impactBadge.tone}`}>
+                        Impacto {impactBadge.label}
+                      </span>
+                    </>
+                  )
+                })()}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
       {activeTab === 'actividad' ? (
         <div className='mt-4 space-y-3'>
@@ -1422,6 +1590,7 @@ const AlertIntel: FC<Props> = ({
           )}
         </div>
       ) : null}
+      </div>
     </section>
   )
 }

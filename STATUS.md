@@ -57,3 +57,4 @@ Estados sugeridos: Planned, In progress, Blocked, Done.
 | US-2026-02-10-051 | Done | 2026-02-10 | AlertsStream: removida UI duplicada (chip orden), selección bulk sin “círculo” (space/shift/cmd), deltas interpretables (Δ abs + tooltip), spacing/responsive mejorados; build OK. |
 | US-2026-02-10-052 | Done | 2026-02-10 | AlertIntel: rediseño del “Resumen” para `scopeType=overall` (Panorama) con ventana + cambios + drivers + guía rápida; deltas sin % engañosos; AlertsStream etiqueta “Panorama”; build OK. |
 | US-2026-02-10-053 | Done | 2026-02-10 | AlertIntel: “Resumen” analítico aplicado a todos los `scopeType` + split de títulos (scope vs señal) para evitar redundancia; build OK. |
+| US-2026-02-10-054 | Done | 2026-02-10 | AlertIntel/AlertsStream: altura contenida en desktop con scroll interno (sin afectar mobile), acentos de color y mini-gráficos embebidos (sparklines/meters) en cards; build OK. |
