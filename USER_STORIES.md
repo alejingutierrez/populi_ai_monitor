@@ -70,6 +70,10 @@ Mantén las historias organizadas por área. Añade una nueva historia por solic
 - US-2026-02-10-048 — Como analista, quiero rediseñar el header/controles de `AlertsStream` para que filtros y vistas sean entendibles y menos ruidosos.
   - Criterios: agrupar controles en una barra clara (cola/vista, orden, filtros); mover filtros avanzados a un panel colapsable; mantener atajos y bulk actions sin saturar el header.
   - Criterios: sin perder funcionalidad existente (views guardadas, tabs por estado, severidad, orden, shortcuts).
+- US-2026-02-10-049 — Como analista, quiero una segunda iteración del header de `AlertsStream` con tabs por estado y conteos facetados para hacer triage sin fricción y entender filtros al instante.
+  - Criterios: tabs de estado siempre visibles (con conteos) y CTA de triage; severidad y vistas explicadas en panel colapsable.
+  - Criterios: conteos en filtros reflejan el contexto (faceted counts) para evitar confusión al combinar estado/severidad.
+  - Criterios: chips de filtros activos son claros y permiten restablecer rápido sin perder atajos ni bulk actions.
 - US-2026-02-09-037 — Como analista, quiero una lista de 20 mejoras UX/UI para Network Connections (análisis + management) para investigar relaciones y coordinación sin fricción.
   - Criterios: 20 mejoras concretas (interacciones, legibilidad, workflow de investigación, guardado/compartición) sin borrar componentes existentes.
   - Criterios: propuestas aterrizadas a `NetworkGraph`, `NetworkInsightsPanel`, `ConnectionMatrix`, `NetworkPulse` y `src/data/networkConnections.ts`; sin implementación en código en esta historia.

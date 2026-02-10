@@ -52,3 +52,4 @@ Estados sugeridos: Planned, In progress, Blocked, Done.
 | US-2026-02-09-046 | Done | 2026-02-09 | Re-plan de mejoras UX/UI de Feed Stream alineado a data dinámica (platform/topic `string`, geo nullable, `url/domain/language`, Unknown bucket) en `FEED_STREAM_UX_IMPROVEMENTS.md`. |
 | US-2026-02-10-047 | Done | 2026-02-10 | Alert Intel hidratado (history/relacionadas/actividad) + endpoint GET actions + actor en acciones; build OK. |
 | US-2026-02-10-048 | Done | 2026-02-10 | Rediseño de header/controles de AlertsStream: barra clara (cola/orden/filtros) + panel avanzado colapsable; build OK. |
+| US-2026-02-10-049 | Done | 2026-02-10 | AlertsStream: tabs de estado siempre visibles + CTA de triage + conteos facetados; panel de vistas/severidad más entendible; build OK. |

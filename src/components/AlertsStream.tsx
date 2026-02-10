@@ -4,7 +4,7 @@ import {
   ClockIcon,
   FlagIcon,
 } from '@heroicons/react/24/outline'
-import { useEffect, useMemo, useState, type FC } from 'react'
+import { useCallback, useEffect, useMemo, useState, type FC } from 'react'
 import type { Alert, AlertSeverity, AlertStatus } from '../data/alerts'
 
 interface Props {
@@ -68,7 +68,7 @@ const sortLabels: Record<SortKey, string> = {
   delta: 'Mayor delta',
   risk: 'Mayor riesgo',
   impact: 'Mayor impacto',
-  sla: 'Mayor SLA',
+  sla: 'SLA (más urgentes)',
 }
 
 const formatTime = (timestamp: string) =>
@@ -162,10 +162,55 @@ const AlertsStream: FC<Props> = ({
   const [severityFilter, setSeverityFilter] = useState<AlertSeverity | 'all'>('all')
   const [statusTab, setStatusTab] = useState<AlertStatus | 'all'>('all')
   const [sortBy, setSortBy] = useState<SortKey>('severity')
-  const [activeView, setActiveView] = useState<string>('all')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [snoozeHours, setSnoozeHours] = useState(2)
+
+  const views = useMemo(
+    () => [
+      {
+        key: 'all',
+        label: 'Todas',
+        hint: 'Inventario completo sin filtros.',
+        severity: 'all' as const,
+        status: 'all' as const,
+        sort: 'severity' as SortKey,
+      },
+      {
+        key: 'triage',
+        label: 'Triage: críticas nuevas',
+        hint: 'Críticas en estado Nueva, listas para priorizar.',
+        severity: 'critical' as const,
+        status: 'open' as const,
+        sort: 'severity' as SortKey,
+      },
+      {
+        key: 'investigacion',
+        label: 'En investigación',
+        hint: 'Alertas en investigación ordenadas por recencia.',
+        severity: 'all' as const,
+        status: 'ack' as const,
+        sort: 'recency' as SortKey,
+      },
+      {
+        key: 'escaladas',
+        label: 'Escaladas',
+        hint: 'Escaladas recientes para coordinación y seguimiento.',
+        severity: 'all' as const,
+        status: 'escalated' as const,
+        sort: 'recency' as SortKey,
+      },
+      {
+        key: 'impacto',
+        label: 'Mayor impacto',
+        hint: 'Ordenadas por impacto para priorizar daño potencial.',
+        severity: 'all' as const,
+        status: 'all' as const,
+        sort: 'impact' as SortKey,
+      },
+    ],
+    []
+  )
 
   const validSelectedIds = useMemo(() => {
     if (!selectedIds.size) return selectedIds
@@ -173,21 +218,7 @@ const AlertsStream: FC<Props> = ({
     return new Set([...selectedIds].filter((id) => valid.has(id)))
   }, [alerts, selectedIds])
 
-  const counts = useMemo(() => {
-    const base = {
-      all: alerts.length,
-      critical: 0,
-      high: 0,
-      medium: 0,
-      low: 0,
-    }
-    alerts.forEach((alert) => {
-      base[alert.severity] += 1
-    })
-    return base
-  }, [alerts])
-
-  const statusCounts = useMemo(() => {
+  const statusCountsAll = useMemo(() => {
     const base = {
       all: alerts.length,
       open: 0,
@@ -202,48 +233,55 @@ const AlertsStream: FC<Props> = ({
     return base
   }, [alerts])
 
+  const statusCountsFacet = useMemo(() => {
+    const scoped =
+      severityFilter === 'all'
+        ? alerts
+        : alerts.filter((alert) => alert.severity === severityFilter)
+
+    const base = {
+      all: scoped.length,
+      open: 0,
+      ack: 0,
+      snoozed: 0,
+      escalated: 0,
+      resolved: 0,
+    }
+
+    scoped.forEach((alert) => {
+      base[alert.status] += 1
+    })
+
+    return base
+  }, [alerts, severityFilter])
+
+  const severityCountsFacet = useMemo(() => {
+    const scoped =
+      statusTab === 'all' ? alerts : alerts.filter((alert) => alert.status === statusTab)
+
+    const base = { all: scoped.length, critical: 0, high: 0, medium: 0, low: 0 }
+
+    scoped.forEach((alert) => {
+      base[alert.severity] += 1
+    })
+
+    return base
+  }, [alerts, statusTab])
+
   const triageCount = useMemo(
     () => alerts.filter((alert) => alert.status === 'open' && alert.severity === 'critical').length,
     [alerts]
   )
-
-  const views = [
-    {
-      key: 'all',
-      label: 'Todas',
-      severity: 'all' as const,
-      status: 'all' as const,
-      sort: 'severity' as SortKey,
-    },
-    {
-      key: 'triage',
-      label: 'Triage crítico',
-      severity: 'critical' as const,
-      status: 'open' as const,
-      sort: 'severity' as SortKey,
-    },
-    {
-      key: 'investigacion',
-      label: 'Investigación',
-      severity: 'all' as const,
-      status: 'ack' as const,
-      sort: 'recency' as SortKey,
-    },
-    {
-      key: 'escaladas',
-      label: 'Escaladas',
-      severity: 'all' as const,
-      status: 'escalated' as const,
-      sort: 'recency' as SortKey,
-    },
-    {
-      key: 'impacto',
-      label: 'Mayor impacto',
-      severity: 'all' as const,
-      status: 'all' as const,
-      sort: 'impact' as SortKey,
-    },
-  ]
+  const viewCounts = useMemo(
+    () => ({
+      all: alerts.length,
+      triage: triageCount,
+      investigacion: statusCountsAll.ack,
+      escaladas: statusCountsAll.escalated,
+      impacto: alerts.length,
+    }),
+    [alerts.length, triageCount, statusCountsAll.ack, statusCountsAll.escalated]
+  )
 
   const filtered = useMemo(() => {
     let items = alerts
@@ -296,39 +334,27 @@ const AlertsStream: FC<Props> = ({
     { key: 'resolved', label: 'Resueltas' },
   ]
 
-  const flowSteps: Array<{ key: string; label: string; count: number }> = [
-    { key: 'open', label: 'Nueva', count: statusCounts.open },
-    { key: 'triage', label: 'Triage', count: triageCount },
-    { key: 'ack', label: 'En investigación', count: statusCounts.ack },
-    { key: 'escalated', label: 'Escalada', count: statusCounts.escalated },
-    { key: 'resolved', label: 'Resuelta', count: statusCounts.resolved },
-  ]
-
   const applyView = (viewKey: string) => {
     const view = views.find((item) => item.key === viewKey)
     if (!view) return
-    setActiveView(view.key)
     setSeverityFilter(view.severity)
     setStatusTab(view.status)
     setSortBy(view.sort)
   }
 
   const handleSeverityChange = (value: AlertSeverity | 'all') => {
-    setActiveView('custom')
     setSeverityFilter(value)
   }
 
   const handleStatusChange = (value: AlertStatus | 'all') => {
-    setActiveView('custom')
     setStatusTab(value)
   }
 
   const handleSortChange = (value: SortKey) => {
-    setActiveView('custom')
     setSortBy(value)
   }
 
-  const toggleSelection = (id: string) => {
+  const toggleSelection = useCallback((id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev)
       if (next.has(id)) {
@@ -338,15 +364,15 @@ const AlertsStream: FC<Props> = ({
       }
       return next
     })
-  }
+  }, [])
 
-  const clearSelection = () => setSelectedIds(new Set())
+  const clearSelection = useCallback(() => setSelectedIds(new Set()), [])
 
-  const selectAllFiltered = () => {
+  const selectAllFiltered = useCallback(() => {
     setSelectedIds(new Set(filtered.map((alert) => alert.id)))
-  }
+  }, [filtered])
 
-  const runBulkAction = (action: AlertStatus) => {
+  const runBulkAction = useCallback((action: AlertStatus) => {
     const ids = Array.from(validSelectedIds)
     if (!ids.length) return
     const options: ActionOptions | undefined =
@@ -359,7 +385,7 @@ const AlertsStream: FC<Props> = ({
       ids.forEach((id) => onAction?.(id, action, options))
     }
     clearSelection()
-  }
+  }, [clearSelection, onAction, onBulkAction, snoozeHours, validSelectedIds])
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -410,33 +436,29 @@ const AlertsStream: FC<Props> = ({
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [selectedIds, onBulkAction, onAction, sorted, selectedAlertId, onSelectAlert, snoozeHours])
+  }, [clearSelection, runBulkAction, sorted, selectedAlertId, onSelectAlert])
 
-  const activeViewMeta = views.find((view) => view.key === activeView) ?? null
+  const activeViewMeta =
+    views.find(
+      (view) =>
+        view.severity === severityFilter &&
+        view.status === statusTab &&
+        view.sort === sortBy
+    ) ?? null
+
+  const activeViewKey = activeViewMeta?.key ?? 'custom'
 
   const activeViewLabel =
-    activeView === 'custom'
-      ? 'Personalizada'
-      : activeViewMeta?.label ?? 'Todas'
+    activeViewKey === 'custom' ? 'Personalizada' : activeViewMeta?.label ?? 'Todas'
 
-  const activeFilterCount =
-    (statusTab === 'all' ? 0 : 1) + (severityFilter === 'all' ? 0 : 1)
-
-  const statusChip =
-    statusTab === 'all'
-      ? null
-      : {
-          label: statusLabels[statusTab],
-          count: statusCounts[statusTab],
-          tone: statusTone[statusTab],
-        }
+  const activeAdvancedFilterCount = severityFilter === 'all' ? 0 : 1
 
   const severityChip =
     severityFilter === 'all'
       ? null
       : {
           label: severityLabels[severityFilter],
-          count: counts[severityFilter],
+          count: severityCountsFacet[severityFilter],
           tone: severityTone[severityFilter],
         }
 
@@ -447,8 +469,11 @@ const AlertsStream: FC<Props> = ({
           <p className='muted'>Alerts</p>
           <div className='flex flex-wrap items-center gap-2'>
             <p className='h-section'>Stream de alertas</p>
-            <span className='rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600'>
-              Cola: {activeViewLabel}
+            <span
+              title={activeViewMeta?.hint ?? undefined}
+              className='rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600'
+            >
+              Vista: {activeViewLabel}
             </span>
           </div>
           <p className='text-xs text-slate-500 mt-1'>
@@ -462,10 +487,10 @@ const AlertsStream: FC<Props> = ({
         <div className='flex flex-wrap items-center gap-2'>
           <div className='flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold text-slate-600 shadow-sm'>
             <span className='text-[10px] uppercase tracking-[0.14em] text-slate-400'>
-              Cola
+              Vista
             </span>
             <select
-              value={activeView}
+              value={activeViewKey}
               onChange={(event) => {
                 const value = event.target.value
                 if (value === 'custom') return
@@ -475,10 +500,10 @@ const AlertsStream: FC<Props> = ({
             >
               {views.map((view) => (
                 <option key={view.key} value={view.key}>
-                  {view.label}
+                  {view.label} · {viewCounts[view.key as keyof typeof viewCounts].toLocaleString('es-PR')}
                 </option>
               ))}
-              {activeView === 'custom' ? (
+              {activeViewKey === 'custom' ? (
                 <option value='custom' disabled>
                   Personalizada
                 </option>
@@ -510,10 +535,10 @@ const AlertsStream: FC<Props> = ({
                 : 'border-slate-200 bg-white text-slate-600'
             }`}
           >
-            Filtros
-            {activeFilterCount ? (
+            Más filtros
+            {activeAdvancedFilterCount ? (
               <span className='rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600'>
-                {activeFilterCount}
+                {activeAdvancedFilterCount}
               </span>
             ) : null}
           </button>
@@ -539,19 +564,65 @@ const AlertsStream: FC<Props> = ({
         </div>
       </div>
 
+      <div className='mt-3 flex flex-wrap items-center gap-2'>
+        <div className='flex max-w-full items-center gap-1 overflow-x-auto rounded-full border border-slate-200 bg-white p-1'>
+          {statusOptions.map((option) => (
+            <button
+              key={option.key}
+              type='button'
+              onClick={() => handleStatusChange(option.key)}
+              className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold transition ${
+                statusTab === option.key
+                  ? 'bg-prBlue text-white'
+                  : 'text-slate-600 hover:bg-slate-50'
+              }`}
+              title={option.key === 'all' ? 'Todas las alertas' : `Estado: ${option.label}`}
+            >
+              {option.label}{' '}
+              <span className='opacity-80'>
+                · {statusCountsFacet[option.key].toLocaleString('es-PR')}
+              </span>
+            </button>
+          ))}
+        </div>
+        <button
+          type='button'
+          onClick={() => applyView('triage')}
+          className={`shrink-0 rounded-full border px-3 py-1 text-[11px] font-semibold ${
+            activeViewKey === 'triage'
+              ? 'border-rose-200 bg-rose-50 text-rose-700'
+              : 'border-slate-200 bg-white text-slate-600 hover:border-rose-200 hover:bg-rose-50/50'
+          }`}
+          title='Críticas en estado Nueva'
+        >
+          Triage · {triageCount.toLocaleString('es-PR')}
+        </button>
+      </div>
+
       <div className='mt-3 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600'>
         <span className='rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1'>
           Orden: {sortLabels[sortBy]}
         </span>
-        {statusChip ? (
-          <span className={`rounded-full border px-2.5 py-1 ${statusChip.tone}`}>
-            Estado: {statusChip.label} · {statusChip.count}
-          </span>
-        ) : null}
         {severityChip ? (
-          <span className={`rounded-full border px-2.5 py-1 ${severityChip.tone}`}>
-            Severidad: {severityChip.label} · {severityChip.count}
-          </span>
+          <button
+            type='button'
+            onClick={() => handleSeverityChange('all')}
+            className={`rounded-full border px-2.5 py-1 ${severityChip.tone}`}
+            title='Quitar filtro de severidad'
+          >
+            Severidad: {severityChip.label} · {severityChip.count.toLocaleString('es-PR')}{' '}
+            <span className='ml-1 opacity-70'>×</span>
+          </button>
+        ) : null}
+        {activeViewKey !== 'all' ? (
+          <button
+            type='button'
+            onClick={() => applyView('all')}
+            className='rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 hover:border-prBlue'
+            title='Volver al inventario completo'
+          >
+            Restablecer
+          </button>
         ) : null}
       </div>
 
@@ -559,35 +630,43 @@ const AlertsStream: FC<Props> = ({
         <div className='mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 space-y-3'>
           <div className='flex flex-wrap items-center justify-between gap-2'>
             <p className='text-[10px] uppercase tracking-[0.16em] text-slate-400 font-semibold'>
-              Filtros avanzados
+              Vistas y severidad
             </p>
             <button
               type='button'
               onClick={() => applyView('all')}
               className='rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 hover:border-prBlue'
             >
-              Ver todas
+              Restablecer
             </button>
           </div>
 
           <div className='grid gap-3 lg:grid-cols-2'>
             <div>
               <p className='text-[10px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
-                Estado
+                Vistas
               </p>
-              <div className='mt-2 flex flex-wrap items-center gap-2'>
-                {statusOptions.map((option) => (
+              <div className='mt-2 grid gap-2 sm:grid-cols-2'>
+                {views.map((view) => (
                   <button
-                    key={option.key}
+                    key={view.key}
                     type='button'
-                    onClick={() => handleStatusChange(option.key)}
-                    className={`rounded-full px-2.5 py-1 text-[11px] font-semibold border ${
-                      statusTab === option.key
-                        ? 'border-prBlue bg-prBlue/10 text-prBlue'
-                        : 'border-slate-200 bg-white text-slate-600'
+                    onClick={() => applyView(view.key)}
+                    className={`rounded-2xl border p-3 text-left text-[11px] font-semibold transition ${
+                      activeViewKey === view.key
+                        ? 'border-prBlue bg-white shadow-sm'
+                        : 'border-slate-200 bg-white hover:border-prBlue/60'
                     }`}
                   >
-                    {option.label} · {statusCounts[option.key]}
+                    <div className='flex items-start justify-between gap-2'>
+                      <span className='text-slate-700'>{view.label}</span>
+                      <span className='rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] text-slate-600'>
+                        {viewCounts[view.key as keyof typeof viewCounts].toLocaleString('es-PR')}
+                      </span>
+                    </div>
+                    <p className='mt-1 text-[11px] font-medium text-slate-500'>
+                      {view.hint}
+                    </p>
                   </button>
                 ))}
               </div>
@@ -612,25 +691,14 @@ const AlertsStream: FC<Props> = ({
                     }`}
                   >
                     {level === 'all' ? 'Todas' : severityLabels[level]} ·{' '}
-                    {counts[level as keyof typeof counts]}
+                    {severityCountsFacet[level as keyof typeof severityCountsFacet].toLocaleString('es-PR')}
                   </button>
                 ))}
               </div>
+              <p className='mt-2 text-[11px] font-medium text-slate-500'>
+                Tip: usa las pestañas de <span className='font-semibold'>Estado</span> (arriba) para navegar el flujo sin abrir este panel.
+              </p>
             </div>
-          </div>
-
-          <div className='flex flex-wrap items-center gap-2'>
-            <span className='text-[10px] uppercase tracking-[0.16em] text-slate-400 font-semibold'>
-              Flujo
-            </span>
-            {flowSteps.map((step) => (
-              <span
-                key={step.label}
-                className='rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600'
-              >
-                {step.label} · {step.count}
-              </span>
-            ))}
           </div>
         </div>
       ) : null}
