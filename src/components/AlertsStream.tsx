@@ -4,7 +4,7 @@ import {
   ClockIcon,
   FlagIcon,
 } from '@heroicons/react/24/outline'
-import { useCallback, useEffect, useMemo, useState, type FC } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FC } from 'react'
 import type { Alert, AlertSeverity, AlertStatus } from '../data/alerts'
 
 interface Props {
@@ -165,6 +165,12 @@ const AlertsStream: FC<Props> = ({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [snoozeHours, setSnoozeHours] = useState(2)
+  const [detailsMode, setDetailsMode] = useState<'focus' | 'full'>(() => {
+    if (typeof window === 'undefined') return 'focus'
+    const stored = window.localStorage.getItem('alerts:stream:details')
+    return stored === 'full' ? 'full' : 'focus'
+  })
+  const listRef = useRef<HTMLDivElement | null>(null)
 
   const views = useMemo(
     () => [
@@ -178,7 +184,7 @@ const AlertsStream: FC<Props> = ({
       },
       {
         key: 'triage',
-        label: 'Triage: críticas nuevas',
+        label: 'Triage',
         hint: 'Críticas en estado Nueva, listas para priorizar.',
         severity: 'critical' as const,
         status: 'open' as const,
@@ -186,7 +192,7 @@ const AlertsStream: FC<Props> = ({
       },
       {
         key: 'investigacion',
-        label: 'En investigación',
+        label: 'Investigación',
         hint: 'Alertas en investigación ordenadas por recencia.',
         severity: 'all' as const,
         status: 'ack' as const,
@@ -202,7 +208,7 @@ const AlertsStream: FC<Props> = ({
       },
       {
         key: 'impacto',
-        label: 'Mayor impacto',
+        label: 'Impacto',
         hint: 'Ordenadas por impacto para priorizar daño potencial.',
         severity: 'all' as const,
         status: 'all' as const,
@@ -211,6 +217,11 @@ const AlertsStream: FC<Props> = ({
     ],
     []
   )
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.localStorage.setItem('alerts:stream:details', detailsMode)
+  }, [detailsMode])
 
   const validSelectedIds = useMemo(() => {
     if (!selectedIds.size) return selectedIds
@@ -340,6 +351,7 @@ const AlertsStream: FC<Props> = ({
     setSeverityFilter(view.severity)
     setStatusTab(view.status)
     setSortBy(view.sort)
+    setFiltersOpen(false)
   }
 
   const handleSeverityChange = (value: AlertSeverity | 'all') => {
@@ -386,6 +398,15 @@ const AlertsStream: FC<Props> = ({
     }
     clearSelection()
   }, [clearSelection, onAction, onBulkAction, snoozeHours, validSelectedIds])
+
+  useEffect(() => {
+    if (!selectedAlertId) return
+    const container = listRef.current
+    if (!container) return
+    const target = container.querySelector<HTMLElement>(`[data-alert-id="${selectedAlertId}"]`)
+    if (!target) return
+    target.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [selectedAlertId])
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -473,7 +494,7 @@ const AlertsStream: FC<Props> = ({
               title={activeViewMeta?.hint ?? undefined}
               className='rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600'
             >
-              Vista: {activeViewLabel}
+              Bandeja: {activeViewLabel}
             </span>
           </div>
           <p className='text-xs text-slate-500 mt-1'>
@@ -485,31 +506,6 @@ const AlertsStream: FC<Props> = ({
           </p>
         </div>
         <div className='flex flex-wrap items-center gap-2'>
-          <div className='flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold text-slate-600 shadow-sm'>
-            <span className='text-[10px] uppercase tracking-[0.14em] text-slate-400'>
-              Vista
-            </span>
-            <select
-              value={activeViewKey}
-              onChange={(event) => {
-                const value = event.target.value
-                if (value === 'custom') return
-                applyView(value)
-              }}
-              className='bg-transparent text-xs font-semibold text-slate-700 focus:outline-none'
-            >
-              {views.map((view) => (
-                <option key={view.key} value={view.key}>
-                  {view.label} · {viewCounts[view.key as keyof typeof viewCounts].toLocaleString('es-PR')}
-                </option>
-              ))}
-              {activeViewKey === 'custom' ? (
-                <option value='custom' disabled>
-                  Personalizada
-                </option>
-              ) : null}
-            </select>
-          </div>
           <div className='flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold text-slate-600 shadow-sm'>
             <span className='text-[10px] uppercase tracking-[0.14em] text-slate-400'>
               Orden
@@ -526,6 +522,33 @@ const AlertsStream: FC<Props> = ({
               ))}
             </select>
           </div>
+          <div className='flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 text-xs font-semibold text-slate-600 shadow-sm'>
+            <span className='px-2 text-[10px] uppercase tracking-[0.14em] text-slate-400'>
+              Detalle
+            </span>
+            {([
+              { key: 'focus', label: 'Foco' },
+              { key: 'full', label: 'Todos' },
+            ] as const).map((option) => (
+              <button
+                key={option.key}
+                type='button'
+                onClick={() => setDetailsMode(option.key)}
+                className={`rounded-lg px-2 py-1 text-[11px] font-semibold transition ${
+                  detailsMode === option.key
+                    ? 'bg-prBlue text-white'
+                    : 'text-slate-600 hover:bg-slate-50'
+                }`}
+                title={
+                  option.key === 'focus'
+                    ? 'Muestra detalles completos solo en la alerta seleccionada'
+                    : 'Muestra detalles completos en todas las alertas'
+                }
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
           <button
             type='button'
             onClick={() => setFiltersOpen((prev) => !prev)}
@@ -535,7 +558,7 @@ const AlertsStream: FC<Props> = ({
                 : 'border-slate-200 bg-white text-slate-600'
             }`}
           >
-            Más filtros
+            Bandejas
             {activeAdvancedFilterCount ? (
               <span className='rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600'>
                 {activeAdvancedFilterCount}
@@ -630,7 +653,7 @@ const AlertsStream: FC<Props> = ({
         <div className='mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 space-y-3'>
           <div className='flex flex-wrap items-center justify-between gap-2'>
             <p className='text-[10px] uppercase tracking-[0.16em] text-slate-400 font-semibold'>
-              Vistas y severidad
+              Bandejas y severidad
             </p>
             <button
               type='button'
@@ -644,7 +667,7 @@ const AlertsStream: FC<Props> = ({
           <div className='grid gap-3 lg:grid-cols-2'>
             <div>
               <p className='text-[10px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
-                Vistas
+                Bandejas
               </p>
               <div className='mt-2 grid gap-2 sm:grid-cols-2'>
                 {views.map((view) => (
@@ -670,6 +693,12 @@ const AlertsStream: FC<Props> = ({
                   </button>
                 ))}
               </div>
+              <p className='mt-2 text-[11px] font-medium text-slate-500'>
+                Las bandejas aplican combinaciones de{' '}
+                <span className='font-semibold'>estado</span>,{' '}
+                <span className='font-semibold'>severidad</span> y{' '}
+                <span className='font-semibold'>orden</span>.
+              </p>
             </div>
 
             <div>
@@ -767,7 +796,12 @@ const AlertsStream: FC<Props> = ({
         </div>
       ) : null}
 
-      <div className='space-y-3 max-h-[65vh] overflow-y-auto pr-1'>
+      <div
+        ref={listRef}
+        className={`max-h-[65vh] overflow-y-auto pr-1 ${
+          detailsMode === 'focus' ? 'space-y-2' : 'space-y-3'
+        }`}
+      >
         {sorted.map((alert) => {
           const ageHours = calcAgeHours(alert)
           const slaTarget = slaTargets[alert.severity]
@@ -779,12 +813,18 @@ const AlertsStream: FC<Props> = ({
           const slaBreach =
             ageHours > slaTarget &&
             (alert.status === 'open' || alert.status === 'ack' || alert.status === 'escalated')
-          const sparkline = buildSparkline(alert.evidence)
           const isSelected = validSelectedIds.has(alert.id)
+          const isActive = selectedAlertId === alert.id
+          const showDetails = detailsMode === 'full' || isActive
+          const visibleSignals = showDetails
+            ? alert.signals.slice(0, 2)
+            : alert.signals.slice(0, 1)
+          const sparkline = showDetails ? buildSparkline(alert.evidence) : null
 
           return (
             <div
               key={alert.id}
+              data-alert-id={alert.id}
               role='button'
               tabIndex={0}
               onClick={() => onSelectAlert?.(alert.id)}
@@ -794,8 +834,10 @@ const AlertsStream: FC<Props> = ({
                   onSelectAlert?.(alert.id)
                 }
               }}
-              className={`group w-full text-left rounded-2xl border px-4 py-3 shadow-sm transition ${
-                selectedAlertId === alert.id
+              className={`group w-full text-left rounded-2xl border px-4 shadow-sm transition ${
+                showDetails ? 'py-3' : 'py-2.5'
+              } ${
+                isActive
                   ? 'border-prBlue bg-prBlue/5'
                   : slaBreach
                     ? 'border-rose-200 bg-rose-50/40'
@@ -809,15 +851,18 @@ const AlertsStream: FC<Props> = ({
                     event.stopPropagation()
                     toggleSelection(alert.id)
                   }}
+                  aria-label={isSelected ? 'Quitar de la selección' : 'Agregar a la selección'}
+                  aria-pressed={isSelected}
+                  title='Seleccionar para acciones bulk'
                   className={`mt-1 flex h-6 w-6 items-center justify-center rounded-full border text-[11px] font-semibold ${
                     isSelected
                       ? 'border-prBlue bg-prBlue text-white'
-                      : 'border-slate-200 bg-white text-transparent'
+                      : 'border-slate-200 bg-white text-slate-300 hover:border-prBlue/60 hover:text-prBlue/40'
                   }`}
                 >
                   <CheckCircleIcon className='h-3.5 w-3.5' />
                 </button>
-                <div className='flex-1 space-y-2'>
+                <div className={`flex-1 ${showDetails ? 'space-y-2' : 'space-y-1.5'}`}>
                   <div className='flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600'>
                     <span
                       className={`rounded-full border px-2 py-0.5 ${severityTone[alert.severity]}`}
@@ -834,9 +879,13 @@ const AlertsStream: FC<Props> = ({
                     </span>
                   </div>
                   <p className='text-sm font-semibold text-ink'>{alert.title}</p>
-                  <p className='text-xs text-slate-500'>{alert.summary}</p>
+                  {showDetails ? (
+                    <p className='text-xs text-slate-500'>{alert.summary}</p>
+                  ) : (
+                    <p className='text-xs text-slate-500 truncate'>{alert.summary}</p>
+                  )}
                   <div className='flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600'>
-                    {alert.signals.slice(0, 2).map((signal) => (
+                    {visibleSignals.map((signal) => (
                       <span
                         key={`${alert.id}-signal-${signal.type}`}
                         className='rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5'
@@ -844,7 +893,11 @@ const AlertsStream: FC<Props> = ({
                         {signal.label}
                       </span>
                     ))}
-                    <span className='text-[11px] text-slate-500'>
+                    <span
+                      className={`min-w-0 text-[11px] text-slate-500 ${
+                        showDetails ? '' : 'truncate'
+                      }`}
+                    >
                       Contexto: {alert.topTopics[0]?.name ?? 'Sin tema'} · {alert.scopeLabel}
                     </span>
                   </div>
@@ -876,19 +929,21 @@ const AlertsStream: FC<Props> = ({
                   Impacto {alert.metrics.impactRatio.toFixed(2)}x
                 </span>
               </div>
-              <div className='mt-3 flex flex-wrap items-center gap-4 text-[10px] font-semibold text-slate-500'>
-                <div className='flex items-center gap-2'>
-                  <span className='uppercase tracking-[0.12em] text-[9px]'>Vol</span>
-                  <Sparkline values={sparkline.volume} tone='#2563eb' />
+              {showDetails ? (
+                <div className='mt-3 flex flex-wrap items-center gap-4 text-[10px] font-semibold text-slate-500'>
+                  <div className='flex items-center gap-2'>
+                    <span className='uppercase tracking-[0.12em] text-[9px]'>Vol</span>
+                    <Sparkline values={sparkline?.volume ?? []} tone='#2563eb' />
+                  </div>
+                  <div className='flex items-center gap-2'>
+                    <span className='uppercase tracking-[0.12em] text-[9px]'>Neg</span>
+                    <Sparkline values={sparkline?.negativity ?? []} tone='#e11d48' />
+                  </div>
+                  <span className='text-[10px] text-slate-400'>
+                    Azul: volumen · Rojo: negatividad
+                  </span>
                 </div>
-                <div className='flex items-center gap-2'>
-                  <span className='uppercase tracking-[0.12em] text-[9px]'>Neg</span>
-                  <Sparkline values={sparkline.negativity} tone='#e11d48' />
-                </div>
-                <span className='text-[10px] text-slate-400'>
-                  Azul: volumen · Rojo: negatividad
-                </span>
-              </div>
+              ) : null}
               <div className='mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500'>
                 <span>
                   Última detección: {formatTime(alert.lastSeenAt)} · Edad{' '}
@@ -896,7 +951,7 @@ const AlertsStream: FC<Props> = ({
                 </span>
                 <div
                   className={`flex flex-wrap items-center gap-1 transition ${
-                    isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                    isSelected || isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
                   }`}
                 >
                   <button

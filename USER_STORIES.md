@@ -74,6 +74,10 @@ Mantén las historias organizadas por área. Añade una nueva historia por solic
   - Criterios: tabs de estado siempre visibles (con conteos) y CTA de triage; severidad y vistas explicadas en panel colapsable.
   - Criterios: conteos en filtros reflejan el contexto (faceted counts) para evitar confusión al combinar estado/severidad.
   - Criterios: chips de filtros activos son claros y permiten restablecer rápido sin perder atajos ni bulk actions.
+- US-2026-02-10-050 — Como analista, quiero que el Stream de alertas sea más escaneable (menos ruido) sin perder riqueza de datos, para hacer triage rápido y profundizar en la alerta seleccionada.
+  - Criterios: modo “Foco” (detalles solo en la alerta seleccionada) + modo “Todos” (detalles completos); mantener la misma información disponible.
+  - Criterios: al navegar con J/K la alerta seleccionada hace auto-scroll en el stream y las acciones/atajos siguen funcionando.
+  - Criterios: la cabecera reduce controles redundantes; “bandejas”/vistas siguen existiendo pero con mejor progressive disclosure.
 - US-2026-02-09-037 — Como analista, quiero una lista de 20 mejoras UX/UI para Network Connections (análisis + management) para investigar relaciones y coordinación sin fricción.
   - Criterios: 20 mejoras concretas (interacciones, legibilidad, workflow de investigación, guardado/compartición) sin borrar componentes existentes.
   - Criterios: propuestas aterrizadas a `NetworkGraph`, `NetworkInsightsPanel`, `ConnectionMatrix`, `NetworkPulse` y `src/data/networkConnections.ts`; sin implementación en código en esta historia.
