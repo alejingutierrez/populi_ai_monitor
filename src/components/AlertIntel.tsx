@@ -60,6 +60,28 @@ const formatSignedCompact = (value: number) => {
   return `${sign}${formatCompact(Math.abs(value))}`
 }
 
+const formatDeltaPctLabel = (current: number, prev: number, deltaPct?: number) => {
+  const computed =
+    typeof deltaPct === 'number' && Number.isFinite(deltaPct)
+      ? deltaPct
+      : pctChange(current, prev)
+  if (!Number.isFinite(computed)) return '—'
+  if (prev === 0 && current > 0) return 'Nuevo'
+  if (Math.abs(computed) > 9999) return computed >= 0 ? '+>9999%' : '->9999%'
+  return `${computed >= 0 ? '+' : ''}${computed.toFixed(0)}%`
+}
+
+const splitAlertTitle = (title: string) => {
+  const parts = title.split(' · ').map((part) => part.trim()).filter(Boolean)
+  if (parts.length >= 2) {
+    return {
+      scope: parts[0],
+      signal: parts.slice(1).join(' · '),
+    }
+  }
+  return { scope: '', signal: title }
+}
+
 const buildVolumeDeltaBadge = (current: number, prev: number) => {
   const deltaPct = pctChange(current, prev)
   const deltaAbs = current - prev
@@ -208,6 +230,447 @@ const highlightText = (text: string, terms: string[]) => {
   )
 }
 
+type PanoramaSummaryProps = {
+  alert: Alert
+  prevPoint: AlertHistoryPoint | null
+  currentPoint: AlertHistoryPoint | null
+  formatWindow: (point: AlertHistoryPoint) => string
+  onApplyScope?: (alert: Alert) => void
+  onOpenFeedStream?: (alert: Alert) => void
+  onRequestInsight?: (alert: Alert) => void
+}
+
+const PanoramaSummary: FC<PanoramaSummaryProps> = ({
+  alert,
+  prevPoint,
+  currentPoint,
+  formatWindow,
+  onApplyScope,
+  onOpenFeedStream,
+  onRequestInsight,
+}) => {
+  const volumeCurrent = alert.metrics.volumeCurrent
+  const volumePrev = prevPoint?.metrics.volumeCurrent ?? alert.metrics.volumePrev
+  const volumeDeltaAbs = volumeCurrent - volumePrev
+  const volumeDeltaAbsLabel = formatSignedCompact(volumeDeltaAbs)
+  const volumeDeltaPctLabel = formatDeltaPctLabel(
+    volumeCurrent,
+    volumePrev,
+    alert.metrics.volumeDeltaPct
+  )
+
+  const negPrev = prevPoint?.metrics.negativeShare
+  const riskPrev = prevPoint?.metrics.riskScore
+  const impactPrev = prevPoint?.metrics.impactRatio
+  const engagementPrev = prevPoint?.metrics.engagement
+  const reachPrev = prevPoint?.metrics.reach
+  const engagementRatePrev = prevPoint?.metrics.engagementRate
+
+  const negBadge =
+    typeof negPrev === 'number'
+      ? buildDeltaValueBadge(alert.metrics.negativeShare, negPrev, {
+          unit: 'pp',
+          digits: 0,
+          prefersLower: true,
+        })
+      : null
+  const riskBadge =
+    typeof riskPrev === 'number'
+      ? buildDeltaValueBadge(alert.metrics.riskScore, riskPrev, {
+          unit: '',
+          digits: 0,
+          prefersLower: true,
+        })
+      : null
+  const impactBadge =
+    typeof impactPrev === 'number'
+      ? buildDeltaValueBadge(alert.metrics.impactRatio, impactPrev, {
+          unit: 'x',
+          digits: 2,
+          prefersLower: true,
+        })
+      : null
+  const engagementDelta =
+    typeof engagementPrev === 'number' ? alert.metrics.engagement - engagementPrev : null
+  const engagementDeltaLabel =
+    typeof engagementDelta === 'number' && engagementDelta !== 0
+      ? formatSignedCompact(engagementDelta)
+      : null
+
+  const reachDelta = typeof reachPrev === 'number' ? alert.metrics.reach - reachPrev : null
+  const reachDeltaLabel =
+    typeof reachDelta === 'number' && reachDelta !== 0 ? formatSignedCompact(reachDelta) : null
+  const engagementRateBadge =
+    typeof engagementRatePrev === 'number'
+      ? buildDeltaValueBadge(alert.metrics.engagementRate, engagementRatePrev, {
+          unit: 'pp',
+          digits: 1,
+        })
+      : null
+
+  const signalTypes = useMemo(
+    () => new Set(alert.signals.map((signal) => signal.type)),
+    [alert.signals]
+  )
+
+  const quickSteps = useMemo(() => {
+    const steps: string[] = []
+    if (signalTypes.has('volume')) {
+      steps.push('Identifica drivers del spike: temas dominantes y keywords; valida si hay un evento real.')
+    }
+    if (signalTypes.has('sentiment_shift') || signalTypes.has('negativity')) {
+      steps.push('Revisa evidencia negativa y entidades clave; confirma si el cambio es orgánico o coordinado.')
+    }
+    if (signalTypes.has('risk')) {
+      steps.push('Evalúa el riesgo reputacional (contexto + actores) y define si requiere escalamiento o respuesta.')
+    }
+    if (signalTypes.has('viral')) {
+      steps.push('Busca posts con mayor reach/engagement y determina si hay amplificación (medios, cuentas grandes).')
+    }
+    if (signalTypes.has('cross_platform')) {
+      steps.push('Confirma distribución multi-plataforma y consistencia del mensaje (posible coordinación).')
+    }
+    if (signalTypes.has('coordination')) {
+      steps.push('Inspecciona repetición de texto/URLs y cruza autores para detectar patrones de coordinación.')
+    }
+    if (signalTypes.has('geo_expansion')) {
+      steps.push('Identifica municipios nuevos/atípicos y valida si la expansión es real (fuentes + timing).')
+    }
+    if (!steps.length) {
+      steps.push('Valida la señal principal, revisa drivers y decide si se investiga, se pospone o se resuelve.')
+    }
+    return steps.slice(0, 4)
+  }, [signalTypes])
+
+  const toneInfo = 'border-prBlue/30 bg-prBlue/10 text-prBlue'
+
+  return (
+    <div className='mt-4 space-y-4'>
+      <div className='rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50/80 via-white to-white px-3 py-2.5 shadow-sm'>
+        <div className='flex flex-wrap items-start justify-between gap-2'>
+          <div className='min-w-0'>
+            <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
+              Panorama general
+            </p>
+            <p className='mt-1 text-xs text-slate-600'>{alert.summary}</p>
+          </div>
+          <div className='flex flex-wrap items-center gap-2 text-[10px] font-semibold text-slate-600'>
+            {Number.isFinite(alert.priority) ? (
+              <span className='rounded-full border border-slate-200 bg-white px-2 py-1'>
+                Prioridad {alert.priority}
+              </span>
+            ) : null}
+            {Number.isFinite(alert.confidence) ? (
+              <span className='rounded-full border border-slate-200 bg-white px-2 py-1'>
+                Confianza {alert.confidence?.toFixed(0)}%
+              </span>
+            ) : null}
+          </div>
+        </div>
+        {currentPoint ? (
+          <p className='mt-2 text-[11px] text-slate-500'>
+            Ventana: <span className='font-semibold text-slate-700'>{formatWindow(currentPoint)}</span>
+            {prevPoint ? (
+              <>
+                {' '}
+                · vs{' '}
+                <span className='font-semibold text-slate-700'>{formatWindow(prevPoint)}</span>
+              </>
+            ) : null}
+          </p>
+        ) : null}
+      </div>
+
+      {prevPoint && currentPoint ? (
+        <div className='flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-semibold text-slate-600'>
+          <span className='text-[10px] uppercase tracking-[0.14em] text-slate-400'>
+            Cambios
+          </span>
+          <span
+            title={`Volumen: ${volumeCurrent.toLocaleString('es-PR')} vs ${volumePrev.toLocaleString('es-PR')} · Δ ${volumeDeltaPctLabel}`}
+            className={`rounded-full border px-2 py-0.5 ${toneInfo}`}
+          >
+            Vol Δ {volumeDeltaAbsLabel}
+          </span>
+          {negBadge ? (
+            <span className={`rounded-full border px-2 py-0.5 ${negBadge.tone}`}>
+              Neg {negBadge.label}
+            </span>
+          ) : null}
+          {riskBadge ? (
+            <span className={`rounded-full border px-2 py-0.5 ${riskBadge.tone}`}>
+              Riesgo {riskBadge.label}
+            </span>
+          ) : null}
+          {impactBadge ? (
+            <span className={`rounded-full border px-2 py-0.5 ${impactBadge.tone}`}>
+              Impacto {impactBadge.label}
+            </span>
+          ) : null}
+        </div>
+      ) : (
+        <div className='rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600'>
+          Sin ventana previa disponible con los filtros actuales.
+        </div>
+      )}
+
+      <div className='grid gap-4 lg:grid-cols-2'>
+        <div className='grid gap-3 sm:grid-cols-2'>
+          <div className='rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm'>
+            <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
+              Volumen
+            </p>
+            <p className='text-lg font-semibold text-ink'>{formatCompact(volumeCurrent)}</p>
+            <div className='mt-1 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600'>
+              <span className='text-slate-500'>Prev {formatCompact(volumePrev)}</span>
+              <span title={`Δ ${volumeDeltaPctLabel} vs previo`} className={`rounded-full border px-2 py-0.5 ${toneInfo}`}>
+                Δ {volumeDeltaAbsLabel}
+              </span>
+            </div>
+          </div>
+
+          <div className='rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm'>
+            <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
+              Negatividad
+            </p>
+            <p className='text-lg font-semibold text-ink'>
+              {alert.metrics.negativeShare.toFixed(0)}%
+            </p>
+            <div className='mt-1 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600'>
+              {typeof negPrev === 'number' ? (
+                <span className='text-slate-500'>Prev {negPrev.toFixed(0)}%</span>
+              ) : null}
+              {negBadge ? (
+                <span className={`rounded-full border px-2 py-0.5 ${negBadge.tone}`}>
+                  Δ {negBadge.label}
+                </span>
+              ) : (
+                <span className='text-slate-400'>Δ —</span>
+              )}
+            </div>
+          </div>
+
+          <div className='rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm'>
+            <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
+              Riesgo
+            </p>
+            <p className='text-lg font-semibold text-ink'>{alert.metrics.riskScore.toFixed(0)}</p>
+            <div className='mt-1 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600'>
+              {typeof riskPrev === 'number' ? (
+                <span className='text-slate-500'>Prev {riskPrev.toFixed(0)}</span>
+              ) : null}
+              {riskBadge ? (
+                <span className={`rounded-full border px-2 py-0.5 ${riskBadge.tone}`}>
+                  Δ {riskBadge.label}
+                </span>
+              ) : (
+                <span className='text-slate-400'>Δ —</span>
+              )}
+            </div>
+          </div>
+
+          <div className='rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm'>
+            <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
+              Impacto
+            </p>
+            <p className='text-lg font-semibold text-ink'>{alert.metrics.impactRatio.toFixed(2)}x</p>
+            <div className='mt-1 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600'>
+              {typeof impactPrev === 'number' ? (
+                <span className='text-slate-500'>Prev {impactPrev.toFixed(2)}x</span>
+              ) : null}
+              {impactBadge ? (
+                <span className={`rounded-full border px-2 py-0.5 ${impactBadge.tone}`}>
+                  Δ {impactBadge.label}
+                </span>
+              ) : (
+                <span className='text-slate-400'>Δ —</span>
+              )}
+            </div>
+            <p className='mt-1 text-[11px] text-slate-500'>Reach {formatCompact(alert.metrics.reach)}</p>
+          </div>
+
+          <div className='rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm'>
+            <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
+              Engagement
+            </p>
+            <p className='text-lg font-semibold text-ink'>{formatCompact(alert.metrics.engagement)}</p>
+            <div className='mt-1 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600'>
+              {engagementDeltaLabel ? (
+                <span className='rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-slate-700'>
+                  Δ {engagementDeltaLabel}
+                </span>
+              ) : (
+                <span className='text-slate-400'>Δ —</span>
+              )}
+              <span className='text-slate-500'>Tasa {alert.metrics.engagementRate.toFixed(1)}%</span>
+            </div>
+          </div>
+
+          <div className='rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm'>
+            <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
+              Cobertura
+            </p>
+            <p className='text-lg font-semibold text-ink'>{alert.uniqueAuthors ?? 0}</p>
+            <p className='text-[11px] text-slate-500'>
+              Autores únicos · Nuevos {alert.newAuthorsPct?.toFixed(0) ?? 0}% · Geo {alert.geoSpread ?? 0}
+            </p>
+          </div>
+        </div>
+
+        <div className='space-y-3'>
+          <div className='rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm'>
+            <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
+              Drivers (lo que domina)
+            </p>
+            <div className='mt-2 space-y-3'>
+              <div>
+                <p className='text-[10px] uppercase tracking-[0.14em] text-slate-400 font-semibold'>
+                  Temas
+                </p>
+                <div className='mt-1 flex flex-wrap gap-2 text-[11px] font-semibold text-slate-600'>
+                  {alert.topTopics.length ? (
+                    alert.topTopics.map((topic) => (
+                      <span
+                        key={topic.name}
+                        className='rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1'
+                      >
+                        {topic.name} · {topic.count}
+                      </span>
+                    ))
+                  ) : (
+                    <span className='text-xs text-slate-500'>Sin temas dominantes.</span>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <p className='text-[10px] uppercase tracking-[0.14em] text-slate-400 font-semibold'>
+                  Entidades
+                </p>
+                <div className='mt-1 flex flex-wrap gap-2 text-[11px] font-semibold text-slate-600'>
+                  {alert.topEntities?.length ? (
+                    alert.topEntities.map((entity) => (
+                      <span
+                        key={entity.name}
+                        className='rounded-full border border-slate-200 bg-white px-2.5 py-1'
+                      >
+                        {entity.name} · {entity.count}
+                      </span>
+                    ))
+                  ) : (
+                    <span className='text-xs text-slate-500'>Sin entidades.</span>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <p className='text-[10px] uppercase tracking-[0.14em] text-slate-400 font-semibold'>
+                  Keywords
+                </p>
+                <div className='mt-1 flex flex-wrap gap-2 text-[11px] font-semibold text-slate-600'>
+                  {alert.keywords?.length ? (
+                    alert.keywords.map((keyword) => (
+                      <span
+                        key={keyword.term}
+                        className='rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1'
+                      >
+                        {keyword.term} · {keyword.count}
+                      </span>
+                    ))
+                  ) : (
+                    <span className='text-xs text-slate-500'>Sin keywords.</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className='rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm'>
+            <div className='flex items-center gap-2 text-[11px] font-semibold text-slate-500 uppercase tracking-[0.16em]'>
+              <SparklesIcon className='h-4 w-4 text-prBlue' />
+              Guía rápida
+            </div>
+            <ul className='mt-2 text-xs text-slate-600 space-y-2'>
+              {quickSteps.map((step) => (
+                <li key={step}>{step}</li>
+              ))}
+            </ul>
+            {alert.ruleValues ? (
+              <div className='mt-3'>
+                <p className='text-[10px] uppercase tracking-[0.14em] text-slate-400 font-semibold'>
+                  Señales activas
+                </p>
+                <div className='mt-1 flex flex-wrap gap-2 text-[11px] font-semibold text-slate-600'>
+                  {alert.signals.map((signal) => {
+                    const rule = alert.ruleValues?.[signal.type]
+                    const catalog = ruleCatalog[signal.type]
+                    const valueLabel = rule ? formatRuleValue(rule) : null
+                    return (
+                      <span
+                        key={`${alert.id}-signal-value-${signal.type}`}
+                        title={
+                          catalog
+                            ? `${catalog.label}: ${valueLabel ?? '—'} · Umbral ${catalog.threshold}`
+                            : valueLabel ?? signal.label
+                        }
+                        className='rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1'
+                      >
+                        {signal.label}
+                        {valueLabel ? ` · ${valueLabel}` : ''}
+                      </span>
+                    )
+                  })}
+                </div>
+              </div>
+            ) : null}
+            {prevPoint && currentPoint ? (
+              <div className='mt-3 grid gap-2 sm:grid-cols-2 text-[11px] font-semibold text-slate-600'>
+                {reachDeltaLabel ? (
+                  <span className='rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-slate-700'>
+                    Reach {reachDeltaLabel}
+                  </span>
+                ) : null}
+                {engagementRateBadge ? (
+                  <span className={`rounded-full border px-2 py-1 ${engagementRateBadge.tone}`}>
+                    Tasa {engagementRateBadge.label}
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      <div className='flex flex-wrap items-center gap-2'>
+        <button
+          type='button'
+          onClick={() => onApplyScope?.(alert)}
+          className='inline-flex items-center gap-2 rounded-xl bg-prBlue px-3 py-2 text-xs font-semibold text-white shadow-glow border border-prBlue/80 hover:brightness-110'
+        >
+          <MapPinIcon className='h-4 w-4' />
+          Aplicar filtros
+        </button>
+        <button
+          type='button'
+          onClick={() => onOpenFeedStream?.(alert)}
+          className='inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:border-prBlue'
+        >
+          <ArrowTopRightOnSquareIcon className='h-4 w-4' />
+          Ver en Feed Stream
+        </button>
+        <button
+          type='button'
+          onClick={() => onRequestInsight?.(alert)}
+          className='inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 hover:border-emerald-300'
+        >
+          <SparklesIcon className='h-4 w-4' />
+          Pedir insight de esta alerta
+        </button>
+      </div>
+    </div>
+  )
+}
+
 const AlertIntel: FC<Props> = ({
   alert,
   history,
@@ -306,14 +769,21 @@ const AlertIntel: FC<Props> = ({
     )
   }
 
+  const isOverall = alert.scopeType === 'overall'
+  const titleParts = splitAlertTitle(alert.title)
+  const headerTitle = isOverall ? titleParts.signal : alert.title
+  const headerScope = isOverall ? (titleParts.scope || alert.scopeLabel) : alert.scopeLabel
+
   return (
     <section className='card p-4 min-w-0'>
       <div className='card-header items-start gap-3 flex-col'>
         <div className='flex items-start justify-between gap-2 w-full'>
           <div>
             <p className='muted'>Alert Intel</p>
-            <p className='h-section'>{alert.title}</p>
-            <p className='text-xs text-slate-500 mt-1'>{alert.scopeLabel}</p>
+            <p className='h-section' title={alert.title}>
+              {headerTitle}
+            </p>
+            <p className='text-xs text-slate-500 mt-1'>{headerScope}</p>
           </div>
           <span
             className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${severityTone[alert.severity]}`}
@@ -360,92 +830,119 @@ const AlertIntel: FC<Props> = ({
       </div>
 
       {activeTab === 'resumen' ? (
-        <div className='mt-4 space-y-4'>
-          <div className='grid gap-3 sm:grid-cols-2'>
-            <div className='rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm'>
-              <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
-                Volumen
-              </p>
-              <p className='text-lg font-semibold text-ink'>
-                {formatCompact(alert.metrics.volumeCurrent)}
-              </p>
-              <p className='text-[11px] text-slate-500'>
-                Δ {alert.metrics.volumeDeltaPct.toFixed(0)}% vs previo
-              </p>
+        isOverall ? (
+          <PanoramaSummary
+            alert={alert}
+            prevPoint={prevPoint}
+            currentPoint={currentPoint}
+            formatWindow={formatWindow}
+            onApplyScope={onApplyScope}
+            onOpenFeedStream={onOpenFeedStream}
+            onRequestInsight={onRequestInsight}
+          />
+        ) : (
+          <div className='mt-4 space-y-4'>
+            <div className='grid gap-3 sm:grid-cols-2'>
+              <div className='rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm'>
+                <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
+                  Volumen
+                </p>
+                <p className='text-lg font-semibold text-ink'>
+                  {formatCompact(alert.metrics.volumeCurrent)}
+                </p>
+                {(() => {
+                  const current = alert.metrics.volumeCurrent
+                  const prev = alert.metrics.volumePrev
+                  const deltaAbsLabel = formatSignedCompact(current - prev)
+                  const deltaPctLabel = formatDeltaPctLabel(
+                    current,
+                    prev,
+                    alert.metrics.volumeDeltaPct
+                  )
+                  return (
+                    <p
+                      className='text-[11px] text-slate-500'
+                      title={`Previo ${prev.toLocaleString('es-PR')} · Δ ${deltaPctLabel}`}
+                    >
+                      Prev {formatCompact(prev)} · Δ {deltaAbsLabel}
+                    </p>
+                  )
+                })()}
+              </div>
+              <div className='rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm'>
+                <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
+                  Negatividad
+                </p>
+                <p className='text-lg font-semibold text-ink'>
+                  {alert.metrics.negativeShare.toFixed(0)}%
+                </p>
+                <p className='text-[11px] text-slate-500'>
+                  Riesgo {alert.metrics.riskScore.toFixed(0)} / 100
+                </p>
+              </div>
+              <div className='rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm'>
+                <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
+                  Impacto
+                </p>
+                <p className='text-lg font-semibold text-ink'>
+                  {alert.metrics.impactRatio.toFixed(2)}x
+                </p>
+                <p className='text-[11px] text-slate-500'>
+                  Reach {formatCompact(alert.metrics.reach)}
+                </p>
+              </div>
+              <div className='rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm'>
+                <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
+                  Engagement
+                </p>
+                <p className='text-lg font-semibold text-ink'>
+                  {formatCompact(alert.metrics.engagement)}
+                </p>
+                <p className='text-[11px] text-slate-500'>
+                  Tasa {alert.metrics.engagementRate.toFixed(1)}%
+                </p>
+              </div>
             </div>
-            <div className='rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm'>
-              <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
-                Negatividad
-              </p>
-              <p className='text-lg font-semibold text-ink'>
-                {alert.metrics.negativeShare.toFixed(0)}%
-              </p>
-              <p className='text-[11px] text-slate-500'>
-                Riesgo {alert.metrics.riskScore.toFixed(0)} / 100
-              </p>
-            </div>
-            <div className='rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm'>
-              <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
-                Impacto
-              </p>
-              <p className='text-lg font-semibold text-ink'>
-                {alert.metrics.impactRatio.toFixed(2)}x
-              </p>
-              <p className='text-[11px] text-slate-500'>
-                Reach {formatCompact(alert.metrics.reach)}
-              </p>
-            </div>
-            <div className='rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm'>
-              <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
-                Engagement
-              </p>
-              <p className='text-lg font-semibold text-ink'>
-                {formatCompact(alert.metrics.engagement)}
-              </p>
-              <p className='text-[11px] text-slate-500'>
-                Tasa {alert.metrics.engagementRate.toFixed(1)}%
-              </p>
-            </div>
-          </div>
 
-          <div className='space-y-3'>
-            <div className='flex items-center gap-2 text-[11px] font-semibold text-slate-500 uppercase tracking-[0.16em]'>
-              <SparklesIcon className='h-4 w-4 text-prBlue' />
-              Resumen IA
-            </div>
-            <ul className='text-xs text-slate-600 space-y-2'>
-              <li>Validar señal principal y revisar evidencia crítica.</li>
-              <li>Confirmar tema dominante y responsables internos.</li>
-              <li>Definir si escala o se resuelve con respuesta puntual.</li>
-            </ul>
-            <div className='flex flex-wrap items-center gap-2'>
-              <button
-                type='button'
-                onClick={() => onApplyScope?.(alert)}
-                className='inline-flex items-center gap-2 rounded-xl bg-prBlue px-3 py-2 text-xs font-semibold text-white shadow-glow border border-prBlue/80 hover:brightness-110'
-              >
-                <MapPinIcon className='h-4 w-4' />
-                Aplicar filtros
-              </button>
-              <button
-                type='button'
-                onClick={() => onOpenFeedStream?.(alert)}
-                className='inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:border-prBlue'
-              >
-                <ArrowTopRightOnSquareIcon className='h-4 w-4' />
-                Ver en Feed Stream
-              </button>
-              <button
-                type='button'
-                onClick={() => onRequestInsight?.(alert)}
-                className='inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 hover:border-emerald-300'
-              >
-                <SparklesIcon className='h-4 w-4' />
-                Pedir insight de esta alerta
-              </button>
+            <div className='space-y-3'>
+              <div className='flex items-center gap-2 text-[11px] font-semibold text-slate-500 uppercase tracking-[0.16em]'>
+                <SparklesIcon className='h-4 w-4 text-prBlue' />
+                Resumen IA
+              </div>
+              <ul className='text-xs text-slate-600 space-y-2'>
+                <li>Validar señal principal y revisar evidencia crítica.</li>
+                <li>Confirmar tema dominante y responsables internos.</li>
+                <li>Definir si escala o se resuelve con respuesta puntual.</li>
+              </ul>
+              <div className='flex flex-wrap items-center gap-2'>
+                <button
+                  type='button'
+                  onClick={() => onApplyScope?.(alert)}
+                  className='inline-flex items-center gap-2 rounded-xl bg-prBlue px-3 py-2 text-xs font-semibold text-white shadow-glow border border-prBlue/80 hover:brightness-110'
+                >
+                  <MapPinIcon className='h-4 w-4' />
+                  Aplicar filtros
+                </button>
+                <button
+                  type='button'
+                  onClick={() => onOpenFeedStream?.(alert)}
+                  className='inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:border-prBlue'
+                >
+                  <ArrowTopRightOnSquareIcon className='h-4 w-4' />
+                  Ver en Feed Stream
+                </button>
+                <button
+                  type='button'
+                  onClick={() => onRequestInsight?.(alert)}
+                  className='inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 hover:border-emerald-300'
+                >
+                  <SparklesIcon className='h-4 w-4' />
+                  Pedir insight de esta alerta
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        )
       ) : null}
 
       {activeTab === 'historia' ? (

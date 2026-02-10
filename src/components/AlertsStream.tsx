@@ -54,6 +54,15 @@ const statusLabels: Record<AlertStatus, string> = {
   escalated: 'Escalada',
 }
 
+const scopeTypeLabels: Record<Alert['scopeType'], string> = {
+  overall: 'Panorama',
+  cluster: 'Cluster',
+  subcluster: 'Subcluster',
+  microcluster: 'Microcluster',
+  city: 'Municipio',
+  platform: 'Plataforma',
+}
+
 const severityWeight = (severity: AlertSeverity) => {
   if (severity === 'critical') return 4
   if (severity === 'high') return 3
@@ -933,7 +942,7 @@ const AlertsStream: FC<Props> = ({
                       {statusLabels[alert.status]}
                     </span>
                     <span className='rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5'>
-                      {alert.scopeType}
+                      {scopeTypeLabels[alert.scopeType] ?? alert.scopeType}
                     </span>
                   </div>
                   <p className='text-sm font-semibold text-ink'>{alert.title}</p>
