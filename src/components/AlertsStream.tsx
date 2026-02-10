@@ -412,17 +412,79 @@ const AlertsStream: FC<Props> = ({
     return () => window.removeEventListener('keydown', handler)
   }, [selectedIds, onBulkAction, onAction, sorted, selectedAlertId, onSelectAlert, snoozeHours])
 
+  const activeViewMeta = views.find((view) => view.key === activeView) ?? null
+
+  const activeViewLabel =
+    activeView === 'custom'
+      ? 'Personalizada'
+      : activeViewMeta?.label ?? 'Todas'
+
+  const activeFilterCount =
+    (statusTab === 'all' ? 0 : 1) + (severityFilter === 'all' ? 0 : 1)
+
+  const statusChip =
+    statusTab === 'all'
+      ? null
+      : {
+          label: statusLabels[statusTab],
+          count: statusCounts[statusTab],
+          tone: statusTone[statusTab],
+        }
+
+  const severityChip =
+    severityFilter === 'all'
+      ? null
+      : {
+          label: severityLabels[severityFilter],
+          count: counts[severityFilter],
+          tone: severityTone[severityFilter],
+        }
+
   return (
     <section className='card p-4 min-w-0'>
       <div className='card-header items-start gap-4 flex-col lg:flex-row lg:items-center'>
-        <div>
+        <div className='min-w-0'>
           <p className='muted'>Alerts</p>
-          <p className='h-section'>Stream de alertas</p>
+          <div className='flex flex-wrap items-center gap-2'>
+            <p className='h-section'>Stream de alertas</p>
+            <span className='rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600'>
+              Cola: {activeViewLabel}
+            </span>
+          </div>
           <p className='text-xs text-slate-500 mt-1'>
-            {sorted.length.toLocaleString('es-PR')} alertas activas
+            Mostrando{' '}
+            <span className='font-semibold text-slate-700'>
+              {sorted.length.toLocaleString('es-PR')}
+            </span>{' '}
+            alertas{alerts.length !== sorted.length ? ` de ${alerts.length.toLocaleString('es-PR')}` : ''}
           </p>
         </div>
         <div className='flex flex-wrap items-center gap-2'>
+          <div className='flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold text-slate-600 shadow-sm'>
+            <span className='text-[10px] uppercase tracking-[0.14em] text-slate-400'>
+              Cola
+            </span>
+            <select
+              value={activeView}
+              onChange={(event) => {
+                const value = event.target.value
+                if (value === 'custom') return
+                applyView(value)
+              }}
+              className='bg-transparent text-xs font-semibold text-slate-700 focus:outline-none'
+            >
+              {views.map((view) => (
+                <option key={view.key} value={view.key}>
+                  {view.label}
+                </option>
+              ))}
+              {activeView === 'custom' ? (
+                <option value='custom' disabled>
+                  Personalizada
+                </option>
+              ) : null}
+            </select>
+          </div>
           <div className='flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold text-slate-600 shadow-sm'>
             <span className='text-[10px] uppercase tracking-[0.14em] text-slate-400'>
               Orden
@@ -442,108 +504,136 @@ const AlertsStream: FC<Props> = ({
           <button
             type='button'
             onClick={() => setFiltersOpen((prev) => !prev)}
-            className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
+            className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
               filtersOpen
                 ? 'border-prBlue bg-prBlue/10 text-prBlue'
                 : 'border-slate-200 bg-white text-slate-600'
             }`}
           >
             Filtros
+            {activeFilterCount ? (
+              <span className='rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600'>
+                {activeFilterCount}
+              </span>
+            ) : null}
           </button>
-          <div className='rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-semibold text-slate-500'>
-            Atajos: J/K mover · A Reconocer · S Posponer · R Resolver · E Escalar · X Limpiar
-          </div>
+          <details className='relative'>
+            <summary className='list-none cursor-pointer rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-semibold text-slate-600 hover:border-prBlue'>
+              Atajos
+            </summary>
+            <div className='absolute right-0 z-10 mt-2 w-72 rounded-xl border border-slate-200 bg-white p-3 shadow-lg'>
+              <p className='text-[10px] uppercase tracking-[0.16em] text-slate-400 font-semibold'>
+                Navegación
+              </p>
+              <p className='mt-1 text-[11px] text-slate-600'>J/K mover selección</p>
+              <p className='mt-2 text-[10px] uppercase tracking-[0.16em] text-slate-400 font-semibold'>
+                Acciones bulk
+              </p>
+              <p className='mt-1 text-[11px] text-slate-600'>A reconocer · S posponer · R resolver · E escalar</p>
+              <p className='mt-2 text-[10px] uppercase tracking-[0.16em] text-slate-400 font-semibold'>
+                Utilidad
+              </p>
+              <p className='mt-1 text-[11px] text-slate-600'>X/Esc limpiar selección</p>
+            </div>
+          </details>
         </div>
       </div>
 
-      <div className='mt-3 flex flex-wrap items-center gap-2'>
-        <span className='text-[10px] uppercase tracking-[0.16em] text-slate-400 font-semibold'>
-          Flujo
+      <div className='mt-3 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600'>
+        <span className='rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1'>
+          Orden: {sortLabels[sortBy]}
         </span>
-        {flowSteps.map((step) => (
-          <span
-            key={step.label}
-            className='rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600'
-          >
-            {step.label} · {step.count}
+        {statusChip ? (
+          <span className={`rounded-full border px-2.5 py-1 ${statusChip.tone}`}>
+            Estado: {statusChip.label} · {statusChip.count}
           </span>
-        ))}
-      </div>
-
-      <div className='mt-3 flex flex-wrap items-center gap-2'>
-        <span className='text-[10px] uppercase tracking-[0.16em] text-slate-400 font-semibold'>
-          Vistas guardadas
-        </span>
-        {views.map((view) => (
-          <button
-            key={view.key}
-            type='button'
-            onClick={() => applyView(view.key)}
-            className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
-              activeView === view.key
-                ? 'border-prBlue bg-prBlue/10 text-prBlue'
-                : 'border-slate-200 bg-white text-slate-600'
-            }`}
-          >
-            {view.label}
-          </button>
-        ))}
-        {activeView === 'custom' ? (
-          <span className='rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700'>
-            Personalizada
+        ) : null}
+        {severityChip ? (
+          <span className={`rounded-full border px-2.5 py-1 ${severityChip.tone}`}>
+            Severidad: {severityChip.label} · {severityChip.count}
           </span>
         ) : null}
       </div>
 
-      <div className='mt-3 flex flex-wrap items-center gap-2'>
-        {statusOptions.map((option) => (
-          <button
-            key={option.key}
-            type='button'
-            onClick={() => handleStatusChange(option.key)}
-            className={`rounded-full px-2.5 py-1 text-[11px] font-semibold border ${
-              statusTab === option.key
-                ? 'border-prBlue bg-prBlue/10 text-prBlue'
-                : 'border-slate-200 bg-white text-slate-600'
-            }`}
-          >
-            {option.label} · {statusCounts[option.key]}
-          </button>
-        ))}
-      </div>
-
       {filtersOpen ? (
-        <div className='flex flex-wrap items-center gap-2 mb-3'>
-          {(['all', 'critical', 'high', 'medium', 'low'] as const).map((level) => (
+        <div className='mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 space-y-3'>
+          <div className='flex flex-wrap items-center justify-between gap-2'>
+            <p className='text-[10px] uppercase tracking-[0.16em] text-slate-400 font-semibold'>
+              Filtros avanzados
+            </p>
             <button
-              key={level}
               type='button'
-              onClick={() => handleSeverityChange(level)}
-              className={`rounded-full px-2.5 py-1 text-[11px] font-semibold border ${
-                severityFilter === level
-                  ? 'border-prBlue bg-prBlue/10 text-prBlue'
-                  : level === 'all'
-                    ? 'border-slate-200 bg-white text-slate-600'
-                    : severityTone[level as AlertSeverity]
-              }`}
+              onClick={() => applyView('all')}
+              className='rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600 hover:border-prBlue'
             >
-              {level === 'all' ? 'Todas' : severityLabels[level]} ·{' '}
-              {counts[level as keyof typeof counts]}
+              Ver todas
             </button>
-          ))}
-        </div>
-      ) : (
-        <div className='mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-500'>
-          <span className='rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 font-semibold text-slate-600'>
-            Filtros activos
-          </span>
-          {severityFilter !== 'all' ? (
-            <span className='rounded-full border border-slate-200 bg-white px-2.5 py-1 font-semibold text-slate-600'>
-              Severidad: {severityLabels[severityFilter]}
+          </div>
+
+          <div className='grid gap-3 lg:grid-cols-2'>
+            <div>
+              <p className='text-[10px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
+                Estado
+              </p>
+              <div className='mt-2 flex flex-wrap items-center gap-2'>
+                {statusOptions.map((option) => (
+                  <button
+                    key={option.key}
+                    type='button'
+                    onClick={() => handleStatusChange(option.key)}
+                    className={`rounded-full px-2.5 py-1 text-[11px] font-semibold border ${
+                      statusTab === option.key
+                        ? 'border-prBlue bg-prBlue/10 text-prBlue'
+                        : 'border-slate-200 bg-white text-slate-600'
+                    }`}
+                  >
+                    {option.label} · {statusCounts[option.key]}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className='text-[10px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
+                Severidad
+              </p>
+              <div className='mt-2 flex flex-wrap items-center gap-2'>
+                {(['all', 'critical', 'high', 'medium', 'low'] as const).map((level) => (
+                  <button
+                    key={level}
+                    type='button'
+                    onClick={() => handleSeverityChange(level)}
+                    className={`rounded-full px-2.5 py-1 text-[11px] font-semibold border ${
+                      severityFilter === level
+                        ? 'border-prBlue bg-prBlue/10 text-prBlue'
+                        : level === 'all'
+                          ? 'border-slate-200 bg-white text-slate-600'
+                          : severityTone[level as AlertSeverity]
+                    }`}
+                  >
+                    {level === 'all' ? 'Todas' : severityLabels[level]} ·{' '}
+                    {counts[level as keyof typeof counts]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className='flex flex-wrap items-center gap-2'>
+            <span className='text-[10px] uppercase tracking-[0.16em] text-slate-400 font-semibold'>
+              Flujo
             </span>
-          ) : null}
+            {flowSteps.map((step) => (
+              <span
+                key={step.label}
+                className='rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600'
+              >
+                {step.label} · {step.count}
+              </span>
+            ))}
+          </div>
         </div>
-      )}
+      ) : null}
 
       {validSelectedIds.size ? (
         <div className='mb-3 flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-semibold text-slate-600'>

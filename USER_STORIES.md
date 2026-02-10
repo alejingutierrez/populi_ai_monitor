@@ -67,6 +67,9 @@ Mantén las historias organizadas por área. Añade una nueva historia por solic
   - Criterios: `GET /api/alerts/[id]/actions` devuelve acciones recientes (Neon) y se muestra un tab “Actividad”.
   - Criterios: acciones desde el UI incluyen `actor` (configurable) y refrescan la actividad.
   - Criterios: soporta `mock-api` y `api/` (Vercel) con el mismo comportamiento.
+- US-2026-02-10-048 — Como analista, quiero rediseñar el header/controles de `AlertsStream` para que filtros y vistas sean entendibles y menos ruidosos.
+  - Criterios: agrupar controles en una barra clara (cola/vista, orden, filtros); mover filtros avanzados a un panel colapsable; mantener atajos y bulk actions sin saturar el header.
+  - Criterios: sin perder funcionalidad existente (views guardadas, tabs por estado, severidad, orden, shortcuts).
 - US-2026-02-09-037 — Como analista, quiero una lista de 20 mejoras UX/UI para Network Connections (análisis + management) para investigar relaciones y coordinación sin fricción.
   - Criterios: 20 mejoras concretas (interacciones, legibilidad, workflow de investigación, guardado/compartición) sin borrar componentes existentes.
   - Criterios: propuestas aterrizadas a `NetworkGraph`, `NetworkInsightsPanel`, `ConnectionMatrix`, `NetworkPulse` y `src/data/networkConnections.ts`; sin implementación en código en esta historia.
