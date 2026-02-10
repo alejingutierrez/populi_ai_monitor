@@ -104,6 +104,24 @@ export type AlertRuleStat = {
   activeCount: number
 }
 
+export type AlertHistoryPoint = {
+  windowStart: string
+  windowEnd: string
+  severity: AlertSeverity
+  status: AlertStatus
+  metrics: Alert['metrics']
+  signals: AlertSignal[]
+}
+
+export type AlertAction = {
+  id: string
+  action: string
+  actor?: string | null
+  note?: string | null
+  metadata?: unknown
+  createdAt: string
+}
+
 export type AlertThresholds = {
   minVolume: number
   volumeSpikePct: number

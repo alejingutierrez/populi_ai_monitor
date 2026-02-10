@@ -43,6 +43,11 @@ Estados sugeridos: Planned, In progress, Blocked, Done.
 | US-2026-02-09-037 | Done | 2026-02-09 | Propuesta de 20 mejoras UX/UI para Network Connections (análisis + management); backlog priorizable (sin implementación). |
 | US-2026-02-09-038 | Done | 2026-02-09 | Propuesta de 20 mejoras UX/UI para Geo Tagging (análisis + management); backlog priorizable (sin implementación). |
 | US-2026-02-09-039 | Done | 2026-02-09 | Propuesta de 20 mejoras UX/UI para Feed Stream (análisis + management); backlog priorizable (sin implementación). |
-| US-2026-02-09-040 | Done | 2026-02-09 | Propuesta de 20 mejoras UX/UI para Overview (análisis + management) documentada en `OVERVIEW_UX_IMPROVEMENTS.md`. |
+| US-2026-02-09-040 | Done | 2026-02-09 | Re-plan de 20 mejoras UX/UI para Overview alineado al nuevo modelo (platform/topic dinámicos, geo parcial, `url/domain/language`) en `OVERVIEW_UX_IMPROVEMENTS.md`. |
 | US-2026-02-09-041 | Done | 2026-02-09 | Neon schema + frontend tipado preparados para migración/backfill desde Brandwatch (Consumer API). |
 | US-2026-02-09-042 | Done | 2026-02-09 | Deep dive de readiness: schema aplicado en Neon, fallbacks en API, SSL robusto en conexiones, seed con ejemplo Brandwatch, build ok. |
+| US-2026-02-09-043 | Done | 2026-02-09 | Re-plan de mejoras UX/UI para Network Connections considerando nuevos shapes y missingness (Consumer API/Neon); backlog priorizable (sin implementación). |
+| US-2026-02-09-044 | Done | 2026-02-09 | Re-plan de 20 mejoras de Alerts alineado al nuevo modelo (persistencia, auditoría de acciones, reglas y paginación). |
+| US-2026-02-09-045 | Done | 2026-02-09 | Re-plan de 20 mejoras de Geo Tagging alineado al shape actual de `SocialPost` (geo parcial, `lat/lng` nullable, plataformas/temas dinámicos). |
+| US-2026-02-09-046 | Done | 2026-02-09 | Re-plan de mejoras UX/UI de Feed Stream alineado a data dinámica (platform/topic `string`, geo nullable, `url/domain/language`, Unknown bucket) en `FEED_STREAM_UX_IMPROVEMENTS.md`. |
+| US-2026-02-10-047 | Done | 2026-02-10 | Alert Intel hidratado (history/relacionadas/actividad) + endpoint GET actions + actor en acciones; build OK. |

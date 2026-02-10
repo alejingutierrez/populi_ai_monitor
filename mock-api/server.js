@@ -687,6 +687,18 @@ app.post("/alerts/:id/actions", (req, res) => {
   res.json({ status: "ok", id, action, updated, createdAt: nowIso });
 });
 
+app.get("/alerts/:id/actions", (req, res) => {
+  const id = req.params.id;
+  const limit = parseLimit(req.query?.limit);
+  const cursor = parseCursor(req.query?.cursor);
+  const actions = [...(alertActionStore.get(id) ?? [])].sort(
+    (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+  );
+  const paged = actions.slice(cursor, cursor + limit);
+  const nextCursor = cursor + limit < actions.length ? String(cursor + limit) : null;
+  res.json({ actions: paged, total: actions.length, nextCursor });
+});
+
 const port = process.env.PORT || 4000;
 app.listen(port, () => {
   console.log(`Mock API lista en puerto ${port}`);

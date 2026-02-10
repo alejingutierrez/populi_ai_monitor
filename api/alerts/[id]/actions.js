@@ -3,7 +3,7 @@ import { parseSingle } from '../shared.js'
 
 const allowCors = (res) => {
   res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS')
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
   res.setHeader('Cache-Control', 'no-store')
 }
@@ -34,11 +34,48 @@ const normalizeSnapshot = (value) => {
   return value
 }
 
+const parseLimit = (value) => {
+  const parsed = Number.parseInt(parseSingle(value) ?? '25', 10)
+  if (!Number.isFinite(parsed) || parsed <= 0) return 25
+  return Math.min(parsed, 200)
+}
+
 export default async function handler(req, res) {
   allowCors(res)
 
   if (req.method === 'OPTIONS') {
     res.status(204).end()
+    return
+  }
+
+  if (req.method === 'GET') {
+    const id = parseSingle(req.query?.id)
+    if (!id) {
+      res.status(400).json({ error: 'Missing alert id' })
+      return
+    }
+
+    const limit = parseLimit(req.query?.limit)
+    try {
+      const sql = `
+        select
+          id,
+          action,
+          actor,
+          note,
+          metadata,
+          created_at as "createdAt"
+        from alert_actions
+        where alert_id = $1
+        order by created_at desc
+        limit $2
+      `
+      const result = await query(sql, [id, limit])
+      res.status(200).json({ actions: result.rows ?? [] })
+    } catch (error) {
+      console.error('Alert actions fetch error:', error)
+      res.status(500).json({ error: 'Alert actions fetch failed' })
+    }
     return
   }
 

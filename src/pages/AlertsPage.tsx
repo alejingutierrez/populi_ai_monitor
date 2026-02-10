@@ -12,6 +12,8 @@ import {
   buildAlerts,
   formatRange,
   type Alert,
+  type AlertAction,
+  type AlertHistoryPoint,
   type AlertStatus,
 } from '../data/alerts'
 import type { SocialPost } from '../types'
@@ -63,6 +65,18 @@ type RemoteAlertsPayload = {
   nextCursor?: string | null
 }
 
+type RemoteAlertDetailPayload = {
+  alert: Alert
+  history?: AlertHistoryPoint[]
+  relatedAlerts?: Alert[]
+}
+
+type RemoteAlertActionsPayload = {
+  actions: AlertAction[]
+  total?: number
+  nextCursor?: string | null
+}
+
 const timeframeHours: Record<Filters['timeframe'], number> = {
   '24h': 24,
   '72h': 72,
@@ -104,6 +118,16 @@ const AlertsPage: FC<Props> = ({
   const [remotePayload, setRemotePayload] = useState<RemoteAlertsPayload | null>(
     null
   )
+  const [remoteDetail, setRemoteDetail] = useState<RemoteAlertDetailPayload | null>(
+    null
+  )
+  const [remoteActions, setRemoteActions] = useState<AlertAction[] | null>(null)
+  const [hydrateTick, setHydrateTick] = useState(0)
+  const [isHydrating, setIsHydrating] = useState(false)
+  const [actor, setActor] = useState('Operador')
+  const [localActionLog, setLocalActionLog] = useState<Record<string, AlertAction[]>>(
+    {}
+  )
   const [layoutPreset, setLayoutPreset] = useState<
     'triage' | 'investigacion' | 'lectura' | 'custom'
   >('investigacion')
@@ -120,6 +144,17 @@ const AlertsPage: FC<Props> = ({
     query.addEventListener('change', sync)
     return () => query.removeEventListener('change', sync)
   }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const stored = window.localStorage.getItem('alerts:actor')
+    if (stored && stored.trim()) setActor(stored)
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.localStorage.setItem('alerts:actor', actor)
+  }, [actor])
 
   useEffect(() => {
     if (!isResizing) return
@@ -263,12 +298,7 @@ const AlertsPage: FC<Props> = ({
     [prevPosts, prevPrevPosts]
   )
 
-  useEffect(() => {
-    if (!apiBase) {
-      setRemotePayload(null)
-      return
-    }
-    const controller = new AbortController()
+  const alertQueryString = useMemo(() => {
     const params = new URLSearchParams()
     if (filters.timeframe) params.set('timeframe', filters.timeframe)
     if (filters.sentiment !== 'todos') params.set('sentiment', filters.sentiment)
@@ -278,10 +308,29 @@ const AlertsPage: FC<Props> = ({
     if (filters.dateFrom) params.set('dateFrom', filters.dateFrom)
     if (filters.dateTo) params.set('dateTo', filters.dateTo)
     if (search) params.set('search', search)
+    return params.toString()
+  }, [
+    filters.timeframe,
+    filters.sentiment,
+    filters.platform,
+    filters.cluster,
+    filters.subcluster,
+    filters.dateFrom,
+    filters.dateTo,
+    search,
+  ])
+
+  useEffect(() => {
+    if (!apiBase) {
+      setRemotePayload(null)
+      return
+    }
+    const controller = new AbortController()
 
     const load = async () => {
       try {
-        const res = await fetch(`${apiBase}/alerts?${params.toString()}`, {
+        const url = alertQueryString ? `${apiBase}/alerts?${alertQueryString}` : `${apiBase}/alerts`
+        const res = await fetch(url, {
           signal: controller.signal,
         })
         if (!res.ok) throw new Error('No alerts API')
@@ -300,15 +349,67 @@ const AlertsPage: FC<Props> = ({
     return () => controller.abort()
   }, [
     apiBase,
-    filters.timeframe,
-    filters.sentiment,
-    filters.platform,
-    filters.cluster,
-    filters.subcluster,
-    filters.dateFrom,
-    filters.dateTo,
-    search,
+    alertQueryString,
   ])
+
+  useEffect(() => {
+    if (!apiBase || !selectedAlertId) {
+      setRemoteDetail(null)
+      setRemoteActions(null)
+      setIsHydrating(false)
+      return
+    }
+
+    const controller = new AbortController()
+    const id = selectedAlertId
+
+    const load = async () => {
+      setIsHydrating(true)
+      try {
+        const detailUrl = alertQueryString
+          ? `${apiBase}/alerts/${encodeURIComponent(id)}?${alertQueryString}`
+          : `${apiBase}/alerts/${encodeURIComponent(id)}`
+        const actionsUrl = `${apiBase}/alerts/${encodeURIComponent(id)}/actions?limit=25`
+
+        const [detailRes, actionsRes] = await Promise.all([
+          fetch(detailUrl, { signal: controller.signal }),
+          fetch(actionsUrl, { signal: controller.signal }),
+        ])
+
+        if (!controller.signal.aborted) {
+          if (detailRes.ok) {
+            const data = (await detailRes.json()) as RemoteAlertDetailPayload
+            if (data && typeof data === 'object' && (data as RemoteAlertDetailPayload).alert) {
+              setRemoteDetail(data)
+            } else {
+              setRemoteDetail(null)
+            }
+          } else {
+            setRemoteDetail(null)
+          }
+
+          if (actionsRes.ok) {
+            const data = (await actionsRes.json()) as Partial<RemoteAlertActionsPayload>
+            setRemoteActions(Array.isArray(data?.actions) ? data.actions : [])
+          } else {
+            setRemoteActions(null)
+          }
+        }
+      } catch {
+        if (!controller.signal.aborted) {
+          setRemoteDetail(null)
+          setRemoteActions(null)
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsHydrating(false)
+        }
+      }
+    }
+
+    load()
+    return () => controller.abort()
+  }, [apiBase, selectedAlertId, alertQueryString, hydrateTick])
 
   const alerts = useMemo(() => {
     const base = remotePayload?.alerts ?? localAlerts
@@ -331,6 +432,84 @@ const AlertsPage: FC<Props> = ({
   const selectedAlert = useMemo(
     () => alerts.find((alert) => alert.id === selectedAlertId) ?? null,
     [alerts, selectedAlertId]
+  )
+
+  const intelAlert = useMemo(() => {
+    const base =
+      remoteDetail?.alert && remoteDetail.alert.id === selectedAlertId
+        ? remoteDetail.alert
+        : selectedAlert
+    if (!base) return null
+    return {
+      ...base,
+      status: statusOverrides[base.id] ?? base.status,
+    }
+  }, [remoteDetail, selectedAlert, selectedAlertId, statusOverrides])
+
+  const localHistory = useMemo<AlertHistoryPoint[]>(() => {
+    if (!selectedAlert) return []
+    const points: AlertHistoryPoint[] = []
+    const prevMatch = prevAlerts.find((item) => item.id === selectedAlert.id)
+    if (prevMatch) {
+      points.push({
+        windowStart: prevWindowStart.toISOString(),
+        windowEnd: prevWindowEnd.toISOString(),
+        severity: prevMatch.severity,
+        status: prevMatch.status,
+        metrics: prevMatch.metrics,
+        signals: prevMatch.signals,
+      })
+    }
+    points.push({
+      windowStart: prevWindowEnd.toISOString(),
+      windowEnd: windowEnd.toISOString(),
+      severity: selectedAlert.severity,
+      status: selectedAlert.status,
+      metrics: selectedAlert.metrics,
+      signals: selectedAlert.signals,
+    })
+    return points
+  }, [selectedAlert, prevAlerts, prevWindowStart, prevWindowEnd, windowEnd])
+
+  const intelHistory = useMemo(() => {
+    const base =
+      remoteDetail?.history && remoteDetail.alert?.id === selectedAlertId
+        ? remoteDetail.history
+        : localHistory
+    const override = selectedAlertId ? statusOverrides[selectedAlertId] : undefined
+    if (!override || !base.length) return base
+    return base.map((point, index) =>
+      index === base.length - 1 ? { ...point, status: override } : point
+    )
+  }, [remoteDetail, localHistory, selectedAlertId, statusOverrides])
+
+  const localRelatedAlerts = useMemo(() => {
+    if (!selectedAlert) return []
+    return alerts
+      .filter((item) => item.id !== selectedAlert.id && item.scopeType === selectedAlert.scopeType)
+      .slice(0, 6)
+  }, [alerts, selectedAlert])
+
+  const intelRelatedAlerts = useMemo(() => {
+    const base =
+      remoteDetail?.relatedAlerts && remoteDetail.alert?.id === selectedAlertId
+        ? remoteDetail.relatedAlerts
+        : localRelatedAlerts
+    if (!base.length) return base
+    return base.map((item) => ({
+      ...item,
+      status: statusOverrides[item.id] ?? item.status,
+    }))
+  }, [remoteDetail, localRelatedAlerts, selectedAlertId, statusOverrides])
+
+  const localActions = useMemo(
+    () => (selectedAlertId ? localActionLog[selectedAlertId] ?? [] : []),
+    [localActionLog, selectedAlertId]
+  )
+
+  const intelActions = useMemo(
+    () => (remoteActions !== null ? remoteActions : localActions),
+    [remoteActions, localActions]
   )
 
   const pulseStats = useMemo(() => {
@@ -417,12 +596,31 @@ const AlertsPage: FC<Props> = ({
     action: AlertStatus,
     options?: ActionOptions
   ) => {
+    const nowIso = new Date().toISOString()
+    const entry: AlertAction = {
+      id: `${alertId}:${Date.now()}:${Math.random().toString(16).slice(2)}`,
+      action,
+      actor: actor.trim() ? actor.trim() : null,
+      note: null,
+      createdAt: nowIso,
+    }
+    setLocalActionLog((prev) => {
+      const prevList = prev[alertId] ?? []
+      return {
+        ...prev,
+        [alertId]: [entry, ...prevList].slice(0, 25),
+      }
+    })
+    setRemoteActions((prev) => (prev ? [entry, ...prev].slice(0, 25) : prev))
     setStatusOverrides((prev) => ({ ...prev, [alertId]: action }))
     if (!apiBase) return
     const alert = alerts.find((item) => item.id === alertId)
     const payload: Record<string, unknown> = { action }
     if (alert) {
       payload.alert = buildActionSnapshot(alert)
+    }
+    if (actor.trim()) {
+      payload.actor = actor.trim()
     }
     if (action === 'snoozed') {
       payload.snoozeUntil =
@@ -433,7 +631,13 @@ const AlertsPage: FC<Props> = ({
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
-    }).catch(() => undefined)
+    })
+      .then(() => {
+        if (alertId === selectedAlertId) {
+          setHydrateTick((prev) => prev + 1)
+        }
+      })
+      .catch(() => undefined)
   }
 
   const handleBulkAction = (
@@ -486,6 +690,18 @@ const AlertsPage: FC<Props> = ({
             Personalizado
           </span>
         ) : null}
+
+        <div className='flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold text-slate-600 shadow-sm'>
+          <span className='text-[10px] uppercase tracking-[0.14em] text-slate-400'>
+            Actor
+          </span>
+          <input
+            value={actor}
+            onChange={(event) => setActor(event.target.value)}
+            className='w-32 bg-transparent text-xs font-semibold text-slate-700 focus:outline-none'
+            placeholder='Operador'
+          />
+        </div>
       </div>
 
       <div
@@ -515,7 +731,12 @@ const AlertsPage: FC<Props> = ({
           />
         </div>
         <AlertIntel
-          alert={selectedAlert}
+          alert={intelAlert}
+          history={intelHistory}
+          relatedAlerts={intelRelatedAlerts}
+          actions={intelActions}
+          isLoading={isHydrating}
+          onSelectAlert={setSelectedAlertId}
           onApplyScope={onApplyAlertScope}
           onOpenFeedStream={onOpenFeedStream}
           onRequestInsight={onRequestInsight}
@@ -525,7 +746,7 @@ const AlertsPage: FC<Props> = ({
       <div className='grid gap-4 xl:grid-cols-2'>
         <AlertsLifecyclePanel alerts={alerts} />
         <AlertSentimentShift alerts={alerts} prevAlerts={prevAlerts} />
-        <AlertSignalsPanel alert={selectedAlert} />
+        <AlertSignalsPanel alert={intelAlert} />
         <AlertScopePropagation alerts={alerts} />
       </div>
 

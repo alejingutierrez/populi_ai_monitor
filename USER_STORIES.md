@@ -60,17 +60,36 @@ Mantén las historias organizadas por área. Añade una nueva historia por solic
   - Criterios: `SummaryGrid` aparece como primer bloque de contenido después de los filtros en Overview, Feed Stream, Geo Tagging, Network Connections y Alerts.
 - US-2026-02-09-036 — Como analista, quiero una lista de 20 mejoras UX/UI para Alerts (análisis + creación + management) para operar el ciclo completo de triage e iteración de reglas.
   - Criterios: 20 mejoras concretas con “qué/cómo/dónde” (componentes/flows); agrupadas y priorizables; sin implementación en código en esta historia.
+- US-2026-02-09-044 — Como analista, quiero re-planear las 20 mejoras de Alerts alineándolas con la nueva estructura de datos (alertas persistentes, acciones/auditoría, reglas y paginación) para que el backlog sea implementable sin fricción.
+  - Criterios: actualizar las 20 mejoras con dependencias explícitas (FE vs API/DB), mapeo a campos (`stableId/instanceId`, lifecycle, `ruleValues`, `alert_actions`, `alert_rules`, `nextCursor/total`) y orden de ejecución sugerido; solo plan (sin implementación).
+- US-2026-02-10-047 — Como analista, quiero que Alert Intel esté “hidratado” (historia, relacionadas y actividad) para investigar con contexto persistente y trazabilidad.
+  - Criterios: al seleccionar una alerta se consulta `GET /api/alerts/[id]` y se muestran `history` + `relatedAlerts` en tabs dentro de `AlertIntel`.
+  - Criterios: `GET /api/alerts/[id]/actions` devuelve acciones recientes (Neon) y se muestra un tab “Actividad”.
+  - Criterios: acciones desde el UI incluyen `actor` (configurable) y refrescan la actividad.
+  - Criterios: soporta `mock-api` y `api/` (Vercel) con el mismo comportamiento.
 - US-2026-02-09-037 — Como analista, quiero una lista de 20 mejoras UX/UI para Network Connections (análisis + management) para investigar relaciones y coordinación sin fricción.
   - Criterios: 20 mejoras concretas (interacciones, legibilidad, workflow de investigación, guardado/compartición) sin borrar componentes existentes.
   - Criterios: propuestas aterrizadas a `NetworkGraph`, `NetworkInsightsPanel`, `ConnectionMatrix`, `NetworkPulse` y `src/data/networkConnections.ts`; sin implementación en código en esta historia.
+- US-2026-02-09-043 — Como analista, quiero re-planear las mejoras de Network Connections debido a cambios recientes en la estructura de datos (Consumer API/Neon) para que el análisis sea confiable incluso con valores faltantes.
+  - Criterios: actualizar las mejoras incorporando guardrails de calidad de datos (taxonomía incompleta, autor/handle faltante, geo parcial, plataformas/temas dinámicos).
+  - Criterios: mantener componentes existentes; cambios propuestos deben mapear a `NetworkGraph`, `NetworkInsightsPanel`, `ConnectionMatrix`, `NetworkPulse`, `src/data/networkConnections.ts` y al shape actual de `SocialPost`.
+  - Criterios: solo plan (sin implementación).
+- US-2026-02-09-045 — Como analista, quiero re-planear las mejoras de Geo Tagging debido a cambios recientes en la estructura de datos (geo parcial, `lat/lng` nullable, `platform/topic` dinámicos) para que el análisis sea confiable incluso con geolocalización incompleta.
+  - Criterios: actualizar las 20 mejoras incorporando guardrails de calidad de datos (geocoded vs city-only vs sin ubicación), y mapeo a campos actuales de `SocialPost` (`location.city`, `location.lat/lng`, `domain`, `language`).
+  - Criterios: mantener componentes existentes; cambios propuestos deben mapear a `src/pages/GeoTaggingPage.tsx`, `MapView`, `GeoPulse`, `GeoTerritoryIntel`, `GeoSentimentPanel`, `GeoTopicsPanel`, `GeoDrilldown` y `src/data/geoInsights.ts`; solo plan (sin implementación).
 - US-2026-02-09-038 — Como analista, quiero una lista de 20 mejoras UX/UI para Geo Tagging (análisis + management) para acelerar la investigación territorial y tomar acciones con menos fricción.
   - Criterios: 20 mejoras concretas con “qué/cómo/dónde” (componentes/flows) sin borrar componentes existentes; sin implementación en código en esta historia.
   - Criterios: propuestas aterrizadas a `src/pages/GeoTaggingPage.tsx`, `MapView`, `GeoPulse`, `GeoTerritoryIntel`, `GeoSentimentPanel`, `GeoTopicsPanel` y `GeoDrilldown`.
 - US-2026-02-09-039 — Como analista, quiero una lista de 20 mejoras UX/UI para Feed Stream (análisis + management) para investigar y operar conversaciones sin fricción.
   - Criterios: 20 mejoras concretas con “qué/cómo/dónde” (componentes/flows) sin borrar componentes existentes; sin implementación en código en esta historia.
   - Criterios: propuestas aterrizadas a `src/pages/FeedStreamPage.tsx`, `src/components/FeedStreamList.tsx`, `src/components/PostFeed.tsx`, `src/components/TrendRadar.tsx`, `src/components/SubConversationExplorer.tsx`, `src/components/TopicPanel.tsx` y `src/App.tsx` (filtros/selección global).
+- US-2026-02-09-046 — Como analista, quiero re-planear las mejoras de Feed Stream debido a cambios recientes en la estructura de datos (Consumer API/Neon) para que el análisis sea confiable incluso con valores faltantes y facetas nuevas.
+  - Criterios: actualizar las 20 mejoras incorporando guardrails de calidad de datos (`platform/topic` dinámicos, geo parcial con `lat/lng` nullable, campos opcionales `url/domain/language`, placeholders tipo “Sin X”).
+  - Criterios: mantener componentes existentes; cambios propuestos deben mapear a `src/pages/FeedStreamPage.tsx`, `src/components/FeedStreamList.tsx`, `src/components/PostFeed.tsx`, `src/components/TrendRadar.tsx`, `src/components/SubConversationExplorer.tsx`, `src/components/TopicPanel.tsx` y `src/App.tsx`; solo plan (sin implementación).
+  - Entregable: `FEED_STREAM_UX_IMPROVEMENTS.md`.
 - US-2026-02-09-040 — Como analista, quiero una lista de 20 mejoras UX/UI para Overview (análisis + management) para convertirla en un workspace de análisis y reducir fricción al investigar.
   - Criterios: 20 mejoras concretas con “qué/cómo/dónde” (IA/UX, vínculos entre módulos, confianza temporal, management del layout) sin borrar componentes existentes; sin implementación en código en esta historia.
+  - Criterios: incorporar cambios del nuevo shape de datos (Consumer API/Neon): `platform/topic` dinámicos, geo parcial (`lat/lng` null), y campos opcionales `url/domain/language` con guardrails de calidad.
   - Criterios: propuestas aterrizadas a `src/pages/OverviewPage.tsx` + `SummaryGrid`, `TimelineChart`, `MapView`, `PostFeed`, `TopicPanel`, `ConversationTrends` y `src/App.tsx`.
   - Entregable: `OVERVIEW_UX_IMPROVEMENTS.md`.
 
