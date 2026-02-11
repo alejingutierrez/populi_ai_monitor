@@ -6,6 +6,7 @@ import AlertSignalsPanel from '../components/AlertSignalsPanel'
 import AlertsLifecyclePanel from '../components/AlertsLifecyclePanel'
 import AlertsPulse from '../components/AlertsPulse'
 import AlertsStream from '../components/AlertsStream'
+import ResizableHorizontalSplit from '../components/ResizableHorizontalSplit'
 import type { Filters } from '../components/FilterBar'
 import SummaryGrid, { type SummaryMetrics } from '../components/SummaryGrid'
 import {
@@ -743,11 +744,23 @@ const AlertsPage: FC<Props> = ({
         />
       </div>
 
-      <div className='grid gap-4 xl:grid-cols-2'>
-        <AlertsLifecyclePanel alerts={alerts} />
-        <AlertSentimentShift alerts={alerts} prevAlerts={prevAlerts} />
-        <AlertSignalsPanel alert={intelAlert} />
-        <AlertScopePropagation alerts={alerts} />
+      <div className='space-y-4'>
+        <ResizableHorizontalSplit
+          storageKey='alerts:lifecycle-shift'
+          defaultRatio={0.5}
+          minRatio={0.34}
+          maxRatio={0.66}
+          left={<AlertsLifecyclePanel alerts={alerts} />}
+          right={<AlertSentimentShift alerts={alerts} prevAlerts={prevAlerts} />}
+        />
+        <ResizableHorizontalSplit
+          storageKey='alerts:signals-scope'
+          defaultRatio={0.5}
+          minRatio={0.34}
+          maxRatio={0.66}
+          left={<AlertSignalsPanel alert={intelAlert} />}
+          right={<AlertScopePropagation alerts={alerts} />}
+        />
       </div>
 
     </main>

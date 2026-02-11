@@ -6,6 +6,7 @@ import GeoSentimentPanel from '../components/GeoSentimentPanel'
 import GeoTerritoryIntel from '../components/GeoTerritoryIntel'
 import GeoTopicsPanel from '../components/GeoTopicsPanel'
 import MapView from '../components/MapView'
+import ResizableHorizontalSplit from '../components/ResizableHorizontalSplit'
 import type { Filters } from '../components/FilterBar'
 import SummaryGrid, { type SummaryMetrics } from '../components/SummaryGrid'
 import {
@@ -201,34 +202,41 @@ const GeoTaggingPage: FC<Props> = ({
       <SummaryGrid metrics={metrics} />
       <GeoPulse stats={pulseStats} />
 
-      <div className='grid gap-4 xl:grid-cols-[1.6fr_1fr]'>
-        <div className='space-y-4 min-w-0'>
-          <MapView
-            posts={filteredPosts}
-            showControls
-            initialLayer='heatmap'
-            activeCity={selectedCity}
-            onCitySelect={setSelectedCity}
-          />
-        </div>
-
-        <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-1 min-w-0'>
-          <GeoTerritoryIntel
-            insights={locationInsights}
-            totalPosts={totalPosts}
-            selectedCity={selectedCity}
-          />
-          <GeoSentimentPanel
-            insights={locationInsights}
-            totals={currentStats.sentiments}
-          />
-          <GeoTopicsPanel
-            title={topicsPanel.title}
-            subtitle={topicsPanel.subtitle}
-            topics={topicsPanel.topics}
-          />
-        </div>
-      </div>
+      <ResizableHorizontalSplit
+        storageKey='geo-tagging:map-intel'
+        defaultRatio={0.62}
+        minRatio={0.42}
+        maxRatio={0.76}
+        left={
+          <div className='space-y-4 min-w-0'>
+            <MapView
+              posts={filteredPosts}
+              showControls
+              initialLayer='heatmap'
+              activeCity={selectedCity}
+              onCitySelect={setSelectedCity}
+            />
+          </div>
+        }
+        right={
+          <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-1 min-w-0'>
+            <GeoTerritoryIntel
+              insights={locationInsights}
+              totalPosts={totalPosts}
+              selectedCity={selectedCity}
+            />
+            <GeoSentimentPanel
+              insights={locationInsights}
+              totals={currentStats.sentiments}
+            />
+            <GeoTopicsPanel
+              title={topicsPanel.title}
+              subtitle={topicsPanel.subtitle}
+              topics={topicsPanel.topics}
+            />
+          </div>
+        }
+      />
 
       <GeoDrilldown
         insights={locationInsights}

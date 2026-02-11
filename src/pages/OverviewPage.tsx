@@ -3,6 +3,7 @@ import SummaryGrid, { type SummaryMetrics } from "../components/SummaryGrid";
 import TimelineChart from "../components/TimelineChart";
 import MapView from "../components/MapView";
 import PostFeed from "../components/PostFeed";
+import ResizableHorizontalSplit from "../components/ResizableHorizontalSplit";
 import TopicPanel, { type ClusterStat } from "../components/TopicPanel";
 import ConversationTrends from "../components/ConversationTrends";
 import type { SocialPost, TimelineDatum } from "../types";
@@ -30,12 +31,23 @@ const OverviewPage: FC<Props> = ({
   <main className="p-4 md:p-6 space-y-6 overflow-y-auto">
     <SummaryGrid metrics={metrics} />
 
-    <div className="grid gap-4 xl:grid-cols-2">
-      <TimelineChart data={timelineData} />
-      <MapView posts={filteredPosts} />
-      <PostFeed posts={filteredPosts} />
-      <TopicPanel clusters={clusterStats} />
-    </div>
+    <ResizableHorizontalSplit
+      storageKey="overview:timeline-map"
+      defaultRatio={0.52}
+      minRatio={0.34}
+      maxRatio={0.66}
+      left={<TimelineChart data={timelineData} />}
+      right={<MapView posts={filteredPosts} />}
+    />
+
+    <ResizableHorizontalSplit
+      storageKey="overview:feed-topics"
+      defaultRatio={0.56}
+      minRatio={0.34}
+      maxRatio={0.72}
+      left={<PostFeed posts={filteredPosts} />}
+      right={<TopicPanel clusters={clusterStats} />}
+    />
 
     <ConversationTrends allPosts={allPosts} filters={filters} search={search} />
   </main>

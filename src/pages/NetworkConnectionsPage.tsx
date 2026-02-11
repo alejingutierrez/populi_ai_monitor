@@ -4,6 +4,7 @@ import ConnectionMatrix from '../components/ConnectionMatrix'
 import NetworkGraph, { type GraphLayout, type NodeSizeMode } from '../components/NetworkGraph'
 import NetworkInsightsPanel from '../components/NetworkInsightsPanel'
 import NetworkPulse from '../components/NetworkPulse'
+import ResizableHorizontalSplit from '../components/ResizableHorizontalSplit'
 import type { Filters } from '../components/FilterBar'
 import SummaryGrid, { type SummaryMetrics } from '../components/SummaryGrid'
 import {
@@ -175,29 +176,37 @@ const NetworkConnectionsPage: FC<Props> = ({ metrics, posts, filters, search }) 
       <SummaryGrid metrics={metrics} />
       <NetworkPulse stats={pulseStats} />
 
-      <div className='grid gap-4 xl:grid-cols-[1.6fr_1fr]'>
-        <NetworkGraph
-          nodes={currentNetwork.nodes}
-          edges={currentNetwork.edges}
-          level={level}
-          layout={layout}
-          sizeBy={sizeBy}
-          minWeight={minWeight}
-          maxWeight={maxWeight}
-          selectedNodeId={selectedNodeId}
-          selectedEdgeId={selectedEdgeId}
-          onLevelChange={handleLevelChange}
-          onLayoutChange={setLayout}
-          onSizeByChange={setSizeBy}
-          onThresholdChange={handleThresholdChange}
-          onNodeSelect={setSelectedNodeId}
-        />
-        <NetworkInsightsPanel
-          nodes={currentNetwork.nodes}
-          edges={currentNetwork.edges}
-          selectedNodeId={selectedNodeId}
-        />
-      </div>
+      <ResizableHorizontalSplit
+        storageKey='network-connections:graph-intel'
+        defaultRatio={0.62}
+        minRatio={0.42}
+        maxRatio={0.78}
+        left={
+          <NetworkGraph
+            nodes={currentNetwork.nodes}
+            edges={currentNetwork.edges}
+            level={level}
+            layout={layout}
+            sizeBy={sizeBy}
+            minWeight={minWeight}
+            maxWeight={maxWeight}
+            selectedNodeId={selectedNodeId}
+            selectedEdgeId={selectedEdgeId}
+            onLevelChange={handleLevelChange}
+            onLayoutChange={setLayout}
+            onSizeByChange={setSizeBy}
+            onThresholdChange={handleThresholdChange}
+            onNodeSelect={setSelectedNodeId}
+          />
+        }
+        right={
+          <NetworkInsightsPanel
+            nodes={currentNetwork.nodes}
+            edges={currentNetwork.edges}
+            selectedNodeId={selectedNodeId}
+          />
+        }
+      />
 
       <ConnectionMatrix
         edges={[...currentNetwork.edges].sort((a, b) => b.weight - a.weight)}
