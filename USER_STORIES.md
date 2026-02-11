@@ -94,6 +94,10 @@ Mantén las historias organizadas por área. Añade una nueva historia por solic
 - US-2026-02-10-055 — Como analista, quiero pulir el rediseño de altura/color: evitar overflow visual en cards del Stream y simplificar el Intel para que no requiera scroll interno.
   - Criterios: la barra/acento superior de las cards en `AlertsStream` no se “sale” visualmente de la card y no corta el menú “Más”.
   - Criterios: `AlertIntel` reduce densidad del tab “Resumen” (menos cards/duplicación) y vuelve a scroll normal de página (sin scroll interno vertical por defecto).
+- US-2026-02-11-056 — Como analista, quiero rediseñar `AlertsLifecyclePanel` para leer operación y SLA con datos creíbles de lifecycle (no todo en `open`) y detectar cuellos de botella rápido.
+  - Criterios: `buildAlerts` genera estados lifecycle determinísticos (`open/ack/escalated/snoozed/resolved`) con timestamps consistentes (`ackAt/resolvedAt/snoozeUntil/lastStatusAt`) para simulación realista en frontend y APIs.
+  - Criterios: el panel prioriza backlog activo, brecha SLA total + por severidad y tiempos TTA/TTR, con jerarquía visual clara y responsive.
+  - Criterios: sin remover capacidades existentes; lint/build OK y deploy Vercel Ready validado.
 - US-2026-02-09-037 — Como analista, quiero una lista de 20 mejoras UX/UI para Network Connections (análisis + management) para investigar relaciones y coordinación sin fricción.
   - Criterios: 20 mejoras concretas (interacciones, legibilidad, workflow de investigación, guardado/compartición) sin borrar componentes existentes.
   - Criterios: propuestas aterrizadas a `NetworkGraph`, `NetworkInsightsPanel`, `ConnectionMatrix`, `NetworkPulse` y `src/data/networkConnections.ts`; sin implementación en código en esta historia.

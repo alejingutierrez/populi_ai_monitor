@@ -751,6 +751,229 @@ const buildSignals = (
   return { signals, deltaPct, ruleValues, volumeZScore }
 }
 
+const lifecycleSlaTargets: Record<AlertSeverity, number> = {
+  critical: 2,
+  high: 6,
+  medium: 12,
+  low: 24,
+}
+
+const deterministicHash = (value: string) => {
+  let hash = 0
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 31 + value.charCodeAt(i)) >>> 0
+  }
+  return hash
+}
+
+const resolveStartMs = (alert: Alert) => {
+  const candidates = [alert.firstSeenAt, alert.createdAt, alert.lastSeenAt]
+  for (const candidate of candidates) {
+    if (!candidate) continue
+    const ts = new Date(candidate).getTime()
+    if (Number.isFinite(ts)) return ts
+  }
+  return Date.now()
+}
+
+const buildLifecycleState = (
+  alert: Alert,
+  status: AlertStatus,
+  nowMs: number,
+  ageHours: number,
+  hash: number
+) => {
+  const startMs = resolveStartMs(alert)
+  const ageMs = Math.max(30 * 60 * 1000, ageHours * 60 * 60 * 1000)
+  const ackRatio = Math.min(0.82, 0.24 + (hash % 6) * 0.07)
+  const resolveRatio = Math.min(0.96, 0.58 + (hash % 5) * 0.08)
+  const ackMs = Math.min(
+    nowMs,
+    Math.max(startMs + 5 * 60 * 1000, Math.round(startMs + ageMs * ackRatio))
+  )
+  const resolvedMs = Math.min(
+    nowMs,
+    Math.max(ackMs + 5 * 60 * 1000, Math.round(startMs + ageMs * resolveRatio))
+  )
+  const statusShiftMs = Math.min(
+    nowMs,
+    Math.max(startMs, Math.round(startMs + ageMs * (0.12 + (hash % 5) * 0.04)))
+  )
+  const snoozeUntil = new Date(nowMs + ((hash % 4) + 2) * 60 * 60 * 1000).toISOString()
+  const occurrences = hash % 11 === 0 ? 2 : hash % 23 === 0 ? 3 : alert.occurrences ?? 1
+
+  if (status === 'open') {
+    return {
+      status,
+      lastStatusAt: new Date(statusShiftMs).toISOString(),
+      ackAt: null,
+      resolvedAt: null,
+      snoozeUntil: null,
+      occurrences,
+      activeWindowCount: Math.max(alert.activeWindowCount ?? 1, occurrences),
+    }
+  }
+
+  if (status === 'ack') {
+    return {
+      status,
+      lastStatusAt: new Date(ackMs).toISOString(),
+      ackAt: new Date(ackMs).toISOString(),
+      resolvedAt: null,
+      snoozeUntil: null,
+      occurrences,
+      activeWindowCount: Math.max(alert.activeWindowCount ?? 1, occurrences),
+    }
+  }
+
+  if (status === 'escalated') {
+    const escalatedMs = Math.min(nowMs, ackMs + ((hash % 3) + 1) * 45 * 60 * 1000)
+    return {
+      status,
+      lastStatusAt: new Date(escalatedMs).toISOString(),
+      ackAt: new Date(ackMs).toISOString(),
+      resolvedAt: null,
+      snoozeUntil: null,
+      occurrences: Math.max(occurrences, 2),
+      activeWindowCount: Math.max(alert.activeWindowCount ?? 1, 2),
+    }
+  }
+
+  if (status === 'snoozed') {
+    const snoozedAt = Math.min(nowMs, Math.max(ackMs, nowMs - ((hash % 4) + 1) * 20 * 60 * 1000))
+    return {
+      status,
+      lastStatusAt: new Date(snoozedAt).toISOString(),
+      ackAt: new Date(ackMs).toISOString(),
+      resolvedAt: null,
+      snoozeUntil,
+      occurrences,
+      activeWindowCount: Math.max(alert.activeWindowCount ?? 1, occurrences),
+    }
+  }
+
+  return {
+    status: 'resolved' as const,
+    lastStatusAt: new Date(resolvedMs).toISOString(),
+    ackAt: new Date(ackMs).toISOString(),
+    resolvedAt: new Date(resolvedMs).toISOString(),
+    snoozeUntil: null,
+    occurrences: Math.max(occurrences, 2),
+    activeWindowCount: Math.max(alert.activeWindowCount ?? 1, 2),
+  }
+}
+
+type RankedAlert = Alert & {
+  score: number
+  parentScopeId?: string
+  parentScopeType?: AlertScopeType
+  primarySignal?: AlertSignalType
+}
+
+type LifecycleEntry = {
+  alert: RankedAlert
+  ageHours: number
+  hash: number
+  breached: boolean
+}
+
+const applyLifecycleSimulation = (alerts: RankedAlert[]) => {
+  if (!alerts.length) return alerts
+  const nowMs = Date.now()
+
+  const toStatus = (
+    entry: LifecycleEntry,
+    status: AlertStatus
+  ): LifecycleEntry => ({
+    ...entry,
+    alert: {
+      ...entry.alert,
+      ...buildLifecycleState(entry.alert, status, nowMs, entry.ageHours, entry.hash),
+    },
+  })
+
+  let entries: LifecycleEntry[] = alerts.map((alert, index) => {
+    const startMs = resolveStartMs(alert)
+    const ageHours = Math.max(0, (nowMs - startMs) / (1000 * 60 * 60))
+    const target = lifecycleSlaTargets[alert.severity]
+    const breached = ageHours > target
+    const hash = deterministicHash(
+      `${alert.id}:${alert.scopeType}:${alert.scopeId}:${Math.round(alert.metrics.volumeCurrent)}`
+    )
+    const rankRatio = (index + 1) / Math.max(1, alerts.length)
+
+    let status: AlertStatus = 'open'
+    if (breached && (alert.severity === 'critical' || alert.severity === 'high')) {
+      status = hash % 100 < 62 ? 'escalated' : 'ack'
+    } else if (breached && rankRatio > 0.35) {
+      status = hash % 100 < 58 ? 'ack' : 'open'
+    } else if (rankRatio > 0.75 && alert.severity !== 'critical' && hash % 100 < 58) {
+      status = 'resolved'
+    } else if (rankRatio > 0.55 && alert.severity !== 'critical' && hash % 100 < 30) {
+      status = 'snoozed'
+    } else if (rankRatio > 0.35 && hash % 100 < 48) {
+      status = 'ack'
+    }
+
+    return toStatus({ alert, ageHours, hash, breached }, status)
+  })
+
+  const countStatus = (status: AlertStatus) =>
+    entries.filter((entry) => entry.alert.status === status).length
+
+  const ensureStatus = (
+    status: AlertStatus,
+    minAlerts: number,
+    pickIndex: (entries: LifecycleEntry[]) => number
+  ) => {
+    if (entries.length < minAlerts || countStatus(status) > 0) return
+    const index = pickIndex(entries)
+    if (index < 0) return
+    entries = entries.map((entry, current) =>
+      current === index ? toStatus(entry, status) : entry
+    )
+  }
+
+  ensureStatus('ack', 2, (list) =>
+    list.findIndex((entry) => entry.alert.status === 'open')
+  )
+  ensureStatus('escalated', 4, (list) => {
+    const prioritized = list.findIndex(
+      (entry) =>
+        (entry.alert.severity === 'critical' || entry.alert.severity === 'high') &&
+        entry.alert.status !== 'resolved'
+    )
+    if (prioritized >= 0) return prioritized
+    const breached = list.findIndex(
+      (entry) => entry.breached && entry.alert.status !== 'resolved'
+    )
+    if (breached >= 0) return breached
+    return list.findIndex((entry) => entry.alert.status === 'open')
+  })
+  ensureStatus('resolved', 5, (list) => {
+    for (let index = list.length - 1; index >= 0; index -= 1) {
+      const entry = list[index]
+      if (
+        entry.alert.severity !== 'critical' &&
+        entry.alert.status !== 'escalated' &&
+        entry.alert.status !== 'resolved'
+      ) {
+        return index
+      }
+    }
+    return -1
+  })
+  ensureStatus('snoozed', 6, (list) =>
+    list.findIndex(
+      (entry) =>
+        (entry.alert.severity === 'medium' || entry.alert.severity === 'low') &&
+        entry.alert.status === 'open'
+    )
+  )
+
+  return entries.map((entry) => entry.alert)
+}
+
 export const buildAlerts = (
   currentPosts: SocialPost[],
   prevPosts: SocialPost[],
@@ -811,6 +1034,8 @@ export const buildAlerts = (
       overallConfig
     )
     const priority = calcPriority(severity, overallStats.riskScore)
+    const firstSeenAt = new Date(overallStats.earliestTs || Date.now()).toISOString()
+    const lastSeenAt = new Date(overallStats.latestTs || Date.now()).toISOString()
 
     alerts.push({
       id: 'overall',
@@ -824,9 +1049,9 @@ export const buildAlerts = (
       scopeType: 'overall',
       scopeId: 'overall',
       scopeLabel: 'Panorama general',
-      createdAt: nowIso,
-      firstSeenAt: new Date(overallStats.earliestTs || Date.now()).toISOString(),
-      lastSeenAt: new Date(overallStats.latestTs || Date.now()).toISOString(),
+      createdAt: firstSeenAt,
+      firstSeenAt,
+      lastSeenAt,
       lastStatusAt: nowIso,
       ackAt: null,
       resolvedAt: null,
@@ -906,6 +1131,8 @@ export const buildAlerts = (
       )
       const confidence = calcConfidence(stats, prevStats, signals, localConfig)
       const priority = calcPriority(severity, stats.riskScore)
+      const firstSeenAt = new Date(stats.earliestTs || Date.now()).toISOString()
+      const lastSeenAt = new Date(stats.latestTs || Date.now()).toISOString()
 
       const parentScopeId =
         scope.scopeType === 'subcluster'
@@ -932,9 +1159,9 @@ export const buildAlerts = (
         scopeType: scope.scopeType,
         scopeId,
         scopeLabel: scopeId,
-        createdAt: nowIso,
-        firstSeenAt: new Date(stats.earliestTs || Date.now()).toISOString(),
-        lastSeenAt: new Date(stats.latestTs || Date.now()).toISOString(),
+        createdAt: firstSeenAt,
+        firstSeenAt,
+        lastSeenAt,
         lastStatusAt: nowIso,
         ackAt: null,
         resolvedAt: null,
@@ -986,9 +1213,12 @@ export const buildAlerts = (
     return true
   })
 
-  return deduped
+  const ranked = deduped
     .sort((a, b) => b.score - a.score)
     .slice(0, 32)
+  const withLifecycle = applyLifecycleSimulation(ranked)
+
+  return withLifecycle
     .map(({ score, parentScopeId, parentScopeType, primarySignal, ...alert }) => {
       void score
       void parentScopeId
