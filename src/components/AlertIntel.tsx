@@ -12,6 +12,7 @@ import {
   type AlertAction,
   type AlertHistoryPoint,
   type AlertRuleValue,
+  type AlertSignal,
   type AlertSignalType,
 } from '../data/alerts'
 
@@ -223,6 +224,205 @@ const formatRuleValue = (rule: AlertRuleValue) => {
     return rule.value.toFixed(1)
   }
   return '—'
+}
+
+type SignalContributionTone = {
+  chip: string
+  fill: string
+  soft: string
+}
+
+type SignalContributionRow = {
+  type: AlertSignalType
+  label: string
+  contributionPct: number
+  strengthPct: number
+  observedLabel: string
+  thresholdLabel: string
+  deltaLabel: string
+  exceedsThreshold: boolean
+  auxiliaryLabel?: string
+  tone: SignalContributionTone
+  score: number
+}
+
+type SignalReading = {
+  observed: number
+  threshold: number
+  unit: string
+  digits: number
+  auxiliaryLabel?: string
+}
+
+const signalContributionWeight: Record<AlertSignalType, number> = {
+  volume: 1,
+  risk: 1,
+  negativity: 0.95,
+  sentiment_shift: 0.85,
+  viral: 0.8,
+  topic_novelty: 0.6,
+  cross_platform: 0.6,
+  coordination: 0.7,
+  geo_expansion: 0.55,
+}
+
+const signalContributionTone: Record<AlertSignalType, SignalContributionTone> = {
+  volume: {
+    chip: 'border-prBlue/30 bg-prBlue/10 text-prBlue',
+    fill: 'bg-prBlue',
+    soft: 'bg-prBlue/10',
+  },
+  risk: {
+    chip: 'border-amber-200 bg-amber-50 text-amber-700',
+    fill: 'bg-amber-500',
+    soft: 'bg-amber-100',
+  },
+  negativity: {
+    chip: 'border-prRed/30 bg-prRed/10 text-prRed',
+    fill: 'bg-prRed',
+    soft: 'bg-prRed/10',
+  },
+  sentiment_shift: {
+    chip: 'border-rose-200 bg-rose-50 text-rose-700',
+    fill: 'bg-rose-500',
+    soft: 'bg-rose-100',
+  },
+  viral: {
+    chip: 'border-indigo-200 bg-indigo-50 text-indigo-700',
+    fill: 'bg-indigo-500',
+    soft: 'bg-indigo-100',
+  },
+  topic_novelty: {
+    chip: 'border-violet-200 bg-violet-50 text-violet-700',
+    fill: 'bg-violet-500',
+    soft: 'bg-violet-100',
+  },
+  cross_platform: {
+    chip: 'border-cyan-200 bg-cyan-50 text-cyan-700',
+    fill: 'bg-cyan-500',
+    soft: 'bg-cyan-100',
+  },
+  coordination: {
+    chip: 'border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700',
+    fill: 'bg-fuchsia-500',
+    soft: 'bg-fuchsia-100',
+  },
+  geo_expansion: {
+    chip: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    fill: 'bg-emerald-500',
+    soft: 'bg-emerald-100',
+  },
+}
+
+const signalReadingDefaults: Record<AlertSignalType, { unit: string; digits: number }> = {
+  volume: { unit: '%', digits: 0 },
+  sentiment_shift: { unit: 'pp', digits: 0 },
+  negativity: { unit: '%', digits: 0 },
+  risk: { unit: 'pts', digits: 0 },
+  viral: { unit: 'x', digits: 2 },
+  topic_novelty: { unit: '%', digits: 0 },
+  cross_platform: { unit: 'plataformas', digits: 0 },
+  coordination: { unit: '%', digits: 0 },
+  geo_expansion: { unit: '%', digits: 0 },
+}
+
+const signalFallbackThreshold: Record<AlertSignalType, number> = {
+  volume: defaultAlertThresholds.volumeSpikePct,
+  sentiment_shift: defaultAlertThresholds.sentimentShiftPct,
+  negativity: defaultAlertThresholds.negativityPct,
+  risk: defaultAlertThresholds.riskScore,
+  viral: defaultAlertThresholds.viralImpactRatio,
+  topic_novelty: defaultAlertThresholds.topicNoveltyPct,
+  cross_platform: defaultAlertThresholds.crossPlatformMinPlatforms,
+  coordination: defaultAlertThresholds.coordinationRatio,
+  geo_expansion: defaultAlertThresholds.geoSpreadDeltaPct,
+}
+
+const formatReadingValue = (value: number, unit: string, digits: number) => {
+  if (!Number.isFinite(value)) return '—'
+  if (unit === 'z') return `z ${value.toFixed(digits)}`
+  if (unit === 'x') return `${value.toFixed(digits)}x`
+  if (unit === '%') return `${value.toFixed(digits)}%`
+  if (unit === 'pp') return `${value.toFixed(digits)}pp`
+  if (unit === 'pts') return `${value.toFixed(digits)} pts`
+  if (unit === 'plataformas') return `${value.toFixed(0)} plataformas`
+  return `${value.toFixed(digits)} ${unit}`.trim()
+}
+
+const formatSignedReadingValue = (value: number, unit: string, digits: number) => {
+  if (!Number.isFinite(value)) return '—'
+  if (unit === 'z') {
+    return `${value >= 0 ? '+' : ''}${value.toFixed(digits)}z`
+  }
+  const sign = value > 0 ? '+' : value < 0 ? '-' : ''
+  return `${sign}${formatReadingValue(Math.abs(value), unit, digits)}`
+}
+
+const resolveSignalReading = (
+  type: AlertSignalType,
+  signal?: AlertSignal,
+  rule?: AlertRuleValue
+): SignalReading => {
+  const defaults = signalReadingDefaults[type]
+  if (rule) {
+    if (
+      typeof rule.zScore === 'number' &&
+      Number.isFinite(rule.zScore) &&
+      typeof rule.zThreshold === 'number' &&
+      Number.isFinite(rule.zThreshold)
+    ) {
+      return {
+        observed: rule.zScore,
+        threshold: rule.zThreshold,
+        unit: 'z',
+        digits: 1,
+        auxiliaryLabel:
+          typeof rule.deltaPct === 'number' && Number.isFinite(rule.deltaPct)
+            ? `Δ ${rule.deltaPct.toFixed(0)}% vs previo`
+            : undefined,
+      }
+    }
+    if (
+      typeof rule.deltaPct === 'number' &&
+      Number.isFinite(rule.deltaPct) &&
+      typeof rule.deltaThreshold === 'number' &&
+      Number.isFinite(rule.deltaThreshold)
+    ) {
+      return {
+        observed: rule.deltaPct,
+        threshold: rule.deltaThreshold,
+        unit: type === 'sentiment_shift' ? 'pp' : '%',
+        digits: 0,
+        auxiliaryLabel:
+          type === 'viral' &&
+          typeof rule.value === 'number' &&
+          Number.isFinite(rule.value) &&
+          typeof rule.threshold === 'number' &&
+          Number.isFinite(rule.threshold)
+            ? `Ratio ${rule.value.toFixed(2)}x / umbral ${rule.threshold.toFixed(2)}x`
+            : undefined,
+      }
+    }
+    if (
+      typeof rule.value === 'number' &&
+      Number.isFinite(rule.value) &&
+      typeof rule.threshold === 'number' &&
+      Number.isFinite(rule.threshold)
+    ) {
+      return {
+        observed: rule.value,
+        threshold: rule.threshold,
+        unit: defaults.unit,
+        digits: defaults.digits,
+      }
+    }
+  }
+  return {
+    observed: signal?.value ?? 0,
+    threshold: signalFallbackThreshold[type],
+    unit: defaults.unit,
+    digits: defaults.digits,
+  }
 }
 
 const buildEvidenceSeries = (posts: Alert['evidence'], buckets = 10) => {
@@ -978,6 +1178,114 @@ const AlertIntel: FC<Props> = ({
   const formatWindow = (point: AlertHistoryPoint) =>
     formatRange(new Date(point.windowStart), new Date(point.windowEnd))
 
+  const signalContributionRows = useMemo<SignalContributionRow[]>(() => {
+    if (!alert) return []
+
+    const signalMap = new Map(alert.signals.map((signal) => [signal.type, signal]))
+    const ruleTypes = alert.ruleValues
+      ? (Object.keys(alert.ruleValues) as AlertSignalType[])
+      : []
+    const allTypes = Array.from(
+      new Set<AlertSignalType>([...alert.signals.map((signal) => signal.type), ...ruleTypes])
+    )
+
+    const rows = allTypes
+      .map((type) => {
+        const signal = signalMap.get(type)
+        const rule = alert.ruleValues?.[type]
+        const reading = resolveSignalReading(type, signal, rule)
+        const thresholdBase = Math.max(0.0001, Math.abs(reading.threshold))
+        const ratio = reading.observed / thresholdBase
+        const normalizedScore = Math.max(0, Math.min(2.2, ratio))
+        const score = normalizedScore * signalContributionWeight[type]
+        const strengthPct = Math.max(0, Math.min(100, ratio * 100))
+        const deltaToThreshold = reading.observed - reading.threshold
+        const label =
+          signal?.label ?? ruleCatalog[type]?.label ?? type.replace(/_/g, ' ')
+        const tone = signalContributionTone[type]
+        return {
+          type,
+          label,
+          contributionPct: 0,
+          strengthPct,
+          observedLabel: formatReadingValue(reading.observed, reading.unit, reading.digits),
+          thresholdLabel: formatReadingValue(reading.threshold, reading.unit, reading.digits),
+          deltaLabel: formatSignedReadingValue(
+            deltaToThreshold,
+            reading.unit,
+            reading.digits
+          ),
+          exceedsThreshold: reading.observed >= reading.threshold,
+          auxiliaryLabel: reading.auxiliaryLabel,
+          tone,
+          score,
+        }
+      })
+      .filter((row) => row.score > 0)
+
+    if (!rows.length) return []
+
+    const totalScore = rows.reduce((acc, row) => acc + row.score, 0)
+    return rows
+      .map((row) => ({
+        ...row,
+        contributionPct: totalScore ? (row.score / totalScore) * 100 : 0,
+      }))
+      .sort((a, b) => b.contributionPct - a.contributionPct)
+  }, [alert])
+
+  const metricDeltaRows = useMemo(() => {
+    if (!alert) return []
+
+    const prevMetrics = prevPoint?.metrics
+    const volumePrev = prevMetrics?.volumeCurrent ?? alert.metrics.volumePrev
+    const negativePrev = prevMetrics?.negativeShare
+    const riskPrev = prevMetrics?.riskScore
+    const impactPrev = prevMetrics?.impactRatio
+
+    return [
+      {
+        id: 'volumen',
+        label: 'Volumen',
+        tone: 'text-prBlue',
+        value: formatSignedCompact(alert.metrics.volumeCurrent - volumePrev),
+      },
+      {
+        id: 'negatividad',
+        label: 'Negatividad',
+        tone: 'text-prRed',
+        value:
+          typeof negativePrev === 'number'
+            ? formatSignedReadingValue(
+                alert.metrics.negativeShare - negativePrev,
+                'pp',
+                0
+              )
+            : '—',
+      },
+      {
+        id: 'riesgo',
+        label: 'Riesgo',
+        tone: 'text-amber-700',
+        value:
+          typeof riskPrev === 'number'
+            ? formatSignedReadingValue(alert.metrics.riskScore - riskPrev, 'pts', 0)
+            : '—',
+      },
+      {
+        id: 'impacto',
+        label: 'Impacto',
+        tone: 'text-indigo-700',
+        value:
+          typeof impactPrev === 'number'
+            ? formatSignedReadingValue(alert.metrics.impactRatio - impactPrev, 'x', 2)
+            : '—',
+      },
+    ]
+  }, [alert, prevPoint])
+
+  const strongestContribution = signalContributionRows[0] ?? null
+
   const actionRows = useMemo(() => actions ?? [], [actions])
   const relatedRows = useMemo(() => relatedAlerts ?? [], [relatedAlerts])
 
@@ -1064,7 +1372,7 @@ const AlertIntel: FC<Props> = ({
           { key: 'evidencia', label: `Evidencia (${alert.evidence.length})` },
           { key: 'historia', label: `Historia (${historyPoints.length})` },
           { key: 'actividad', label: `Actividad (${actionRows.length})` },
-          { key: 'explicacion', label: 'Explicación' },
+          { key: 'explicacion', label: 'Señales y contribución' },
           { key: 'distribucion', label: 'Distribución' },
           { key: 'reglas', label: 'Reglas' },
           { key: 'relacionadas', label: `Relacionadas (${relatedRows.length})` },
@@ -1315,52 +1623,173 @@ const AlertIntel: FC<Props> = ({
 
       {activeTab === 'explicacion' ? (
         <div className='mt-4 space-y-3'>
-          <div className='flex items-center justify-between gap-2'>
-            <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
-              Por qué disparó
-            </p>
-            {Number.isFinite(alert.confidence) ? (
-              <span
-                className='rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-600'
-                title='Confianza basada en volumen, consistencia de señales y estabilidad vs periodo previo.'
-              >
-                Confianza {alert.confidence?.toFixed(0)}%
-              </span>
-            ) : null}
+          <div className='grid gap-3 sm:grid-cols-3'>
+            <div className='rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm'>
+              <p className='text-[10px] uppercase tracking-[0.14em] text-slate-400 font-semibold'>
+                Señales activas
+              </p>
+              <p className='mt-1 text-lg font-semibold text-ink'>{signalContributionRows.length}</p>
+              <p className='text-[11px] text-slate-500'>
+                Reglas evaluadas: {ruleRows.length}
+              </p>
+            </div>
+            <div className='rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm'>
+              <p className='text-[10px] uppercase tracking-[0.14em] text-slate-400 font-semibold'>
+                Señal dominante
+              </p>
+              <p className='mt-1 text-sm font-semibold text-ink line-clamp-1'>
+                {strongestContribution?.label ?? 'Sin señales'}
+              </p>
+              <p className='text-[11px] text-slate-500'>
+                Aporte {strongestContribution ? `${strongestContribution.contributionPct.toFixed(0)}%` : '—'}
+              </p>
+            </div>
+            <div className='rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm'>
+              <p className='text-[10px] uppercase tracking-[0.14em] text-slate-400 font-semibold'>
+                Datos usados
+              </p>
+              <p className='mt-1 text-sm font-semibold text-ink'>
+                {alert.metrics.volumeCurrent.toLocaleString('es-PR')} posts
+              </p>
+              <p className='text-[11px] text-slate-500'>
+                Prev {alert.metrics.volumePrev.toLocaleString('es-PR')} · Evidencia {alert.evidence.length}
+              </p>
+            </div>
           </div>
-          <div className='space-y-2'>
-            {ruleRows.length ? (
-              ruleRows.map((row) => (
-                <div
-                  key={`${alert.id}-${row.id}`}
-                  className='rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm'
-                >
-                  <p className='text-xs font-semibold text-slate-700'>{row.label}</p>
-                  <p className='text-[11px] text-slate-500'>
-                    Valor {row.value ? formatRuleValue(row.value) : '—'} · Umbral{' '}
-                    {row.threshold}
+
+          {signalContributionRows.length ? (
+            <div className='grid gap-3 lg:grid-cols-[1.25fr_0.75fr]'>
+              <div className='space-y-2'>
+                {signalContributionRows.map((row) => (
+                  <div
+                    key={`${alert.id}-contribution-${row.type}`}
+                    className='rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm'
+                  >
+                    <div className='flex items-start justify-between gap-2'>
+                      <div className='min-w-0'>
+                        <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold ${row.tone.chip}`}>
+                          {row.label}
+                        </span>
+                        <p className='mt-1 text-[11px] text-slate-600'>
+                          Valor <span className='font-semibold text-slate-700'>{row.observedLabel}</span> · Umbral{' '}
+                          <span className='font-semibold text-slate-700'>{row.thresholdLabel}</span>
+                        </p>
+                        <p
+                          className={`text-[11px] ${row.exceedsThreshold ? 'text-emerald-700' : 'text-amber-700'}`}
+                        >
+                          Brecha {row.deltaLabel} {row.exceedsThreshold ? 'sobre umbral' : 'bajo umbral'}
+                        </p>
+                        {row.auxiliaryLabel ? (
+                          <p className='mt-0.5 text-[10px] text-slate-500'>{row.auxiliaryLabel}</p>
+                        ) : null}
+                      </div>
+                      <div className='text-right'>
+                        <p className='text-sm font-semibold text-ink'>{row.contributionPct.toFixed(0)}%</p>
+                        <p className='text-[10px] uppercase tracking-[0.14em] text-slate-400'>aporte</p>
+                      </div>
+                    </div>
+
+                    <div className='mt-2 space-y-1.5'>
+                      <div className='flex items-center justify-between text-[10px] font-semibold text-slate-500'>
+                        <span>Contribución al disparo</span>
+                        <span>{row.contributionPct.toFixed(0)}%</span>
+                      </div>
+                      <div className='h-1.5 rounded-full bg-slate-100'>
+                        <div
+                          className={`h-1.5 rounded-full ${row.tone.fill}`}
+                          style={{ width: `${Math.max(4, row.contributionPct)}%` }}
+                        />
+                      </div>
+                      <div className='flex items-center justify-between text-[10px] font-semibold text-slate-500'>
+                        <span>Cumplimiento de umbral</span>
+                        <span>{row.strengthPct.toFixed(0)}%</span>
+                      </div>
+                      <div className='h-1.5 rounded-full bg-slate-100'>
+                        <div
+                          className={`h-1.5 rounded-full ${row.tone.fill}`}
+                          style={{ width: `${Math.max(4, row.strengthPct)}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className='space-y-3'>
+                <div className='rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm'>
+                  <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
+                    Respaldo de métricas
                   </p>
+                  <div className='mt-2 grid gap-2'>
+                    {metricDeltaRows.map((item) => (
+                      <div
+                        key={`${alert.id}-metric-delta-${item.id}`}
+                        className='flex items-center justify-between text-[11px] font-semibold text-slate-600'
+                      >
+                        <span className='text-slate-500'>{item.label}</span>
+                        <span className={item.tone}>{item.value}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              ))
-            ) : (
-              <p className='text-xs text-slate-500'>Sin reglas asociadas.</p>
-            )}
-          </div>
-          <div className='rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600'>
-            Confianza basada en volumen, consistencia multi-plataforma y estabilidad.
-          </div>
-          <div className='flex flex-wrap items-center gap-2'>
-            <button
-              type='button'
-              onClick={() => setFeedback('falseAlarm')}
-              className='rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 hover:border-prBlue'
-            >
-              Marcar como falsa alarma
-            </button>
-            {feedback === 'falseAlarm' ? (
-              <span className='text-xs text-emerald-600'>Feedback enviado.</span>
-            ) : null}
-          </div>
+
+                <div className='rounded-2xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm'>
+                  <p className='text-[11px] uppercase tracking-[0.16em] text-slate-500 font-semibold'>
+                    Reglas activas
+                  </p>
+                  <div className='mt-2 space-y-1.5'>
+                    {ruleRows.length ? (
+                      ruleRows.slice(0, 4).map((row) => (
+                        <div
+                          key={`${alert.id}-rule-preview-${row.id}`}
+                          className='rounded-xl border border-slate-200 bg-slate-50 px-2 py-1.5'
+                        >
+                          <p className='text-[11px] font-semibold text-slate-700'>{row.label}</p>
+                          <p className='text-[10px] text-slate-500'>
+                            {row.value ? formatRuleValue(row.value) : '—'} · Umbral {row.threshold}
+                          </p>
+                        </div>
+                      ))
+                    ) : (
+                      <p className='text-xs text-slate-500'>Sin reglas asociadas.</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className='rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600'>
+                  Cálculo: contribución = peso de señal × intensidad (valor / umbral), priorizando
+                  `ruleValues` (delta, z-score o valor) y usando thresholds base como fallback.
+                </div>
+
+                <div className='flex flex-wrap items-center gap-2'>
+                  <button
+                    type='button'
+                    onClick={() => setFeedback('confirmed')}
+                    className='rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300'
+                  >
+                    Confirmar señal
+                  </button>
+                  <button
+                    type='button'
+                    onClick={() => setFeedback('falseAlarm')}
+                    className='rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 hover:border-prBlue'
+                  >
+                    Marcar falsa alarma
+                  </button>
+                  {feedback === 'falseAlarm' ? (
+                    <span className='text-xs text-emerald-600'>Feedback enviado: falsa alarma.</span>
+                  ) : null}
+                  {feedback === 'confirmed' ? (
+                    <span className='text-xs text-emerald-600'>Feedback enviado: señal confirmada.</span>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className='rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600'>
+              Sin señales activas para estimar contribución en la alerta seleccionada.
+            </div>
+          )}
         </div>
       ) : null}
 

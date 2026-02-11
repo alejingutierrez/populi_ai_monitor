@@ -105,6 +105,9 @@ Mantén las historias organizadas por área. Añade una nueva historia por solic
 - US-2026-02-11-058 — Como analista, quiero separadores horizontales redimensionables en todos los layouts de dos columnas para ajustar el foco entre componentes según la tarea.
   - Criterios: aplicar un splitter reusable en Overview, Feed Stream, Geo Tagging, Network Connections y en los bloques inferiores de Alerts, sin perder contenido ni funcionalidad.
   - Criterios: persistir proporciones por bloque (`localStorage`) y mantener comportamiento responsive (stack vertical en mobile).
+- US-2026-02-11-059 — Como analista, quiero rediseñar `AlertIntel` en la pestaña “Señales y contribución” con cálculos reales para entender por qué se dispara una alerta y qué aporta cada señal.
+  - Criterios: mostrar contribución por señal usando `signals` + `ruleValues` (valor/umbral, delta o z-score) con fallback robusto cuando faltan datos.
+  - Criterios: incluir respaldo de métricas (Δ volumen/negatividad/riesgo/impacto), reglas activas y lectura de calidad de muestra en un layout responsive y completo.
 - US-2026-02-09-037 — Como analista, quiero una lista de 20 mejoras UX/UI para Network Connections (análisis + management) para investigar relaciones y coordinación sin fricción.
   - Criterios: 20 mejoras concretas (interacciones, legibilidad, workflow de investigación, guardado/compartición) sin borrar componentes existentes.
   - Criterios: propuestas aterrizadas a `NetworkGraph`, `NetworkInsightsPanel`, `ConnectionMatrix`, `NetworkPulse` y `src/data/networkConnections.ts`; sin implementación en código en esta historia.
