@@ -98,6 +98,10 @@ Mantén las historias organizadas por área. Añade una nueva historia por solic
   - Criterios: `buildAlerts` genera estados lifecycle determinísticos (`open/ack/escalated/snoozed/resolved`) con timestamps consistentes (`ackAt/resolvedAt/snoozeUntil/lastStatusAt`) para simulación realista en frontend y APIs.
   - Criterios: el panel prioriza backlog activo, brecha SLA total + por severidad y tiempos TTA/TTR, con jerarquía visual clara y responsive.
   - Criterios: sin remover capacidades existentes; lint/build OK y deploy Vercel Ready validado.
+- US-2026-02-11-057 — Como analista, quiero rediseñar `AlertSentimentShift` para detectar shifts reales de sentimiento/riesgo (qué cambia, dónde cambia y con qué severidad) con cálculos confiables.
+  - Criterios: usar cálculos reales por ventana (`alerts` vs `prevAlerts`) con agregados ponderados y deltas absolutos (pp/pts), evitando métricas engañosas.
+  - Criterios: incluir contexto analítico accionable (distribución por bandas de riesgo/negatividad y alertas que más empeoran/mejoran por `id`).
+  - Criterios: mantener compatibilidad con la estructura actual; lint/build OK y deploy Vercel Ready validado.
 - US-2026-02-09-037 — Como analista, quiero una lista de 20 mejoras UX/UI para Network Connections (análisis + management) para investigar relaciones y coordinación sin fricción.
   - Criterios: 20 mejoras concretas (interacciones, legibilidad, workflow de investigación, guardado/compartición) sin borrar componentes existentes.
   - Criterios: propuestas aterrizadas a `NetworkGraph`, `NetworkInsightsPanel`, `ConnectionMatrix`, `NetworkPulse` y `src/data/networkConnections.ts`; sin implementación en código en esta historia.
